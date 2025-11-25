@@ -1,0 +1,48 @@
+---
+title: "Building Beautiful UIs with Tailwind CSS"
+date: "2024-01-20"
+summary: "Explore how Tailwind CSS helps you rapidly build modern, responsive user interfaces."
+---
+
+# Building Beautiful UIs with Tailwind CSS
+
+Tailwind CSS has revolutionized the way we build user interfaces. Let's explore why it's become so popular.
+
+## Why Tailwind?
+
+Tailwind CSS is a utility-first CSS framework that provides low-level utility classes to build custom designs.
+
+### Benefits
+
+1. **Rapid development** - Build UIs faster with utility classes
+2. **Consistency** - Design system built into your CSS
+3. **Responsive by default** - Mobile-first responsive design
+4. **Customizable** - Easy to extend and customize
+
+## Example Component
+
+Here's how you might style a button with Tailwind:
+
+```tsx
+export function Button({ children }: { children: React.ReactNode }) {
+  return (
+    <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+      {children}
+    </button>
+  );
+}
+```
+
+## Working with Dark Mode
+
+Tailwind makes dark mode incredibly simple:
+
+```css
+<div className="bg-white dark:bg-black text-black dark:text-white">
+  Content that adapts to dark mode
+</div>
+```
+
+## Final Thoughts
+
+Tailwind CSS empowers developers to build beautiful, responsive interfaces without leaving their HTML. Give it a try!
