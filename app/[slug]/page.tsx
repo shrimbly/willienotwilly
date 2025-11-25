@@ -4,12 +4,20 @@ import { getAllPostSlugs, getPostBySlug } from "@/lib/mdx";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import Image from "next/image";
+import { ComponentProps } from "react";
 
 // Import custom components for MDX
 import { ModelChart } from "@/components/charts/ModelChart";
 import { MegaChart } from "@/components/charts/MegaChart";
 import { LocalVideo } from "@/components/media/LocalVideo";
+import { RockVotePrompt } from "@/components/rock-bench/RockVotePrompt";
+import { RockVoteTable } from "@/components/rock-bench/RockVoteTable";
 import { getRockBenchData } from "@/lib/rockBenchData";
+
+type MdxImageProps = Omit<ComponentProps<typeof Image>, "alt" | "src"> & {
+  alt?: string;
+  src: string;
+};
 
 export async function generateStaticParams() {
   const slugs = getAllPostSlugs();
@@ -67,24 +75,34 @@ export default async function PostPage({
           source={post.content}
           components={{
             // Override default img with Next.js Image
-            img: (props: any) => (
-              <Image
-                {...props}
-                width={800}
-                height={600}
-                className="rounded-lg my-8"
-                sizes="(max-width: 768px) 100vw, 800px"
-              />
-            ),
+            img: (props: MdxImageProps) => {
+              const { alt = "", ...rest } = props;
+              return (
+                <Image
+                  {...rest}
+                  alt={alt}
+                  width={800}
+                  height={600}
+                  className="my-8 rounded-lg"
+                  sizes="(max-width: 768px) 100vw, 800px"
+                />
+              );
+            },
             // Custom chart components
-            ModelChart: (props: any) => (
-              <ModelChart data={rockBenchData} {...props} />
-            ),
-            MegaChart: (props: any) => (
+            ModelChart: (
+              props: Omit<ComponentProps<typeof ModelChart>, "data">
+            ) => <ModelChart data={rockBenchData} {...props} />,
+            MegaChart: (
+              props: Omit<ComponentProps<typeof MegaChart>, "data">
+            ) => (
               <MegaChart data={rockBenchData} {...props} />
             ),
             // Video component
-            LocalVideo,
+            LocalVideo: (props: ComponentProps<typeof LocalVideo>) => (
+              <LocalVideo {...props} />
+            ),
+            RockVotePrompt,
+            RockVoteTable,
           }}
           options={{
             mdxOptions: {

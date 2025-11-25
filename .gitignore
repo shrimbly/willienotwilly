@@ -42,3 +42,5 @@ next-env.d.ts
 
 #plans
 .cursor/plans/
+.vercel
+.env*.local

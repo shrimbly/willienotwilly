@@ -42,7 +42,3 @@ export function getRockBenchData(): ChartDataPoint[] {
   // Convert to array and sort by image number
   return Object.values(pivoted).sort((a, b) => a.imageNumber - b.imageNumber);
 }
-
-export function getModelData(modelKey: keyof Omit<ChartDataPoint, "imageNumber">): ChartDataPoint[] {
-  return getRockBenchData();
-}

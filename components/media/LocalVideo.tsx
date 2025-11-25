@@ -24,7 +24,7 @@ export function LocalVideo({
         Your browser does not support the video tag.
       </video>
       {caption ? (
-        <figcaption className="mx-auto max-w-2xl text-xs italic leading-relaxed text-muted-foreground">
+        <figcaption className="mx-auto max-w-2xl text-sm italic leading-relaxed text-muted-foreground">
           {caption}
         </figcaption>
       ) : null}

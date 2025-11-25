@@ -61,7 +61,7 @@ export function getPostBySlug(slug: string): Post | null {
       summary: data.summary || "",
       content,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

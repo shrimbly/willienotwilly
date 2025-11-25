@@ -6,9 +6,9 @@ summary: "Testing image editing model resilience across 100 recursive Dwaynes."
 
 I regularly work with image editing models in my day-to-day, they're fantastic, but they generally fall apart if you edit the edit of the edit's edit.
 
-Earlier this year, [u/Foreign_Builder_2238](https://www.reddit.com/u/Foreign_Builder_2238) demonstrated this by asking ChatGPT to endlessly recreate a photo of Dwayne 'The Rock' Johnson —'Create an exact replica of this image, don't change a thing.' I put the modern image editors through that same recursive abuse (Nano Banana Pro, SeeDream 4, Qwen, and friends) to see how they unravel when looping their own outputs 100 times.
+Earlier this year, [u/Foreign_Builder_2238](https://www.reddit.com/u/Foreign_Builder_2238) demonstrated this by asking ChatGPT to endlessly recreate a photo of Dwayne 'The Rock' Johnson —'Create an exact replica of this image, don't change a thing.' I decided to put the modern image editors through that same recursive abuse (Nano Banana Pro, SeeDream 4, Qwen, and friends) to see how they unravel when looping their own outputs 100 times.
 
-The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. To add a veneer of scientific rigour, I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below .
+The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. To add a veneer of scientific rigour, I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below.
 
 The SSIM trend is interesting, but what matters more, I think, is how many recursions it takes before it isn't The Rock anymore. So, this project also attempts to define a **Recursions till that's not The Rock** score per model.
 
@@ -22,7 +22,12 @@ The original reddit post was 7 months prior to writing this, lets check in on ho
   caption="Quite disappointing really. Almost immediately degrades to static, then slightly recovers before falling to pieces. This was the worst performing model in the test."
 />
 
-<ModelChart activeModel="gpt" />
+<ModelChart
+  activeModel="gpt"
+  revealIndex={0}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="gpt" />
 
 ## GPT-Image1-mini
 
@@ -33,7 +38,12 @@ What about GPT's mini bretheren
   caption="The only model that didn't degrade into noise, and my personal favorite. Appears to show that mini isn't just 'smaller' and there are more substantial differences at play. Interestingly, across several tests it consistently ended up with a variation of a vampiric white guy... Coincidence?"
 />
 
-<ModelChart activeModel="gptMini" />
+<ModelChart
+  activeModel="gptMini"
+  revealIndex={1}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="gptMini" />
 
 ## Nano Banana Pro
 
@@ -44,7 +54,12 @@ Currently the touted SOTA of image editing models, how does it degrade?
   caption="The results get quite noisy by 10 recursions and devolves from there into fractals and eventually into an LCD TV victim of Wii Sports."
 />
 
-<ModelChart activeModel="nanoBananaPro" />
+<ModelChart
+  activeModel="nanoBananaPro"
+  revealIndex={2}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="nanoBananaPro" />
 
 ## SeeDream 4
 
@@ -55,7 +70,12 @@ Currently the runner-up to Nano Banana Pro in the leaderboards, the model typica
   caption="The only model tested that got… hairy? Also notable for spontaneous suspenders, wings, and a ginger man somehow more jacked than Dwayne."
 />
 
-<ModelChart activeModel="seedream" />
+<ModelChart
+  activeModel="seedream"
+  revealIndex={3}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="seedream" />
 
 ## Qwen Image Edit
 
@@ -66,7 +86,12 @@ Highly trainable model which has recently been gaining popularity on the release
   caption="A fairly unremarkable descent into blotchy green noise distinguished only by refreshed facial hair and luscious lips."
 />
 
-<ModelChart activeModel="qwen" />
+<ModelChart
+  activeModel="qwen"
+  revealIndex={4}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="qwen" />
 
 ## Nano Banana
 
@@ -77,7 +102,12 @@ A fantastic model, only recently overshadowed by the pro upgrade.
   caption="The only model with significant Dwaynian motion, where the subject slides off to the side while turning to ectoplasm."
 />
 
-<ModelChart activeModel="nanoBanana" />
+<ModelChart
+  activeModel="nanoBanana"
+  revealIndex={5}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="nanoBanana" />
 
 ## Flux Kontext Pro
 
@@ -88,11 +118,20 @@ The model that proved the usefulness of editing models, it is over a year old no
   caption="Pretty good! It performs the best of the models tested from an SSIM perspective, but the results still trend to noise and abrupt white dudes."
 />
 
-<ModelChart activeModel="flux" />
+<ModelChart
+  activeModel="flux"
+  revealIndex={6}
+  order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+/>
+<RockVotePrompt model="flux" />
 
 ## All Models Compared
 
 <MegaChart />
+
+## Model summary
+
+<RockVoteTable />
 
 ## What can we learn from this?
 
