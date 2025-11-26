@@ -81,7 +81,7 @@ export function RockVoteTable() {
     const bestPeak = Math.max(...peaks);
     const bestAvg = Math.max(...avgs);
     const bestCost = Math.min(...costs);
-    const bestRtt = rtts.length ? Math.min(...rtts) : undefined;
+    const bestRtt = rtts.length ? Math.max(...rtts) : undefined;
 
     setBest({
       peak: bestPeak.toFixed(3),
@@ -120,7 +120,7 @@ export function RockVoteTable() {
               <th className="py-2 pr-3">Peak SSIM</th>
               <th className="py-2 pr-3">Avg SSIM</th>
               <th className="py-2 pr-3">Cost (per image)</th>
-              <th className="py-2 pr-3">RTTNTR</th>
+              <th className="py-2 pr-3">TNTR</th>
             </tr>
           </thead>
           <tbody>

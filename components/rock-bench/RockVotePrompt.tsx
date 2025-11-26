@@ -133,9 +133,10 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
                 {stats.count} vote{stats.count === 1 ? "" : "s"}
               </span>
             </div>
-            <p className="text-3xl font-bold">
-              That&apos;s not The Rock: {displayValue}
-            </p>
+            <div>
+              <p className="text-lg font-semibold">Images till TNTR</p>
+              <p className="text-5xl font-bold">{displayValue}</p>
+            </div>
             <p className="text-sm text-muted-foreground">
               {yourVote != null
                 ? `Your vote: ${yourVote}`
@@ -170,7 +171,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
             {mode === "voting" ? (
               <>
                 <Button size="sm" onClick={handleSubmit} disabled={loading}>
-                  {loading ? "Submitting..." : "Submit"}
+                  {loading ? "Submitting..." : "That's not 'The Rock'"}
                 </Button>
                 <Button
                   size="sm"
@@ -182,19 +183,9 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
                 </Button>
               </>
             ) : (
-              <>
-                <Button size="sm" onClick={() => setMode("voting")}>
-                  Vote
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => fetchStats()}
-                  disabled={loading}
-                >
-                  Refresh results
-                </Button>
-              </>
+              <Button size="sm" onClick={() => setMode("voting")}>
+                Vote
+              </Button>
             )}
             {message ? (
               <span className="text-xs text-red-500">{message}</span>

@@ -19,7 +19,7 @@ The original reddit post was 7 months prior to writing this, lets check in on ho
 
 <LocalVideo
   src="/videos/gpt_evolution.mp4?v=2"
-  caption="Quite disappointing really. Almost immediately degrades to static, then slightly recovers before falling to pieces. This was the worst performing model in the test."
+  caption="Quite disappointing, really. Recursive generations almost immediately degrade to static, only slightly recovering before falling to pieces. This was the worst performing model in the test. Interesting only in how much it has changed since the original post."
 />
 
 <ModelChart
@@ -31,11 +31,11 @@ The original reddit post was 7 months prior to writing this, lets check in on ho
 
 ## GPT-Image1-mini
 
-What about GPT's mini bretheren
+Fortunately the results for GPT-Image1-Mini were a lot more interesting
 
 <LocalVideo
   src="/videos/gptmini_evolution.mp4?v=4"
-  caption="The only model that didn't degrade into noise, and my personal favorite. Appears to show that mini isn't just 'smaller' and there are more substantial differences at play. Interestingly, across several tests it consistently ended up with a variation of a vampiric white guy... Coincidence?"
+  caption="The only model that didn't degrade into noise, creating a coherent image on each generation. Appears to show that mini isn't just 'smaller' and there are more substantial differences at play. Interestingly, across several tests it consistently ended up with a variation of a vampiric white guy... Coincidence?"
 />
 
 <ModelChart
@@ -51,7 +51,7 @@ Currently the touted SOTA of image editing models, how does it degrade?
 
 <LocalVideo
   src="/videos/nano_banana_pro_evolution.mp4?v=2"
-  caption="The results get quite noisy by 10 recursions and devolves from there into fractals and eventually into an LCD TV victim of Wii Sports."
+  caption="Dwayne gets quite noisy by 10 recursions and devolves from there into fractals and eventually into something reminiscent of a broken LCD panel."
 />
 
 <ModelChart
@@ -67,19 +67,20 @@ Currently the runner-up to Nano Banana Pro in the leaderboards, the model typica
 
 <LocalVideo
   src="/videos/seedream_evolution.mp4?v=2"
-  caption="The only model tested that got… hairy? Also notable for spontaneous suspenders, wings, and a ginger man somehow more jacked than Dwayne."
+  caption="The only model tested that got… hairy? Also notable for spontaneous suspenders, and a large bearded ginger man with wings."
 />
 
 <ModelChart
   activeModel="seedream"
   revealIndex={3}
   order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+  caption="The jump to the right at image 4 makes te SSIM trend less useful in this case."
 />
 <RockVotePrompt model="seedream" />
 
 ## Qwen Image Edit
 
-Highly trainable model which has recently been gaining popularity on the release of a few nice fine tunes.
+Highly trainable model which has recently been gaining in popularity on the release of a few nice fine tunes.
 
 <LocalVideo
   src="/videos/qwen_evolution.mp4?v=2"
@@ -99,13 +100,14 @@ A fantastic model, only recently overshadowed by the pro upgrade.
 
 <LocalVideo
   src="/videos/nanobana_evolution.mp4?v=2"
-  caption="The only model with significant Dwaynian motion, where the subject slides off to the side while turning to ectoplasm."
+  caption="The model with the most significant Dwaynian motion, where the subject slides off to the side while turning to ectoplasm."
 />
 
 <ModelChart
   activeModel="nanoBanana"
   revealIndex={5}
   order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
+  caption="The sideways motion breaks the SSIM quite quickly."
 />
 <RockVotePrompt model="nanoBanana" />
 
