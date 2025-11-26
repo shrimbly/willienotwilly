@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "WebFetch(domain:www.shadcn.io)"
+      "WebFetch(domain:www.shadcn.io)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

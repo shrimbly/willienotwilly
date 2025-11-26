@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Legend } from "recharts";
 import {
   Card,
@@ -36,6 +37,14 @@ export function MegaChart({
   title = "All Models: SSIM Degradation Comparison",
   description = "Comparative performance across all 7 image editing models",
 }: MegaChartProps) {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const updateIsMobile = () => setIsMobile(window.innerWidth < 640);
+    updateIsMobile();
+    window.addEventListener("resize", updateIsMobile);
+    return () => window.removeEventListener("resize", updateIsMobile);
+  }, []);
 
   return (
     <Card className="my-8">
@@ -44,14 +53,17 @@ export function MegaChart({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={megaChartConfig} className="h-[500px] w-full">
+        <ChartContainer
+          config={megaChartConfig}
+          className="w-full h-[360px] sm:h-[500px]"
+        >
           <LineChart
             data={data}
             margin={{
-              left: 12,
-              right: 12,
+              left: isMobile ? 6 : 12,
+              right: isMobile ? 6 : 12,
               top: 12,
-              bottom: 12,
+              bottom: isMobile ? 8 : 12,
             }}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -59,7 +71,7 @@ export function MegaChart({
               dataKey="imageNumber"
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
+              tickMargin={isMobile ? 6 : 8}
               label={{
                 value: "Image Number (Recursion)",
                 position: "insideBottom",
@@ -69,13 +81,21 @@ export function MegaChart({
             <YAxis
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              label={{
-                value: "SSIM",
-                angle: -90,
-                position: "insideLeft",
-              }}
+              {...(isMobile
+                ? {
+                    width: 32,
+                    tickMargin: 4,
+                  }
+                : {
+                    tickMargin: 8,
+                    label: {
+                      value: "SSIM",
+                      angle: -90,
+                      position: "insideLeft",
+                    },
+                  })}
               domain={[0, 1]}
+              tickFormatter={(value: number) => value.toFixed(2)}
             />
             <ChartTooltip
               cursor={{ strokeDasharray: "3 3" }}

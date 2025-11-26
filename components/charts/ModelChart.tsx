@@ -40,6 +40,7 @@ export function ModelChart({
   caption,
 }: ModelChartProps) {
   const [rttntr, setRttntr] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const keyToModel = React.useMemo(
     () =>
@@ -63,6 +64,13 @@ export function ModelChart({
   const activeModelInfo = keyToModel[activeModel];
   const resolvedTitle =
     title || `${activeModelInfo?.displayName ?? activeModel} SSIM Degradation`;
+
+  useEffect(() => {
+    const updateIsMobile = () => setIsMobile(window.innerWidth < 640);
+    updateIsMobile();
+    window.addEventListener("resize", updateIsMobile);
+    return () => window.removeEventListener("resize", updateIsMobile);
+  }, []);
 
   useEffect(() => {
     const loadRtt = async () => {
@@ -121,16 +129,20 @@ export function ModelChart({
       <Card>
         <CardHeader>
           <CardTitle>{resolvedTitle}</CardTitle>
+          {description ? <CardDescription>{description}</CardDescription> : null}
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="w-full h-[320px] px-2">
+          <ChartContainer
+            config={chartConfig}
+            className="w-full h-[280px] sm:h-[320px] px-1 sm:px-2"
+          >
             <LineChart
               data={data}
               margin={{
-                left: 12,
-                right: 12,
+                left: isMobile ? 6 : 12,
+                right: isMobile ? 6 : 12,
                 top: 12,
-                bottom: 32,
+                bottom: isMobile ? 24 : 32,
               }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -138,7 +150,7 @@ export function ModelChart({
                 dataKey="imageNumber"
                 tickLine={false}
                 axisLine={false}
-                tickMargin={10}
+                tickMargin={isMobile ? 6 : 10}
                 label={{
                   value: "Image Number (Recursion)",
                   position: "bottom",
@@ -148,13 +160,21 @@ export function ModelChart({
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tickMargin={8}
-                label={{
-                  value: "SSIM",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
+                {...(isMobile
+                  ? {
+                      width: 32,
+                      tickMargin: 4,
+                    }
+                  : {
+                      tickMargin: 8,
+                      label: {
+                        value: "SSIM",
+                        angle: -90,
+                        position: "insideLeft",
+                      },
+                    })}
                 domain={[0, 1]}
+                tickFormatter={(value: number) => value.toFixed(2)}
               />
               <ChartTooltip
                 cursor={{ strokeDasharray: "3 3" }}
@@ -166,7 +186,7 @@ export function ModelChart({
                     typeof revealIndex === "number" ? revealIndex : activeIndex;
                   return idx <= revealCutoff;
                 })
-                .map((key, index) => {
+                .map((key) => {
                   const model = keyToModel[key];
                   if (!model) return null;
                   const isActive = model.key === activeModel;
@@ -190,10 +210,10 @@ export function ModelChart({
                   strokeDasharray="4 4"
                   label={{
                     value: `Not The Rock (${rttntr})`,
-                    position: "insideTopRight",
+                    position: "right",
+                    offset: 8,
                     fill: "var(--muted-foreground)",
                     fontSize: 11,
-                    offset: 12,
                   }}
                 />
               ) : null}

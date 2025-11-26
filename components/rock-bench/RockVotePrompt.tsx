@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { MODELS } from "@/lib/rockBenchTypes";
 import { Button } from "@/components/ui/button";
@@ -47,17 +48,6 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
     return map[model];
   }, [model]);
 
-  const previewSrc = useMemo(() => {
-    if (!baseUrl) return "";
-    return `${baseUrl}/rock-bench/${assetModel}/image_${padIndex(selection)}.webp`;
-  }, [assetModel, baseUrl, selection]);
-
-  const avgThumbSrc = useMemo(() => {
-    if (!baseUrl || stats.avg == null) return "";
-    const avgIndex = Math.max(0, Math.min(100, Math.round(stats.avg)));
-    return `${baseUrl}/rock-bench/${assetModel}/image_${padIndex(avgIndex)}.webp`;
-  }, [assetModel, baseUrl, stats.avg]);
-
   const fetchStats = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase
@@ -80,8 +70,9 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
   }, [model]);
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchStats();
+  }, [model, fetchStats]);
 
   const handleSubmit = async () => {
     if (!supabase) {
@@ -110,7 +101,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
   };
 
   const avgLabel =
-    stats.avg == null ? "—" : Math.round(stats.avg).toString().padStart(2, "0");
+    stats.avg == null ? "-" : Math.round(stats.avg).toString().padStart(2, "0");
 
   const displayValue = mode === "voting" ? selection : avgLabel;
   const displayImageIndex =
@@ -134,7 +125,9 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
               </span>
             </div>
             <div>
-              <p className="text-lg font-semibold">Images till TNTR</p>
+              <p className="text-lg font-semibold">
+                Images till &apos;That&apos;s not The Rock&apos;
+              </p>
               <p className="text-5xl font-bold">{displayValue}</p>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -161,7 +154,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Slide to the first recursion where it&apos;s no longer The Rock.
+                  Slide to the first image that isn&apos;t The Rock.
                 </p>
               </div>
             ) : null}
@@ -193,13 +186,14 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
           </div>
         </div>
 
-        <div className="relative w-full overflow-hidden rounded-2xl bg-muted/40 aspect-square">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-muted/40 aspect-[4/5] max-h-[360px]">
           {displayImageSrc ? (
-            <img
+            <Image
               src={displayImageSrc}
               alt={`Recursion ${displayImageIndex} for ${displayName}`}
-              className="absolute inset-0 h-full w-full object-cover"
-              draggable={false}
+              fill
+              className="object-cover"
+              unoptimized
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type VoteStats = { avg: number | null; count: number };
 
@@ -94,8 +100,8 @@ export function RockVoteTable() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchVotes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -119,7 +125,20 @@ export function RockVoteTable() {
               <th className="py-2 pr-3">Model</th>
               <th className="py-2 pr-3">Peak SSIM</th>
               <th className="py-2 pr-3">Avg SSIM</th>
-              <th className="py-2 pr-3">Cost (per image)</th>
+              <th className="py-2 pr-3">Cost p/image</th>
+              <th className="py-2 pr-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help inline-flex items-center gap-1">
+                      SWG
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Spontaneous white guy</p>
+                  </TooltipContent>
+                </Tooltip>
+              </th>
               <th className="py-2 pr-3">TNTR</th>
             </tr>
           </thead>
@@ -131,6 +150,7 @@ export function RockVoteTable() {
                   ? "—"
                   : `${Math.round(vote.avg)} (${vote.count})`;
               const costNum = Number(model.cost.replace(/[^0-9.]/g, ""));
+              const swg = model.key === "gptMini" || model.key === "flux" || model.key === "seedream";
               return (
                 <tr
                   key={model.key}
@@ -147,6 +167,9 @@ export function RockVoteTable() {
                   </td>
                   <td className={`py-2 pr-3 ${costNum === best.cost ? "font-semibold" : ""}`}>
                     {model.cost}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {swg ? "✓" : "—"}
                   </td>
                   <td
                     className={`py-2 pr-3 ${
