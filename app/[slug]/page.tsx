@@ -4,6 +4,7 @@ import { getAllPostSlugs, getPostBySlug } from "@/lib/mdx";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import Image from "next/image";
+import Link from "next/link";
 import * as React from "react";
 import { ComponentProps } from "react";
 import { Linkedin } from "lucide-react";
@@ -131,6 +132,9 @@ export default async function PostPage({
     <article className="container mx-auto px-4 py-16 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
       <aside className="relative hidden lg:block">
         <nav className="sticky top-24">
+          <Link href="/" className="mb-8 block text-xl font-semibold hover:text-primary transition">
+            Willie Falloon
+          </Link>
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Jump ahead
           </p>
@@ -171,6 +175,9 @@ export default async function PostPage({
         </nav>
       </aside>
       <div className="lg:max-w-3xl">
+        <Link href="/" className="lg:hidden mb-8 block text-xl font-semibold hover:text-primary transition">
+          Willie Falloon
+        </Link>
         <header className="mb-8">
           <time className="text-sm text-muted-foreground">{post.date}</time>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">

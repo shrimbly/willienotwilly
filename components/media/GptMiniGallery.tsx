@@ -21,12 +21,12 @@ const images = [
   {
     src: "/images/gpt-mini-results/image_100-2.png",
     alt: "GPT-Image1-mini recursion 100 - variation 2",
-    video: "/videos/gptmini_evolution_2.mp4",
+    video: "/videos/gptmini_evolution_3.mp4",
   },
   {
     src: "/images/gpt-mini-results/image_100-3.png",
     alt: "GPT-Image1-mini recursion 100 - variation 3",
-    video: "/videos/gptmini_evolution_3.mp4",
+    video: "/videos/gptmini_evolution_2.mp4",
   },
   {
     src: "/images/gpt-mini-results/image_100-4.png",

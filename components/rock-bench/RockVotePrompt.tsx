@@ -28,6 +28,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
     avg: null,
     count: 0,
   });
+  const [hasVoted, setHasVoted] = useState(false);
 
   const displayName = useMemo(
     () => MODELS.find((m) => m.key === model)?.displayName ?? model,
@@ -72,32 +73,72 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchStats();
+
+    // Check if user has already voted for this model
+    const voteKey = `rock_vote_${model}`;
+    const storedVote = localStorage.getItem(voteKey);
+    if (storedVote) {
+      const { vote, timestamp } = JSON.parse(storedVote);
+      const minutesSinceVote = (Date.now() - timestamp) / (1000 * 60);
+      if (minutesSinceVote < 5) {
+        setHasVoted(true);
+        setYourVote(vote);
+      } else {
+        // Clear expired vote record
+        localStorage.removeItem(voteKey);
+      }
+    }
   }, [model, fetchStats]);
 
   const handleSubmit = async () => {
-    if (!supabase) {
-      setMessage(
-        "Voting is not configured. Add Supabase env vars to enable submissions."
-      );
+    if (hasVoted) {
+      setMessage("You've already voted for this model in the past 5 minutes.");
       return;
     }
+
     setLoading(true);
     setMessage(null);
-    const { error } = await supabase.from("rock_votes").insert([
-      {
-        model,
-        first_not_rock: selection,
-      },
-    ]);
-    if (error) {
-      setMessage(error.message);
+
+    try {
+      const response = await fetch("/api/vote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          first_not_rock: selection,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.rateLimited) {
+          setMessage("Rate limit exceeded. You can only vote 14 times per 5 minutes.");
+        } else {
+          setMessage(data.error || "Failed to submit vote");
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Store vote in localStorage
+      const voteKey = `rock_vote_${model}`;
+      localStorage.setItem(
+        voteKey,
+        JSON.stringify({ vote: selection, timestamp: Date.now() })
+      );
+
+      setYourVote(selection);
+      setHasVoted(true);
+      await fetchStats();
       setLoading(false);
-      return;
+      setMode("view");
+    } catch (error) {
+      setMessage("Failed to submit vote. Please try again.");
+      setLoading(false);
     }
-    setYourVote(selection);
-    await fetchStats();
-    setLoading(false);
-    setMode("view");
   };
 
   const avgLabel =
@@ -114,8 +155,8 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
 
   return (
     <div className="my-8 rounded-2xl border border-border bg-card/50 p-5 shadow-sm not-prose">
-      <div className="grid gap-6 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-start">
-        <div className="flex h-full flex-col justify-between gap-6">
+      <div className="flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-1 flex-col justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
               <span>{displayName}</span>
@@ -176,8 +217,12 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
                 </Button>
               </>
             ) : (
-              <Button size="sm" onClick={() => setMode("voting")}>
-                Vote
+              <Button
+                size="sm"
+                onClick={() => setMode("voting")}
+                disabled={hasVoted}
+              >
+                {hasVoted ? "Already voted" : "Vote"}
               </Button>
             )}
             {message ? (
@@ -186,7 +231,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
           </div>
         </div>
 
-        <div className="relative w-full overflow-hidden rounded-2xl bg-muted/40 aspect-[4/5] max-h-[360px]">
+        <div className="relative w-full max-w-[320px] shrink-0 overflow-hidden rounded-2xl bg-muted/40 aspect-square sm:ml-auto">
           {displayImageSrc ? (
             <Image
               src={displayImageSrc}

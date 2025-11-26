@@ -15,20 +15,20 @@ interface Post {
 }
 
 interface Blog7Props {
-  tagline: string;
+  tagline?: string;
   heading: string;
   description: string;
-  buttonText: string;
-  buttonUrl: string;
+  buttonText?: string;
+  buttonUrl?: string;
   posts: Post[];
 }
 
 const Blog7 = ({
-  tagline = "Things I'm working on",
+  tagline,
   heading = "Willie Falloon",
   description = "I'm Willie, I work in advertising as 'the tech guy'. Lately I'm most interested in radiance fields, image editing models, agentic coding tools, and large language models. This is just a place where I document personal projects and experiments.",
-  buttonText = "View all articles",
-  buttonUrl = "https://shadcnblocks.com",
+  buttonText,
+  buttonUrl,
   posts = [
     {
       id: "post-1",
@@ -66,24 +66,28 @@ const Blog7 = ({
   ],
 }: Blog7Props) => {
   return (
-    <section className="py-32">
-      <div className="container mx-auto flex flex-col items-center gap-16 lg:px-16">
-        <div className="text-center">
-          <Badge variant="secondary" className="mb-6">
-            {tagline}
-          </Badge>
+    <section className="py-32 pb-40">
+      <div className="container mx-auto flex flex-col gap-16 lg:px-16">
+        <div>
+          {tagline && (
+            <Badge variant="secondary" className="mb-6">
+              {tagline}
+            </Badge>
+          )}
           <h2 className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-6 lg:max-w-3xl lg:text-5xl">
             {heading}
           </h2>
           <p className="text-muted-foreground mb-8 md:text-base lg:max-w-2xl lg:text-lg">
             {description}
           </p>
-          <Button variant="link" className="w-full sm:w-auto" asChild>
-            <a href={buttonUrl} target="_blank">
-              {buttonText}
-              <ArrowRight className="ml-2 size-4" />
-            </a>
-          </Button>
+          {buttonText && buttonUrl && (
+            <Button variant="link" className="w-full sm:w-auto" asChild>
+              <a href={buttonUrl} target="_blank">
+                {buttonText}
+                <ArrowRight className="ml-2 size-4" />
+              </a>
+            </Button>
+          )}
         </div>
         <div className="w-full max-w-3xl">
           {posts.map((post) => (

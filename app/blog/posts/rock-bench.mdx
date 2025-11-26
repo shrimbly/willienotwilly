@@ -8,9 +8,9 @@ I regularly work with image editing models in my day-to-day. They're fantastic, 
 
 Earlier this year, [u/Foreign_Builder_2238](https://www.reddit.com/u/Foreign_Builder_2238) demonstrated this by asking ChatGPT to endlessly recreate a photo of Dwayne 'The Rock' Johnson, instructing it to "Create an exact replica of this image, don't change a thing." I decided to put the modern image editors through that same recursive abuse (Nano Banana Pro, SeeDream 4, Qwen, and friends) to see how they unravel when looping their own outputs 100 times.
 
-The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. To add a veneer of scientific rigour, I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below.
+The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. For a measure I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below.
 
-The SSIM trend is interesting, but what matters more, I think, is how many recursions it takes before the subject simply isn't The Rock anymore. So, I’ve tracked the "That's Not The Rock" (TNTR) score for each model—the exact generation where Dwayne ceases to be Dwayne. Since this is subjective, I've also included a way for you to cast your own vote on when he loses his Rock-ness.
+The SSIM trend is interesting, but flawed. What matters more, I think, is how many recursions it takes before the subject simply isn't The Rock anymore. So, I’ve tracked the "That's Not The Rock" (TNTR) score for each model—the exact generation where Dwayne ceases to be Dwayne. Since this is subjective, I've also included a way for you to cast your own vote on when he loses his Rock-ness.
 
 
 <h2 id="gpt-image1">GPT-Image1</h2>
@@ -19,7 +19,7 @@ The original reddit post was 7 months prior to writing this; let's check in on h
 
 <LocalVideo
   src="/videos/gpt_evolution.mp4?v=2"
-  caption="Quite disappointing, really. Recursive generations almost immediately degrade to static, only slightly recovering before falling to pieces. This was the worst performing model in the test. Interesting only in how much it has changed since the original post."
+  caption="Quite disappointing, really. Recursive generations almost immediately degrade to static, only slightly recovering before falling to pieces. This was the worst performing model in the test."
 />
 
 <ModelChart
@@ -35,7 +35,7 @@ Fortunately, the results for GPT-Image1-Mini were a lot more interesting.
 
 <LocalVideo
   src="/videos/gptmini_evolution.mp4?v=4"
-  caption="The only model that didn't degrade into noise, creating a coherent image on each generation. Mini clearly isn't just 'smaller' and there are more substantial differences in the models. Interestingly, across several tests, it consistently ended up with a variation of a demonic white guy... Coincidence?"
+  caption="The only model that didn't degrade into noise, creating a coherent image on each generation. Mini clearly isn't just 'smaller' and there are more substantial differences in the models. Interestingly, across several tests, it consistently ended up with a variation of a demonic white guy... More on this at the end of the post."
 />
 
 <ModelChart
@@ -47,7 +47,7 @@ Fortunately, the results for GPT-Image1-Mini were a lot more interesting.
 
 <h2 id="nano-banana-pro">Nano Banana Pro</h2>
 
-Currently touted as the SOTA of image editing models, how does it degrade?
+Currently touted as the SOTA of image editing models, how does it hold up?
 
 <LocalVideo
   src="/videos/nano_banana_pro_evolution.mp4?v=2"
@@ -63,11 +63,11 @@ Currently touted as the SOTA of image editing models, how does it degrade?
 
 <h2 id="seedream-4">SeeDream 4</h2>
 
-Currently the runner-up to Nano Banana Pro in the leaderboards, the model typically performs quite well with photographic edits.
+Currently the runner-up to Nano Banana Pro in the leaderboards, the pattern here trends to red, with several sudden jumps in image coherence.
 
 <LocalVideo
   src="/videos/seedream_evolution.mp4?v=2"
-  caption="The only model tested that got… hairy? Also notable for spontaneous suspenders and a large bearded ginger man with wings."
+  caption="The only model tested that got… hairy?"
 />
 
 <ModelChart
@@ -96,11 +96,11 @@ A highly trainable model which has recently been gaining in popularity on the re
 
 <h2 id="nano-banana">Nano Banana</h2>
 
-A fantastic model, only recently overshadowed by the pro upgrade.
+The previous generation of the Nano Banana model behaves quite differently to the latest version. 
 
 <LocalVideo
   src="/videos/nanobana_evolution.mp4?v=2"
-  caption="The model with the most significant Dwaynian motion, where the subject slides off to the side while turning to ectoplasm."
+  caption="The model with the most significant Dwaynian motion, with The Rock gradually sliding to the right."
 />
 
 <ModelChart
@@ -151,6 +151,6 @@ While most models trend to noise, several of them showed sudden jumps in image c
 
 <h2 id="so-what-did-we-learn">So what did I learn?</h2>
 
-I never really set out to learn anything with this; this was only ever a fun experiment. It also isn't surprising that there is loss in recursive generations with image editing models; of course, there is some loss in asking a generative model to reproduce an image, and that loss will compound over time. It is interesting, though, the breadth of variation in how these different models degrade. 
+I never really set out to learn anything with this; this was only ever a fun experiment. It also isn't surprising that there is loss in recursive generations with image editing models; it is expected that there will be loss in asking a generative model to reproduce an image, and that delta will compound over time. It is interesting, though, the breadth of variation in how these models degrade. 
 
 If there’s a takeaway, it's to know that none of the frontier image editing models are safe from loss in recursive image editing. So beware of editing the edit of the edit; just write a better prompt the first time. 
