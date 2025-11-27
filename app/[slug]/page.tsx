@@ -10,6 +10,7 @@ import { ComponentProps } from "react";
 import { Linkedin } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SiteFooter } from "@/components/ui/site-footer";
+import { SubscribeButton } from "@/components/ui/subscribe-button";
 
 // Import custom components for MDX
 import { ModelChart } from "@/components/charts/ModelChart";
@@ -174,22 +175,23 @@ export default async function PostPage({
                 </a>
               ))}
             </div>
-            <div className="mt-8 flex gap-3 pl-3">
-              <a
-                href="https://x.com/ReflctWillie"
-                className="text-muted-foreground transition hover:text-primary"
-                aria-label="X"
-              >
-                <XIcon className="h-4 w-4" />
-              </a>
-              <a
-                href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
-                className="text-muted-foreground transition hover:text-primary"
-                aria-label="LinkedIn"
-              >
-                <Linkedin className="h-4 w-4" />
-              </a>
-            </div>
+<div className="mt-8 flex gap-3 pl-3">
+                              <a
+                                href="https://x.com/ReflctWillie"
+                                className="text-muted-foreground transition hover:text-primary"
+                                aria-label="X"
+                              >
+                                <XIcon className="h-4 w-4" />
+                              </a>
+                              <a
+                                href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
+                                className="text-muted-foreground transition hover:text-primary"
+                                aria-label="LinkedIn"
+                              >
+                                <Linkedin className="h-4 w-4" />
+                              </a>
+                              <SubscribeButton />
+                            </div>
           </nav>
         </aside>
         <div className="lg:max-w-3xl">

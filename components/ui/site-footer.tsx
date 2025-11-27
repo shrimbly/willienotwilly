@@ -1,5 +1,6 @@
 import { Linkedin } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
+import { SubscribeButton } from "@/components/ui/subscribe-button";
 
 interface SiteFooterProps {
   variant?: "fixed" | "static";
@@ -36,6 +37,7 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
               <Linkedin className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Day job</span>
             </a>
+            <SubscribeButton variant="full" />
           </div>
         </div>
       </div>
