@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     // Get identifier for rate limiting (IP address or fallback)
     const forwardedFor = request.headers.get("x-forwarded-for");
-    const ip = forwardedFor?.split(",")[0] || request.ip || "unknown";
+    const ip = forwardedFor?.split(",")[0]?.trim() || "unknown";
 
     // Check rate limit
     if (!checkRateLimit(ip, model)) {
