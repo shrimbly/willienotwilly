@@ -1,51 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const RATE_LIMIT_WINDOW_MINUTES = 5;
+const MAX_VOTES_PER_WINDOW = 14;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables");
+function getSupabaseClient(): SupabaseClient | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+async function checkRateLimit(
+  supabase: SupabaseClient,
+  ip: string,
+  model: string
+): Promise<boolean> {
+  // Check how many votes this IP has made for this model in the last N minutes
+  const windowStart = new Date(
+    Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000
+  ).toISOString();
 
-// In-memory rate limiting store (resets on server restart)
-// For production, consider using Redis or a database
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+  const { count, error } = await supabase
+    .from("rock_votes")
+    .select("*", { count: "exact", head: true })
+    .eq("model", model)
+    .eq("voter_ip", ip)
+    .gte("created_at", windowStart);
 
-const RATE_LIMIT_WINDOW = 5 * 60 * 1000; // 5 minutes in milliseconds
-const MAX_VOTES_PER_WINDOW = 14; // Max 14 votes per 5 minutes
-
-function getRateLimitKey(identifier: string, model: string): string {
-  return `${identifier}:${model}`;
-}
-
-function checkRateLimit(identifier: string, model: string): boolean {
-  const key = getRateLimitKey(identifier, model);
-  const now = Date.now();
-  const record = rateLimitStore.get(key);
-
-  if (!record || now > record.resetTime) {
-    // Reset or create new record
-    rateLimitStore.set(key, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW,
-    });
+  if (error) {
+    console.error("Rate limit check error:", error);
+    // Allow the vote if we can't check rate limit (fail open)
     return true;
   }
 
-  if (record.count >= MAX_VOTES_PER_WINDOW) {
-    return false;
-  }
-
-  record.count++;
-  rateLimitStore.set(key, record);
-  return true;
+  return (count ?? 0) < MAX_VOTES_PER_WINDOW;
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      console.error("Supabase environment variables are not configured");
+      return NextResponse.json(
+        { error: "Service temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { model, first_not_rock } = body;
 
@@ -67,24 +74,26 @@ export async function POST(request: NextRequest) {
     // Get identifier for rate limiting (IP address or fallback)
     const forwardedFor = request.headers.get("x-forwarded-for");
     const realIp = request.headers.get("x-real-ip");
-    const ip = forwardedFor?.split(",")[0] || realIp || "unknown";
+    const ip = forwardedFor?.split(",")[0]?.trim() || realIp || "unknown";
 
-    // Check rate limit
-    if (!checkRateLimit(ip, model)) {
+    // Check rate limit using database
+    const withinLimit = await checkRateLimit(supabase, ip, model);
+    if (!withinLimit) {
       return NextResponse.json(
         {
-          error: "Rate limit exceeded. You can only vote 14 times per 5 minutes.",
-          rateLimited: true
+          error: `Rate limit exceeded. You can only vote ${MAX_VOTES_PER_WINDOW} times per ${RATE_LIMIT_WINDOW_MINUTES} minutes.`,
+          rateLimited: true,
         },
         { status: 429 }
       );
     }
 
-    // Insert vote into Supabase
+    // Insert vote into Supabase (including IP for rate limiting)
     const { error } = await supabase.from("rock_votes").insert([
       {
         model,
         first_not_rock,
+        voter_ip: ip,
       },
     ]);
 
