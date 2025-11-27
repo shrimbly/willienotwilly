@@ -8,9 +8,9 @@ I regularly work with image editing models in my day-to-day. They're fantastic, 
 
 Earlier this year, [u/Foreign_Builder_2238](https://www.reddit.com/u/Foreign_Builder_2238) demonstrated this by asking ChatGPT to endlessly recreate a photo of Dwayne 'The Rock' Johnson, instructing it to "Create an exact replica of this image, don't change a thing." I decided to put the modern image editors through that same recursive abuse (Nano Banana Pro, SeeDream 4, Qwen, and friends) to see how they unravel when looping their own outputs 100 times.
 
-The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. For a measure I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below.
+The findings were both interesting and ridiculous, with all the models tested behaving in slightly different ways. For a measure I calculated the structural similarity index for each generated image compared with the original. These are graphed for each model below. Note that using this for a measure has some flaws, minor differences in Dwayne's position will destroy the SSIM score even when the image is otherwise coherent. 
 
-The SSIM trend is interesting, but flawed. What matters more, I think, is how many recursions it takes before the subject simply isn't The Rock anymore. So, I’ve tracked the "That's Not The Rock" (TNTR) score for each model—the exact generation where Dwayne ceases to be Dwayne. Since this is subjective, I've also included a way for you to cast your own vote on when he loses his Rock-ness.
+The SSIM trend is interesting, but what matters more, I think, is how many recursions it takes before the subject simply isn't The Rock anymore. So, I’ve tracked the "That's Not The Rock" (TNTR) score for each model—the exact generation where Dwayne ceases to be Dwayne. Since this is subjective, I've also included a way for you to cast your own vote on when he loses his Rock-ness.
 
 
 <h2 id="gpt-image1">GPT-Image1</h2>
@@ -35,7 +35,7 @@ Fortunately, the results for GPT-Image1-Mini were a lot more interesting.
 
 <LocalVideo
   src="/videos/gptmini_evolution.mp4?v=4"
-  caption="The only model that didn't degrade into noise, creating a coherent image on each generation. Mini clearly isn't just 'smaller' and there are more substantial differences in the models. Interestingly, across several tests, it consistently ended up with a variation of a demonic white guy... More on this at the end of the post."
+  caption="The only model that continued to create coherent images without degrading into noise. Mini clearly isn't just 'smaller' and there are more substantial differences in the models. While this had the lowest peak SSIM and TNTR scores, it was definitely the most fun."
 />
 
 <ModelChart
@@ -51,7 +51,7 @@ Currently touted as the SOTA of image editing models, how does it hold up?
 
 <LocalVideo
   src="/videos/nano_banana_pro_evolution.mp4?v=2"
-  caption="Dwayne gets quite noisy by 10 recursions and devolves from there into fractals and eventually into something reminiscent of a broken LCD panel."
+  caption="Far more structurally consistent, differences in colour become more exaggerated over generations. Dwayne is quite noisy by step 10 and devolves from there into fractals and eventually into something reminiscent of a broken LCD panel."
 />
 
 <ModelChart
@@ -74,13 +74,13 @@ Currently the runner-up to Nano Banana Pro in the leaderboards, the pattern here
   activeModel="seedream"
   revealIndex={3}
   order={["gpt", "gptMini", "nanoBananaPro", "seedream", "qwen", "nanoBanana", "flux"]}
-  caption="The jump to the right at image 4 makes the SSIM trend less useful in this case."
+  caption="The drift to the right at image 4 destroys the SSIM score early on, making the chart less useful in this case."
 />
 <RockVotePrompt model="seedream" />
 
 <h2 id="qwen-image-edit">Qwen Image Edit</h2>
 
-A highly trainable model which has recently been gaining in popularity on the release of a few nice fine tunes.
+A highly trainable model which has recently been gaining in popularity on the release of a few nice fine tunes. Note: On writing I noticed that the test here uses a previous generation of Qwen Image Edit, the more recent Qwen Image Edit 2509 is yet to be tested. 
 
 <LocalVideo
   src="/videos/qwen_evolution.mp4?v=2"
