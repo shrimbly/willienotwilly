@@ -12,6 +12,8 @@ The findings were both interesting and ridiculous, with all the models tested be
 
 The SSIM trend is interesting, but what matters more, I think, is how many recursions it takes before the subject simply isn't The Rock anymore. So, I’ve tracked the "That's Not The Rock" (TNTR) score for each model—the exact generation where Dwayne ceases to be Dwayne. Since this is subjective, I've also included a way for you to cast your own vote on when he loses his Rock-ness.
 
+*Note: Most models were only tested once, it is possible that we'd see entirely different results on retesting.* 
+
 
 <h2 id="gpt-image1">GPT-Image1</h2>
 
@@ -19,7 +21,7 @@ The original reddit post was 7 months prior to writing this; let's check in on h
 
 <LocalVideo
   src="/videos/gpt_evolution.mp4?v=2"
-  caption="Quite disappointing, really. Recursive generations almost immediately degrade to static, only slightly recovering before falling to pieces. This was the worst performing model in the test."
+  caption="Quite disappointing, really. Recursive generations almost immediately degrade to static, only slightly recovering before falling to pieces. This was the worst performing model in the test and the same behaviour was seen in multiple runs."
 />
 
 <ModelChart
@@ -151,6 +153,8 @@ While most models trend to noise, several of them showed sudden jumps in image c
 
 <h2 id="so-what-did-we-learn">So what did I learn?</h2>
 
-I never really set out to learn anything with this; this was only ever a fun experiment. It also isn't surprising that there is loss in recursive generations with image editing models; it is expected that there will be loss in asking a generative model to reproduce an image, and that delta will compound over time. It is interesting, though, the breadth of variation in how these models degrade. 
+I never really set out to learn anything with this; this was only ever a fun experiment. It also isn't very surprising that there is loss in recursive generations with image editing models; it is expected that there will be loss in asking a generative model to reproduce an image, and that delta will compound over time. It is interesting, though, the breadth of variation in how these models degrade. 
 
 If there’s a takeaway, it's to know that none of the frontier image editing models are safe from loss in recursive image editing. So beware of editing the edit of the edit; just write a better prompt the first time. 
+
+*I'd love to know more about why these models behave so differently. If you can elighten me, send me a DM.*
