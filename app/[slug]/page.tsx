@@ -9,6 +9,7 @@ import * as React from "react";
 import { ComponentProps } from "react";
 import { Linkedin } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
+import { SiteFooter } from "@/components/ui/site-footer";
 
 // Import custom components for MDX
 import { ModelChart } from "@/components/charts/ModelChart";
@@ -18,6 +19,7 @@ import { GptMiniGallery } from "@/components/media/GptMiniGallery";
 import { SuddenJumpsGallery } from "@/components/media/SuddenJumpsGallery";
 import { RockVotePrompt } from "@/components/rock-bench/RockVotePrompt";
 import { RockVoteTable } from "@/components/rock-bench/RockVoteTable";
+import { MobileHeader } from "@/components/ui/mobile-header";
 import { getRockBenchData } from "@/lib/rockBenchData";
 import { cn } from "@/lib/utils";
 
@@ -85,18 +87,27 @@ export async function generateMetadata({
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://willienotwilly.com";
+  const ogImage = post.image || "/TNTR OG.jpg";
 
   return {
     title: post.title,
     description: post.summary,
+    keywords: post.keywords,
+    authors: [{ name: "Willie Falloon", url: siteUrl }],
+    creator: "Willie Falloon",
+    publisher: "Willie Falloon",
     openGraph: {
       title: post.title,
       description: post.summary,
       type: "article",
       url: `${siteUrl}/${slug}`,
+      siteName: "Willie Falloon",
+      locale: "en_US",
+      publishedTime: post.publishedTime,
+      authors: ["Willie Falloon"],
       images: [
         {
-          url: "/TNTR OG.jpg",
+          url: ogImage,
           width: 1200,
           height: 630,
           alt: post.title,
@@ -105,9 +116,14 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
+      site: "@ReflctWillie",
+      creator: "@ReflctWillie",
       title: post.title,
       description: post.summary,
-      images: ["/TNTR OG.jpg"],
+      images: [ogImage],
+    },
+    alternates: {
+      canonical: `${siteUrl}/${slug}`,
     },
   };
 }
@@ -129,56 +145,55 @@ export default async function PostPage({
   const anchors = extractAnchors(post.content);
 
   return (
-    <article className="container mx-auto px-4 py-16 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
-      <aside className="relative hidden lg:block">
-        <nav className="sticky top-24">
-          <Link href="/" className="mb-8 block text-xl font-semibold hover:text-primary transition">
-            Willie Falloon
-          </Link>
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Jump ahead
-          </p>
-          <div className="space-y-2 border-l border-border/60 pl-3 text-sm">
-            {anchors.map((item) => (
+    <>
+      <MobileHeader anchors={anchors} />
+      <article className="container mx-auto px-4 pt-20 pb-16 lg:pt-16 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
+        <aside className="relative hidden lg:block">
+          <nav className="sticky top-24">
+            <Link href="/" className="mb-8 block text-xl font-semibold hover:text-primary transition">
+              Willie Falloon
+            </Link>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Jump ahead
+            </p>
+            <div className="space-y-2 border-l border-border/60 pl-3 text-sm">
+              {anchors.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "block text-muted-foreground transition hover:text-primary",
+                    {
+                      "pl-2": item.level === 2,
+                      "pl-5 text-[13px]": item.level === 3,
+                      "pl-8 text-[12px]": item.level === 4,
+                    }
+                  )}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+            <div className="mt-8 flex gap-3 pl-3">
               <a
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "block text-muted-foreground transition hover:text-primary",
-                  {
-                    "pl-2": item.level === 2,
-                    "pl-5 text-[13px]": item.level === 3,
-                    "pl-8 text-[12px]": item.level === 4,
-                  }
-                )}
+                href="https://x.com/ReflctWillie"
+                className="text-muted-foreground transition hover:text-primary"
+                aria-label="X"
               >
-                {item.label}
+                <XIcon className="h-4 w-4" />
               </a>
-            ))}
-          </div>
-          <div className="mt-8 flex gap-3 pl-3">
-            <a
-              href="https://x.com/ReflctWillie"
-              className="text-muted-foreground transition hover:text-primary"
-              aria-label="X"
-            >
-              <XIcon className="h-4 w-4" />
-            </a>
-            <a
-              href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
-              className="text-muted-foreground transition hover:text-primary"
-              aria-label="LinkedIn"
-            >
-              <Linkedin className="h-4 w-4" />
-            </a>
-          </div>
-        </nav>
-      </aside>
-      <div className="lg:max-w-3xl">
-        <Link href="/" className="lg:hidden mb-8 block text-xl font-semibold hover:text-primary transition">
-          Willie Falloon
-        </Link>
-        <header className="mb-8">
+              <a
+                href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
+                className="text-muted-foreground transition hover:text-primary"
+                aria-label="LinkedIn"
+              >
+                <Linkedin className="h-4 w-4" />
+              </a>
+            </div>
+          </nav>
+        </aside>
+        <div className="lg:max-w-3xl">
+          <header className="mb-8">
           <time className="text-sm text-muted-foreground">{post.date}</time>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">
             {post.title}
@@ -237,28 +252,9 @@ export default async function PostPage({
             }}
           />
         </div>
-        <footer className="mt-12 border-t border-border/70 pt-6 font-mono text-sm text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-3">
-            <span>Willie Falloon - opinions are my own.</span>
-            <a
-              href="https://x.com/ReflctWillie"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-              aria-label="Personal projects on X"
-            >
-              <span className="font-semibold">𝕏</span>
-              <span>Personal projects</span>
-            </a>
-            <a
-              href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-              aria-label="Dayjob on LinkedIn"
-            >
-              <Linkedin className="h-4 w-4" />
-              <span>Dayjob</span>
-            </a>
-          </div>
-        </footer>
-      </div>
-    </article>
+        <SiteFooter variant="static" />
+        </div>
+      </article>
+    </>
   );
 }

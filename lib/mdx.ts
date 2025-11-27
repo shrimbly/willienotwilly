@@ -9,6 +9,9 @@ export interface PostMetadata {
   date: string;
   summary: string;
   slug: string;
+  image?: string;
+  publishedTime?: string;
+  keywords?: string[];
 }
 
 export interface Post extends PostMetadata {
@@ -35,6 +38,9 @@ export function getAllPosts(): PostMetadata[] {
         title: data.title || "",
         date: data.date || "",
         summary: data.summary || "",
+        image: data.image,
+        publishedTime: data.publishedTime,
+        keywords: data.keywords,
       };
     });
 
@@ -59,6 +65,9 @@ export function getPostBySlug(slug: string): Post | null {
       title: data.title || "",
       date: data.date || "",
       summary: data.summary || "",
+      image: data.image,
+      publishedTime: data.publishedTime,
+      keywords: data.keywords,
       content,
     };
   } catch {

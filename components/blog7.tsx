@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
 interface Post {
   id: string;
   title: string;
@@ -23,65 +24,31 @@ interface Blog7Props {
   posts: Post[];
 }
 
-const Blog7 = ({
+function Blog7({
   tagline,
   heading = "Willie Falloon",
   description = "I'm Willie, I work in advertising as 'the tech guy'. Lately I'm most interested in radiance fields, image editing models, agentic coding tools, and large language models. This is just a place where I document personal projects and experiments.",
   buttonText,
   buttonUrl,
-  posts = [
-    {
-      id: "post-1",
-      title: "Getting Started with shadcn/ui Components",
-      summary:
-        "Learn how to quickly integrate and customize shadcn/ui components in your Next.js projects. We'll cover installation, theming, and best practices for building modern interfaces.",
-      label: "Tutorial",
-      author: "Sarah Chen",
-      published: "1 Jan 2024",
-      url: "https://shadcnblocks.com",
-      image: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "post-2",
-      title: "Building Accessible Web Applications",
-      summary:
-        "Explore how to create inclusive web experiences using shadcn/ui's accessible components. Discover practical tips for implementing ARIA labels, keyboard navigation, and semantic HTML.",
-      label: "Accessibility",
-      author: "Marcus Rodriguez",
-      published: "1 Jan 2024",
-      url: "https://shadcnblocks.com",
-      image: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "post-3",
-      title: "Modern Design Systems with Tailwind CSS",
-      summary:
-        "Dive into creating scalable design systems using Tailwind CSS and shadcn/ui. Learn how to maintain consistency while building flexible and maintainable component libraries.",
-      label: "Design Systems",
-      author: "Emma Thompson",
-      published: "1 Jan 2024",
-      url: "https://shadcnblocks.com",
-      image: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-dark-1.svg",
-    },
-  ],
-}: Blog7Props) => {
+  posts = [],
+}: Blog7Props) {
   return (
-    <section className="py-32 pb-40">
-      <div className="container mx-auto flex flex-col gap-16 lg:px-16">
+    <section className="pt-16 pb-32 sm:pt-24 sm:pb-36 lg:pt-32 lg:pb-40">
+      <div className="container mx-auto flex flex-col gap-10 px-4 sm:gap-12 lg:gap-16 lg:px-16">
         <div>
           {tagline && (
-            <Badge variant="secondary" className="mb-6">
+            <Badge variant="secondary" className="mb-4 sm:mb-6">
               {tagline}
             </Badge>
           )}
-          <h2 className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-6 lg:max-w-3xl lg:text-5xl">
+          <h1 className="mb-3 text-pretty text-2xl font-semibold sm:text-3xl md:mb-4 md:text-4xl lg:mb-6 lg:max-w-3xl lg:text-5xl">
             {heading}
-          </h2>
-          <p className="text-muted-foreground mb-8 md:text-base lg:max-w-2xl lg:text-lg">
+          </h1>
+          <p className="text-muted-foreground text-sm leading-relaxed sm:text-base lg:max-w-2xl lg:text-lg">
             {description}
           </p>
           {buttonText && buttonUrl && (
-            <Button variant="link" className="w-full sm:w-auto" asChild>
+            <Button variant="link" className="mt-6 w-full sm:w-auto" asChild>
               <a href={buttonUrl} target="_blank">
                 {buttonText}
                 <ArrowRight className="ml-2 size-4" />
@@ -91,27 +58,23 @@ const Blog7 = ({
         </div>
         <div className="w-full max-w-3xl">
           {posts.map((post) => (
-            <div
+            <Link
               key={post.id}
-              className="flex items-baseline gap-4 py-4 border-b border-border last:border-b-0"
+              href={post.url}
+              className="group flex flex-col gap-1 py-4 border-b border-border/60 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-4 transition-colors hover:border-border"
             >
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground sm:text-sm sm:whitespace-nowrap">
                 {post.published}
               </span>
-              <div className="flex-1">
-                <Link
-                  href={post.url}
-                  className="text-lg font-medium hover:underline"
-                >
-                  {post.title}
-                </Link>
-              </div>
-            </div>
+              <span className="text-base font-medium group-hover:text-primary transition-colors sm:text-lg">
+                {post.title}
+              </span>
+            </Link>
           ))}
         </div>
       </div>
     </section>
   );
-};
+}
 
 export { Blog7 };
