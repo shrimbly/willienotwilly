@@ -164,3 +164,16 @@
     letter-spacing: var(--tracking-normal);
   }
 }
+
+/* Code blocks: vertical scroll with line wrapping */
+.prose pre {
+  max-height: 24rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.prose pre code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

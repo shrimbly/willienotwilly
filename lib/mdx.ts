@@ -44,13 +44,11 @@ export function getAllPosts(): PostMetadata[] {
       };
     });
 
-  // Sort posts by date
+  // Sort posts by publishedTime (most recent first)
   return allPostsData.sort((a, b) => {
-    if (a.date < b.date) {
-      return 1;
-    } else {
-      return -1;
-    }
+    const dateA = a.publishedTime ? new Date(a.publishedTime).getTime() : 0;
+    const dateB = b.publishedTime ? new Date(b.publishedTime).getTime() : 0;
+    return dateB - dateA;
   });
 }
 
