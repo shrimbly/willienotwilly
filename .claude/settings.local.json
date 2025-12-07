@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "WebFetch(domain:www.shadcn.io)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []
