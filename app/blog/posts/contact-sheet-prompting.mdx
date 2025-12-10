@@ -30,11 +30,17 @@ Don't just copy+paste his prompt. The real juice here is that you can get detail
 
 <h2 id="adapting-for-fashion">Adapting it</h2>
 
-I wanted to adapt this technique for a fashion-style shoot, where the emphasis is on a single character from many angles in different poses. It's also a good opportunity to use the node editor for Nano Banana I've been working on. It's still in progress, but if you want to try Node Banana early it's [here](https://github.com/shrimbly/node-banana). In the /examples directory you can find the full workflow for this project, drag it into the node graph and it will set it up exactly as I had it. 
+I wanted to adapt this technique for a fashion-style shoot, where the emphasis is on a single character from many angles in different poses. 
+
+It's also a good opportunity to use the node editor for Nano Banana I've been working on. It's still in progress, but if you want to try [Node Banana, it's here](https://github.com/shrimbly/node-banana). In the /examples directory you can find the full workflow for this project, drag it into the node graph and it will set it up exactly as I had it. 
 
 The workflow: take a photo of a model, apply a wardrobe change, use an adapted contact sheet prompt to set up the model and camera, extract the images, run I2V in Kling 2.6, and apply ease animations in [easypeasyease](https://easypeasyease.vercel.app).
 
 <LocalVideo src="https://assets.willienotwilly.com/videos/contact-sheet/tim-cooked2_aac.mp4" />
+
+Here's another example using the same workflow. 
+
+<LocalVideo src="https://assets.willienotwilly.com/videos/contact-sheet/jpow.mp4" />
 
 <h2 id="the-prompts">The Prompts</h2>
 
@@ -56,10 +62,12 @@ The image is shot on fuji velvia film on a 55mm prime lens with a hard flash, th
 
 ```text
 Analyze the input image and silently inventory all fashion-critical details: the subject(s), exact wardrobe pieces, materials, colors, textures, accessories, hair, makeup, body proportions, environment, set geometry, light direction, and shadow quality.
+
 All wardrobe, styling, hair, makeup, lighting, environment, and color grade must remain 100% unchanged across all frames.
-Do not add or remove anything.
-Do not reinterpret materials or colors.
-Do not output any reasoning.
+
+Do not add or remove anything. Do not reinterpret materials or colors. Do not output any reasoning.
+
+Perfectly replicate the exact facial features of the model.
 
 Your visible output must be:
 
@@ -123,9 +131,10 @@ A) 2×3 Contact Sheet Image (Mandatory)
 
 <h2 id="tips">Tips</h2>
 
-- Adapt the contact sheet prompt to your needs; mine focuses on dramatic camera movements that suit the ease curve animation style.
-- Generate the contact sheet at 4k—this gives the extraction step more detail to work with.
+- Adapt the contact sheet prompt to your needs; mine focuses on dramatic camera movements that suit the ease curve animation style. Spend time with it—it's effectively a 6x prompt.
+- Generate the contact sheet at 2k or 4k—this gives the extraction step more detail to work with.
 - I used NBP for the extraction because I'm lazy; you can extract these manually and save $1.
 - The contact sheet keyframes are just the start; adapt from these with NBP. The calculator, shoe, and grill keyframes were all adaptations from the original set.
-- Use Kling 2.6 for the I2V step; it is by far the best image to video model available.
-- Shortening the clips and applying an ease curve can hide hallucinations. Try [easypeasyease](https://easypeasyease.vercel.app)—it's what I made it for.
+- Use Kling 2.6 for the I2V step, it's the best image to video model available IMO. Note that you can only do first+last frame generations on the [Kling webUI](https://klingai.com), if you want to go over the API, use Kling 2.5.
+- Video prompting: Go for smooth motion and minimal subject movement. Example: *"The camera very slowly and smoothly lowers on a boom. The subject barely moves, and is extremely deliberate and thoughtful in movement."*
+- Shortening the clips and applying an ease curve can hide hallucinations. I use [easypeasyease](https://easypeasyease.vercel.app) for stitching, applying ease curves, and adding audio. Best results on Chrome desktop.
