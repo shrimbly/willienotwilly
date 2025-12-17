@@ -54,26 +54,39 @@ export function RockVoteTable() {
     }
     setLoading(true);
     setError(null);
+
+    // Single query to fetch all votes, then aggregate client-side
+    const { data, error: err } = await supabase
+      .from("rock_votes")
+      .select("model, first_not_rock");
+
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+
+    // Aggregate stats by model client-side
     const next: Record<string, VoteStats> = {};
     for (const model of MODELS) {
-      const { data, error: err, count } = await supabase
-        .from("rock_votes")
-        .select("first_not_rock", { count: "exact" })
-        .eq("model", model.key);
-      if (err) {
-        next[model.key] = { avg: null, count: 0 };
-        setError(err.message);
-        continue;
-      }
-      if (!data || data.length === 0) {
-        next[model.key] = { avg: null, count: 0 };
-        continue;
-      }
-      const avgVal =
-        data.reduce((acc, row) => acc + Number(row.first_not_rock), 0) /
-        (count ?? data.length);
-      next[model.key] = { avg: avgVal, count: count ?? data.length };
+      next[model.key] = { avg: null, count: 0 };
     }
+
+    if (data && data.length > 0) {
+      const grouped: Record<string, number[]> = {};
+      for (const row of data) {
+        if (!grouped[row.model]) {
+          grouped[row.model] = [];
+        }
+        grouped[row.model].push(Number(row.first_not_rock));
+      }
+
+      for (const [modelKey, values] of Object.entries(grouped)) {
+        const sum = values.reduce((acc, v) => acc + v, 0);
+        next[modelKey] = { avg: sum / values.length, count: values.length };
+      }
+    }
+
     setStats(next);
 
     // derive bests

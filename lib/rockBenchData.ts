@@ -1,12 +1,14 @@
 import fs from "fs";
 import path from "path";
 import Papa from "papaparse";
+import { cache } from "react";
 import { ChartDataPoint, MODELS } from "./rockBenchTypes";
 
 export type { ChartDataPoint, ModelInfo } from "./rockBenchTypes";
 export { MODELS } from "./rockBenchTypes";
 
-export function getRockBenchData(): ChartDataPoint[] {
+// Cache the parsed data to avoid re-parsing on every request
+export const getRockBenchData = cache((): ChartDataPoint[] => {
   const csvPath = path.join(process.cwd(), "public/data/rock-bench.csv");
   const csvContent = fs.readFileSync(csvPath, "utf-8");
 
@@ -41,4 +43,4 @@ export function getRockBenchData(): ChartDataPoint[] {
 
   // Convert to array and sort by image number
   return Object.values(pivoted).sort((a, b) => a.imageNumber - b.imageNumber);
-}
+});

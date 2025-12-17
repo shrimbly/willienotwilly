@@ -5,7 +5,9 @@
       "WebFetch(domain:www.shadcn.io)",
       "WebSearch",
       "Bash(mv:*)",
-      "Bash(node scripts/upload-video.js:*)"
+      "Bash(node scripts/upload-video.js:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

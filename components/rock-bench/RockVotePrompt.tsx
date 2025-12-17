@@ -238,7 +238,7 @@ export function RockVotePrompt({ model }: RockVotePromptProps) {
               alt={`Recursion ${displayImageIndex} for ${displayName}`}
               fill
               className="object-cover"
-              unoptimized
+              sizes="(max-width: 640px) 100vw, 320px"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
