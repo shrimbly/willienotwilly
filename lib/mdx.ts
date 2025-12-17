@@ -12,6 +12,7 @@ export interface PostMetadata {
   image?: string;
   publishedTime?: string;
   keywords?: string[];
+  unlisted?: boolean;
 }
 
 export interface Post extends PostMetadata {
@@ -41,8 +42,10 @@ export function getAllPosts(): PostMetadata[] {
         image: data.image,
         publishedTime: data.publishedTime,
         keywords: data.keywords,
+        unlisted: data.unlisted || false,
       };
-    });
+    })
+    .filter((post) => !post.unlisted);
 
   // Sort posts by publishedTime (most recent first)
   return allPostsData.sort((a, b) => {

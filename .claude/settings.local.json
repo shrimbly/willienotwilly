@@ -7,7 +7,8 @@
       "Bash(mv:*)",
       "Bash(node scripts/upload-video.js:*)",
       "Bash(curl:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(node scripts/upload-bills-supra.js:*)"
     ],
     "deny": [],
     "ask": []
