@@ -74,7 +74,7 @@ if (!R2_BUCKET || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_ENDPOINT) {
 
 // Map source filenames to destination names
 const FILE_MAP = {
-  "original image.jpg": "style-setting.webp",
+  "bill.png": "style-setting.webp",
   "contact-sheet-1.png": "contact-sheet-1.webp",
   "chillBill.jpg": "chill-bill.webp",
   "ballmer.png": "ballmer-cameo.webp",
@@ -82,6 +82,14 @@ const FILE_MAP = {
   "contact sheet 2.png": "contact-sheet-2.webp",
   "type.png": "typography.webp",
 };
+
+// Additional files from other locations
+const EXTRA_FILES = [
+  {
+    source: String.raw`C:\Users\Admin\Downloads\Bills-Supra OG.jpg`,
+    dest: "og.webp",
+  },
+];
 
 const s3 = new S3Client({
   region: R2_REGION,
@@ -136,6 +144,19 @@ async function main() {
     console.log(`Processing ${sourceFile} -> ${destFile}`);
     const buffer = await toWebpBuffer(sourcePath);
     const key = `${PUBLIC_PREFIX}/${destFile}`;
+    await uploadImage(buffer, key);
+  }
+
+  // Upload extra files from other locations
+  for (const { source, dest } of EXTRA_FILES) {
+    if (!fs.existsSync(source)) {
+      console.warn(`Warning: Extra file not found: ${source}`);
+      continue;
+    }
+
+    console.log(`Processing ${path.basename(source)} -> ${dest}`);
+    const buffer = await toWebpBuffer(source);
+    const key = `${PUBLIC_PREFIX}/${dest}`;
     await uploadImage(buffer, key);
   }
 
