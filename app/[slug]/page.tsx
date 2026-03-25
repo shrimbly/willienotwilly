@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { ComponentProps } from "react";
-import { Linkedin } from "lucide-react";
+import { Linkedin, FileText } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SiteFooter } from "@/components/ui/site-footer";
 import { SubscribeButton } from "@/components/ui/subscribe-button";
@@ -189,6 +189,13 @@ export default async function PostPage({
                                 aria-label="LinkedIn"
                               >
                                 <Linkedin className="h-4 w-4" />
+                              </a>
+                              <a
+                                href="/resume.html"
+                                className="text-muted-foreground transition hover:text-primary"
+                                aria-label="Resume"
+                              >
+                                <FileText className="h-4 w-4" />
                               </a>
                               <SubscribeButton />
                             </div>

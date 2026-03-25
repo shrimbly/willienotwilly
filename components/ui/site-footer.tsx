@@ -1,4 +1,4 @@
-import { Linkedin } from "lucide-react";
+import { Linkedin, FileText } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SubscribeButton } from "@/components/ui/subscribe-button";
 
@@ -36,6 +36,14 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
             >
               <Linkedin className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Day job</span>
+            </a>
+            <a
+              href="/resume.html"
+              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Resume"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Resume</span>
             </a>
             <SubscribeButton variant="full" />
           </div>
