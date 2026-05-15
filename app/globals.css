@@ -165,6 +165,15 @@
   }
 }
 
+/* Squircle corners: progressive enhancement — falls back to standard border-radius */
+@supports (corner-shape: squircle) {
+  .squircle,
+  .squircle::before,
+  .squircle::after {
+    corner-shape: squircle;
+  }
+}
+
 /* Code blocks: vertical scroll with line wrapping */
 .prose pre {
   max-height: 24rem;
