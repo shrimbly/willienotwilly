@@ -87,8 +87,7 @@ export const projects: Project[] = [
     href: "https://reflct.app",
     external: true,
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_140deg_at_60%_40%,oklch(0.82_0.14_55),oklch(0.62_0.14_39),oklch(0.40_0.10_30),oklch(0.82_0.14_55))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/reflct-1-1.mp4",
     heroVideo: "/videos/portfolio/reflct-hero.mp4",
     stats: [
@@ -102,8 +101,7 @@ export const projects: Project[] = [
         caption:
           "Drop a splat scene anywhere with a single component — managed camera, lighting, and quality scaling.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[radial-gradient(at_30%_30%,oklch(0.86_0.15_55),oklch(0.50_0.12_35)_70%,oklch(0.28_0.06_30))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/reflct-viewer.mp4",
       },
       {
@@ -111,8 +109,7 @@ export const projects: Project[] = [
         caption:
           "Authors choreograph the hero shots so every visitor sees the scene at its best.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[conic-gradient(from_30deg_at_50%_50%,oklch(0.78_0.16_60),oklch(0.50_0.12_40),oklch(0.32_0.08_30),oklch(0.78_0.16_60))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/reflct-camera.mp4",
       },
       {
@@ -120,8 +117,7 @@ export const projects: Project[] = [
         caption:
           "Drop a 3D scene onto any Shopify product page — merchants install once and embed splats next to their photography with no code.",
         aspect: "4/3",
-        placeholderClass:
-          "bg-[conic-gradient(from_200deg_at_50%_50%,oklch(0.88_0.13_55),oklch(0.62_0.14_38),oklch(0.34_0.08_30),oklch(0.88_0.13_55))]",
+        placeholderClass: "bg-muted",
         media: [
           {
             src: "/videos/portfolio/reflct-shopify-square.mp4",
@@ -149,8 +145,7 @@ export const projects: Project[] = [
     href: "https://github.com/shrimbly/node-banana",
     external: true,
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_220deg_at_30%_70%,oklch(0.90_0.15_95),oklch(0.72_0.18_85),oklch(0.46_0.12_70),oklch(0.90_0.15_95))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/banana.mp4",
     stats: [
       { label: "Stars", value: "1.4k" },
@@ -181,8 +176,7 @@ export const projects: Project[] = [
         caption:
           "Prompts adapt at run time. Drop variables into any prompt and they're substituted from upstream inputs as the graph runs.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[radial-gradient(at_70%_30%,oklch(0.92_0.16_95),oklch(0.66_0.18_85)_55%,oklch(0.34_0.08_70))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/nd-variables2.mp4",
       },
       {
@@ -190,8 +184,7 @@ export const projects: Project[] = [
         caption:
           "Bezier-controlled interpolation between any two values — drives parameter sweeps, batch renders, and motion-style outputs.",
         aspect: "1/1",
-        placeholderClass:
-          "bg-[radial-gradient(at_30%_70%,oklch(0.94_0.13_95),oklch(0.66_0.18_85)_55%,oklch(0.34_0.08_70))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/nd-ease.mp4",
       },
       {
@@ -199,8 +192,7 @@ export const projects: Project[] = [
         caption:
           "When a provider rate-limits or errors, the graph quietly retries against a secondary model without dropping the run.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[linear-gradient(150deg,oklch(0.92_0.14_95),oklch(0.70_0.18_85),oklch(0.40_0.10_70))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/nd-fallback.mp4",
       },
     ],
@@ -217,8 +209,7 @@ export const projects: Project[] = [
     href: "https://github.com/Reflct/sharp-frames-python",
     external: true,
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_60deg_at_40%_60%,oklch(0.74_0.16_230),oklch(0.50_0.14_245),oklch(0.30_0.08_250),oklch(0.74_0.16_230))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/sharp.mp4",
     stats: [
       { label: "Stars", value: "152" },
@@ -231,8 +222,7 @@ export const projects: Project[] = [
         caption:
           "A keyboard-driven TUI walks you through input selection, scoring, and export — no flags to memorise.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[radial-gradient(at_50%_40%,oklch(0.78_0.16_230),oklch(0.46_0.14_245)_60%,oklch(0.26_0.08_250))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/sf-tui.mp4",
       },
     ],
@@ -249,8 +239,7 @@ export const projects: Project[] = [
     href: "https://github.com/shrimbly/easy-peasy-ease",
     external: true,
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_300deg_at_50%_50%,oklch(0.82_0.16_160),oklch(0.60_0.16_170),oklch(0.32_0.08_180),oklch(0.82_0.16_160))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/ezpz.mp4",
     stats: [
       { label: "Stars", value: "105" },
@@ -263,24 +252,21 @@ export const projects: Project[] = [
         caption:
           "Drag a curve to retime any clip — perfect for stitching a seamless out-to-in.",
         aspect: "16/10",
-        placeholderClass:
-          "bg-[radial-gradient(at_40%_30%,oklch(0.86_0.16_160),oklch(0.54_0.16_170)_60%,oklch(0.28_0.08_180))]",
+        placeholderClass: "bg-muted",
       },
       {
         title: "Audio mixing",
         caption:
           "Crossfade and mix tracks directly in the timeline, all without leaving the browser.",
         aspect: "4/3",
-        placeholderClass:
-          "bg-[conic-gradient(from_200deg_at_50%_50%,oklch(0.82_0.16_160),oklch(0.54_0.16_170),oklch(0.30_0.08_180),oklch(0.82_0.16_160))]",
+        placeholderClass: "bg-muted",
       },
       {
         title: "Client-side render",
         caption:
           "Media bunny does the heavy lifting locally — nothing leaves your machine.",
         aspect: "16/10",
-        placeholderClass:
-          "bg-[linear-gradient(135deg,oklch(0.84_0.16_160),oklch(0.58_0.16_170),oklch(0.30_0.08_180))]",
+        placeholderClass: "bg-muted",
       },
     ],
   },
@@ -297,8 +283,7 @@ export const projects: Project[] = [
     external: true,
     ctaLabel: "Read the article",
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_140deg_at_50%_50%,oklch(0.78_0.18_295),oklch(0.50_0.20_280),oklch(0.30_0.10_270),oklch(0.78_0.18_295))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/contact-sheet.mp4",
     stats: [
       { label: "Year", value: "2025" },
@@ -311,8 +296,7 @@ export const projects: Project[] = [
         caption:
           "Nano Banana Pro generates a 6–9 frame contact sheet from a single prompt, leaning into its reasoning to keep characters, lighting, and continuity consistent across every frame.",
         aspect: "2528/1696",
-        placeholderClass:
-          "bg-[radial-gradient(at_30%_30%,oklch(0.82_0.18_295),oklch(0.50_0.20_280)_60%,oklch(0.28_0.10_270))]",
+        placeholderClass: "bg-muted",
         image: "/images/contact-sheet/contact-sheet.jpg",
         imageAlt: "Generated contact sheet — multi-frame story from a single prompt",
       },
@@ -321,8 +305,7 @@ export const projects: Project[] = [
         caption:
           "The same technique adapts beyond character work. Here the contact sheet drives a kinetic type sequence, with each frame setting up the next pose for the animator.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[conic-gradient(from_240deg_at_60%_50%,oklch(0.80_0.18_295),oklch(0.50_0.20_280),oklch(0.30_0.10_270),oklch(0.80_0.18_295))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/contact-kinetic-type.mp4",
       },
       {
@@ -330,8 +313,7 @@ export const projects: Project[] = [
         caption:
           "Glif, Weavy, Leonardo AI, ComfyUI, and others have built the technique into their products and workflows since the original write-up went live.",
         aspect: "1514/897",
-        placeholderClass:
-          "bg-[linear-gradient(135deg,oklch(0.84_0.18_295),oklch(0.54_0.20_280),oklch(0.30_0.10_270))]",
+        placeholderClass: "bg-muted",
         image: "/images/portfolio/contact-sheet-comfyui.png",
         imageAlt: "ComfyUI templates including Contact Sheet Workflow steps",
       },
@@ -349,8 +331,7 @@ export const projects: Project[] = [
     href: "https://flipperstudio.com",
     external: true,
     category: "personal",
-    placeholderClass:
-      "bg-[conic-gradient(from_180deg_at_50%_50%,oklch(0.82_0.18_330),oklch(0.58_0.20_320),oklch(0.34_0.10_310),oklch(0.82_0.18_330))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/flip.mp4",
     stats: [
       { label: "Status", value: "Retired" },
@@ -363,8 +344,7 @@ export const projects: Project[] = [
         caption:
           "Photograph every product in a single shoot, then apply a marketplace-ready preset. A background prompt-enhancement step rewrites the input to push each image toward its intended style.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[radial-gradient(at_30%_30%,oklch(0.86_0.18_330),oklch(0.54_0.20_320)_60%,oklch(0.30_0.10_310))]",
+        placeholderClass: "bg-muted",
         video: "/videos/portfolio/flipper-demo.mp4",
       },
     ],
@@ -381,8 +361,7 @@ export const projects: Project[] = [
     href: "https://www.trygalaxy.com",
     external: true,
     category: "professional",
-    placeholderClass:
-      "bg-[conic-gradient(from_200deg_at_50%_50%,oklch(0.78_0.13_240),oklch(0.50_0.16_255),oklch(0.30_0.10_265),oklch(0.78_0.13_240))]",
+    placeholderClass: "bg-muted",
     video: "/videos/portfolio/try-galaxy-card.mp4",
     heroEmbed:
       "https://www.youtube.com/embed/BCgk02jgnPQ?start=14&autoplay=1&mute=1&loop=1&playlist=BCgk02jgnPQ&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1",
@@ -402,8 +381,7 @@ export const projects: Project[] = [
         caption:
           "Interactive home screen, design picker, camera, and AI editing — all running directly in Safari or Chrome on the visitor's device.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[radial-gradient(at_40%_30%,oklch(0.82_0.13_240),oklch(0.50_0.16_255)_60%,oklch(0.28_0.10_265))]",
+        placeholderClass: "bg-muted",
         image: "/images/portfolio/try-galaxy-1.png",
         imageAlt:
           "Four phones showing the Try Galaxy home screen, design picker, camera, and AI photo editor",
@@ -413,8 +391,7 @@ export const projects: Project[] = [
         caption:
           "Step-by-step demos of Object Eraser, Photo Remaster, SmartThings, Mindfulness, and the wider Galaxy AI ecosystem.",
         aspect: "16/9",
-        placeholderClass:
-          "bg-[conic-gradient(from_60deg_at_40%_60%,oklch(0.80_0.13_240),oklch(0.50_0.16_255),oklch(0.30_0.10_265),oklch(0.80_0.13_240))]",
+        placeholderClass: "bg-muted",
         image: "/images/portfolio/try-galaxy-2.webp",
         imageAlt:
           "Row of phones demonstrating Object Eraser, Photo Remaster, and Mindfulness in One UI",
@@ -434,8 +411,7 @@ export const projects: Project[] = [
     external: true,
     ctaLabel: "Case study",
     category: "professional",
-    placeholderClass:
-      "bg-[conic-gradient(from_180deg_at_50%_50%,oklch(0.74_0.12_150),oklch(0.50_0.14_165),oklch(0.30_0.08_175),oklch(0.74_0.12_150))]",
+    placeholderClass: "bg-muted",
     image: "/images/portfolio/if-you-seek/image-11.webp",
     imageAlt: "If You Seek — Tourism New Zealand campaign hero",
     heroImage: "/images/portfolio/if-you-seek/image-11.webp",
