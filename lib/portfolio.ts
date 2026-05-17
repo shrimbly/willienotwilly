@@ -16,6 +16,11 @@ export type PhoneShot = {
   alt?: string;
 };
 
+export type GalleryShot = {
+  src: string;
+  alt?: string;
+};
+
 export type Highlight = {
   title: string;
   caption: string;
@@ -27,6 +32,11 @@ export type Highlight = {
   media?: HighlightMedia[];
   logos?: ProviderLogo[];
   phones?: PhoneShot[];
+  gallery?: GalleryShot[];
+  galleryAspect?: string;
+  galleryCols?: number;
+  inset?: boolean;
+  maxWidthClass?: string;
 };
 
 export type ProjectStat = {
@@ -55,6 +65,8 @@ export type Project = {
   placeholderClass: string;
   image?: string;
   imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   video?: string;
   heroVideo?: string;
   heroImage?: string;
@@ -63,6 +75,7 @@ export type Project = {
   category: ProjectCategory;
   stats: ProjectStat[];
   highlights: Highlight[];
+  inset?: boolean;
 };
 
 export type PortfolioFilter = "all" | ProjectCategory | "awards";
@@ -352,6 +365,9 @@ export const projects: Project[] = [
   {
     slug: "try-galaxy",
     title: "Try Galaxy",
+    inset: true,
+    imageWidth: 1080,
+    imageHeight: 1080,
     blurb:
       "Web experience that lets iPhone and Android owners try Samsung's One UI on their own device — interactive demos of Galaxy AI, camera, and design.",
     description:
@@ -399,8 +415,148 @@ export const projects: Project[] = [
     ],
   },
   {
+    slug: "wewrangle-audio",
+    title: "WeWrangle Audio",
+    inset: true,
+    blurb:
+      "AI radio production at broadcast scale. Cloned voices, mastering, and review workflows shipping spots for retailers across three countries.",
+    description:
+      "WeWrangle Audio is a production tool for AI radio at broadcast scale. It wraps ElevenLabs voice cloning in the workflow features broadcast actually needs — configurable review phases, cloud-based mixing and mastering, and bulk editing. In production for Kroger, Coles, New World, and Genesis Energy.",
+    meta: "WeWrangle · DDB",
+    year: "2024",
+    href: "https://wewrangle.com",
+    external: true,
+    category: "professional",
+    placeholderClass: "bg-muted",
+    image: "/images/portfolio/wewrangle-audio/script-v2.png",
+    imageAlt: "WeWrangle Audio — script editor with VO and history",
+    imageWidth: 2048,
+    imageHeight: 1111,
+    heroImage: "/images/portfolio/wewrangle-audio/script-v2.png",
+    stats: [
+      { label: "Role", value: "Head of Product" },
+      { label: "Clients", value: "Kroger, Coles, New World, Genesis" },
+      { label: "Year", value: "2024" },
+    ],
+    highlights: [
+      {
+        title: "Spots, organized by period",
+        caption:
+          "Editors see every spot across every period in one place — broadcast week, status, spot count, and one-click export.",
+        aspect: "2048/1152",
+        placeholderClass: "bg-neutral-100",
+        image: "/images/portfolio/wewrangle-audio/dashboard-v2.png",
+        imageAlt: "WeWrangle Audio — Kroger dashboard",
+        inset: true,
+      },
+      {
+        title: "Broadcast-grade controls",
+        caption:
+          "Speed and volume adjustments, library search, and audio uploads sit next to the script so producers shape every spot without bouncing between tools.",
+        aspect: "620/956",
+        maxWidthClass: "max-w-xs",
+        placeholderClass: "bg-neutral-100",
+        image: "/images/portfolio/wewrangle-audio/controls-v2.png",
+        imageAlt: "WeWrangle Audio — per-track controls",
+        inset: true,
+      },
+    ],
+  },
+  {
+    slug: "wewrangle-studio",
+    title: "WeWrangle Studio",
+    inset: true,
+    blurb:
+      "Branded image generation built for AA Insurance. Custom fine-tunes and prompt-enhanced editing behind a deliberately simple interface.",
+    description:
+      "WeWrangle Studio is a branded image generation tool. Custom fine-tunes hold the brand line; prompt enhancement and edit-by-instruction smooth the rough edges of generative tooling. The interface is intentionally bare, tailored to clients new to AI.",
+    meta: "WeWrangle · DDB",
+    year: "2024",
+    href: "https://wewrangle.com",
+    external: true,
+    category: "professional",
+    placeholderClass: "bg-muted",
+    image: "/images/portfolio/wewrangle-studio/results-v2.png",
+    imageAlt: "WeWrangle Studio — prompt-enhanced edit step",
+    imageWidth: 1656,
+    imageHeight: 917,
+    heroImage: "/images/portfolio/wewrangle-studio/results-v2.png",
+    stats: [
+      { label: "Role", value: "Head of Product" },
+      { label: "Client", value: "AA Insurance" },
+      { label: "Year", value: "2024" },
+    ],
+    highlights: [
+      {
+        title: "Prompt-enhanced editing",
+        caption:
+          "Generated images carry forward into an edit step where natural-language instructions adjust the image without breaking the brand fine-tune underneath.",
+        aspect: "1873/904",
+        placeholderClass: "bg-neutral-100",
+        image: "/images/portfolio/wewrangle-studio/interface-v2.png",
+        imageAlt: "WeWrangle Studio — generation interface",
+        inset: true,
+      },
+    ],
+  },
+  {
+    slug: "anz-blue",
+    title: "ANZ Blue",
+    inset: true,
+    imageWidth: 1024,
+    imageHeight: 768,
+    blurb:
+      "Generative pipeline for ANZ Bank's Blu-tack mascot. A fine-tuned Flux Dev LoRA in ComfyUI produces 'Blue' in any product-led shape, on demand.",
+    description:
+      "Blue is ANZ Bank's mascot — a piece of Blu-tack moulded into a different shape for each banking product in tactical comms. The originals were rendered in 3D, slowly and at cost. A fine-tuned Flux Dev LoRA wrapped in a ComfyUI pipeline produces new Blue characters on demand, in seconds.",
+    meta: "ANZ · DDB",
+    year: "2023",
+    href: "https://www.anz.co.nz",
+    external: true,
+    category: "professional",
+    placeholderClass: "bg-muted",
+    image: "/images/portfolio/anz-blue/blue-tophat.png",
+    imageAlt: "ANZ Blue — Blu-tack mascot wearing a top hat",
+    heroImage: "/images/portfolio/anz-blue/blue-tophat.png",
+    stats: [
+      { label: "Role", value: "Head of Product" },
+      { label: "Client", value: "ANZ" },
+      { label: "Year", value: "2023" },
+    ],
+    highlights: [
+      {
+        title: "One mascot, every product",
+        caption:
+          "A fine-tuned Flux Dev LoRA renders Blue as a piggy bank, a wallet, a padlock — or whatever the next campaign needs — in seconds, replacing a costly 3D pipeline.",
+        aspect: "32/9",
+        placeholderClass: "bg-card",
+        gallery: [
+          {
+            src: "/images/portfolio/anz-blue/blue-piggy.png",
+            alt: "Blue as a piggy bank",
+          },
+          {
+            src: "/images/portfolio/anz-blue/blue-wallet.png",
+            alt: "Blue as a wallet",
+          },
+          {
+            src: "/images/portfolio/anz-blue/blue-padlock.png",
+            alt: "Blue as a padlock",
+          },
+          {
+            src: "/images/portfolio/anz-blue/blue-umbrella.png",
+            alt: "Blue as an umbrella",
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: "if-you-seek",
     title: "If You Seek",
+    inset: true,
+    imageWidth: 2688,
+    imageHeight: 1656,
     blurb:
       "Six mobile-first digital experiences for Tourism New Zealand's 'If You Seek' campaign. Each one pairs a sensory film with a different smartphone-sensor interaction.",
     description:

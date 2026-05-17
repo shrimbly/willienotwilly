@@ -21,30 +21,69 @@ function ProjectCard({ project }: { project: Project }) {
   return (
     <Link href={`/portfolio/${project.slug}`} className="group block">
       <article className="flex flex-col">
-        <div className="squircle relative aspect-[5/4] w-full overflow-hidden rounded-[44px] border border-border/70 bg-card transition-colors duration-300 group-hover:border-border sm:rounded-[52px]">
-          <div
-            className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
-            aria-hidden="true"
-          />
-          {project.video ? (
-            <video
-              className="absolute inset-0 h-full w-full object-cover"
-              src={assetUrl(project.video)}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
+        <div
+          className={
+            "squircle relative aspect-[5/4] w-full overflow-hidden rounded-[44px] border border-border/70 transition-colors duration-300 group-hover:border-border sm:rounded-[52px] " +
+            (project.inset
+              ? "bg-[linear-gradient(135deg,#EEEEEE_0%,#FFFFFF_100%)]"
+              : "bg-card")
+          }
+        >
+          {!project.inset && (
+            <div
+              className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
               aria-hidden="true"
             />
+          )}
+          {project.video ? (
+            project.inset ? (
+              <div className="absolute inset-2 flex items-center justify-center sm:inset-3">
+                <video
+                  className="block h-auto max-h-full w-auto max-w-full rounded-xl object-cover shadow-lg shadow-black/10 sm:rounded-2xl"
+                  src={assetUrl(project.video)}
+                  width={project.imageWidth ?? 1600}
+                  height={project.imageHeight ?? 900}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  aria-hidden="true"
+                />
+              </div>
+            ) : (
+              <video
+                className="absolute inset-0 h-full w-full object-cover"
+                src={assetUrl(project.video)}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-hidden="true"
+              />
+            )
           ) : project.image ? (
-            <Image
-              src={assetUrl(project.image)}
-              alt={project.imageAlt ?? project.title}
-              fill
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="object-cover"
-            />
+            project.inset ? (
+              <div className="absolute inset-2 flex items-center justify-center sm:inset-3">
+                <Image
+                  src={assetUrl(project.image)}
+                  alt={project.imageAlt ?? project.title}
+                  width={project.imageWidth ?? 1600}
+                  height={project.imageHeight ?? 900}
+                  sizes="(min-width: 1024px) 560px, 100vw"
+                  className="h-auto max-h-full w-auto max-w-full rounded-xl object-contain shadow-lg shadow-black/10 sm:rounded-2xl"
+                />
+              </div>
+            ) : (
+              <Image
+                src={assetUrl(project.image)}
+                alt={project.imageAlt ?? project.title}
+                fill
+                sizes="(min-width: 1024px) 560px, 100vw"
+                className="object-cover"
+              />
+            )
           ) : (
             <div
               className="absolute inset-0 opacity-[0.18] mix-blend-overlay"

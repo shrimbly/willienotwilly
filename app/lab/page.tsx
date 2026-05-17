@@ -1,0 +1,117 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Lab",
+  robots: { index: false, follow: false },
+};
+
+type Iteration = {
+  slug: string;
+  version: string;
+  title: string;
+  note: string;
+};
+
+const ITERATIONS: { project: string; entries: Iteration[] }[] = [
+  {
+    project: "Radial color picker",
+    entries: [
+      {
+        slug: "color-picker-v7",
+        version: "v7",
+        title: "Third layer: tone plane (L × C)",
+        note: "Thick arc beyond the ribbon. Hue locks on entry; tangential picks chroma, radial picks lightness.",
+      },
+      {
+        slug: "color-picker-v6",
+        version: "v6",
+        title: "Full 360° hue ribbon",
+        note: "Ribbon exposes the entire hue wheel including magenta/pink, decoupled from the swatch palette.",
+      },
+      {
+        slug: "color-picker-v5",
+        version: "v5",
+        title: "Eased swatch entry + ribbon outline preview",
+        note: "Swatches scale and fade in on an ease-out. Hovering a swatch shows a white outline of the ribbon shape.",
+      },
+      {
+        slug: "color-picker-v4",
+        version: "v4",
+        title: "OKLCH ribbon + live FAB preview + tuning panel",
+        note: "Smoother gradient in OKLCH. Thumb previews the hovered colour. Sliders for every parameter.",
+      },
+      {
+        slug: "color-picker-v3",
+        version: "v3",
+        title: "Muted ribbon + blur-in backdrop",
+        note: "Ribbon tonality matched to swatch palette. Backdrop tints and blurs in on a soft ease.",
+      },
+      {
+        slug: "color-picker-v2",
+        version: "v2",
+        title: "Hue ribbon",
+        note: "Second layer is a continuous spectrum ribbon. Tighter spacing, soft vignette.",
+      },
+      {
+        slug: "color-picker",
+        version: "v1",
+        title: "Discrete fine-hue dots",
+        note: "Six swatches fan out; pushing further reveals nine discrete hue variations.",
+      },
+    ],
+  },
+];
+
+export default function LabIndexPage() {
+  return (
+    <div className="min-h-[100dvh] bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950">
+      <div className="mx-auto max-w-2xl px-6 py-16">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Lab
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          Interaction experiments
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Isolated sketches for refining interaction ideas before they ship.
+        </p>
+
+        <div className="mt-12 flex flex-col gap-12">
+          {ITERATIONS.map((group) => (
+            <section key={group.project}>
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.project}
+              </h2>
+              <ul className="mt-4 flex flex-col gap-2">
+                {group.entries.map((it) => (
+                  <li key={it.slug}>
+                    <Link
+                      href={`/lab/${it.slug}`}
+                      className="group flex items-baseline gap-4 rounded-lg border border-foreground/10 bg-background/40 px-4 py-3 transition hover:border-foreground/30 hover:bg-background/70"
+                    >
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {it.version}
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-medium">
+                          {it.title}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {it.note}
+                        </span>
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground transition group-hover:translate-x-0.5">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

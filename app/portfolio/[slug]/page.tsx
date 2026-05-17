@@ -108,38 +108,54 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
           <BlurFade delay={120} duration={900} yOffset={20}>
             <div className="flex flex-col gap-3">
-              <div className="squircle relative aspect-video w-full overflow-hidden rounded-[32px] border border-border/70 bg-card transition-colors duration-300 sm:rounded-[40px]">
-                <div
-                  className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
-                  aria-hidden="true"
-                />
-                {project.heroEmbed ? (
-                  <HeroEmbed
-                    src={project.heroEmbed}
-                    title={`${project.title} — hero video`}
-                  />
-                ) : (project.heroVideo || project.video) ? (
-                  <video
-                    className="absolute inset-0 h-full w-full object-cover"
-                    src={assetUrl(project.heroVideo ?? project.video!)}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    aria-hidden="true"
-                  />
-                ) : (project.heroImage || project.image) ? (
+              {project.inset && (project.heroImage || project.image) ? (
+                <div className="squircle relative w-full overflow-hidden rounded-[32px] border border-border/70 bg-[linear-gradient(135deg,#EEEEEE_0%,#FFFFFF_100%)] p-6 transition-colors duration-300 sm:rounded-[40px] sm:p-12">
                   <Image
                     src={assetUrl(project.heroImage ?? project.image!)}
                     alt={project.imageAlt ?? project.title}
-                    fill
+                    width={project.imageWidth ?? 1600}
+                    height={project.imageHeight ?? 900}
                     sizes="(min-width: 1024px) 1200px, 100vw"
-                    className="object-cover"
+                    quality={90}
+                    className="block h-auto w-full rounded-2xl shadow-xl shadow-black/10 sm:rounded-3xl"
                     priority
                   />
-                ) : null}
-              </div>
+                </div>
+              ) : (
+                <div className="squircle relative aspect-video w-full overflow-hidden rounded-[32px] border border-border/70 bg-card transition-colors duration-300 sm:rounded-[40px]">
+                  <div
+                    className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
+                    aria-hidden="true"
+                  />
+                  {project.heroEmbed ? (
+                    <HeroEmbed
+                      src={project.heroEmbed}
+                      title={`${project.title} — hero video`}
+                    />
+                  ) : (project.heroVideo || project.video) ? (
+                    <video
+                      className="absolute inset-0 h-full w-full object-cover"
+                      src={assetUrl(project.heroVideo ?? project.video!)}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      aria-hidden="true"
+                    />
+                  ) : (project.heroImage || project.image) ? (
+                    <Image
+                      src={assetUrl(project.heroImage ?? project.image!)}
+                      alt={project.imageAlt ?? project.title}
+                      fill
+                      sizes="(min-width: 1024px) 1200px, 100vw"
+                      quality={90}
+                      className="object-cover"
+                      priority
+                    />
+                  ) : null}
+                </div>
+              )}
               {project.heroCredit && (
                 <p className="px-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   {project.heroCredit.prefix && (
@@ -188,6 +204,35 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                               alt={p.alt ?? `${h.title} — ${pidx + 1}`}
                               fill
                               sizes="(min-width: 1024px) 180px, 30vw"
+                              className="object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : h.gallery && h.gallery.length > 0 ? (
+                    <div
+                      className={`squircle relative w-full overflow-hidden rounded-[28px] border border-border/70 sm:rounded-[32px] ${h.placeholderClass}`}
+                      style={{ aspectRatio: h.galleryAspect ?? h.aspect ?? "24/9" }}
+                    >
+                      <div
+                        className="absolute inset-0 grid"
+                        style={
+                          {
+                            gridTemplateColumns: `repeat(${h.galleryCols ?? h.gallery.length}, minmax(0, 1fr))`,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {h.gallery.map((g, gidx) => (
+                          <div
+                            key={gidx}
+                            className="relative h-full w-full overflow-hidden"
+                          >
+                            <Image
+                              src={assetUrl(g.src)}
+                              alt={g.alt ?? `${h.title} — ${gidx + 1}`}
+                              fill
+                              sizes="(min-width: 1024px) 300px, 50vw"
                               className="object-cover"
                             />
                           </div>
@@ -300,13 +345,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     </div>
                   ) : (
                     <div
-                      className="squircle relative w-full overflow-hidden rounded-[28px] border border-border/70 bg-card sm:rounded-[32px]"
-                      style={{ aspectRatio: h.aspect ?? "16/10" }}
+                      className={
+                        "squircle relative w-full overflow-hidden rounded-[28px] border border-border/70 sm:rounded-[32px] " +
+                        (h.inset
+                          ? "bg-[linear-gradient(135deg,#EEEEEE_0%,#FFFFFF_100%)]"
+                          : "bg-card")
+                      }
+                      style={{ aspectRatio: h.inset ? undefined : (h.aspect ?? "16/10") }}
                     >
-                      <div
-                        className={`absolute inset-0 h-full w-full ${h.placeholderClass}`}
-                        aria-hidden="true"
-                      />
+                      {!h.inset && (
+                        <div
+                          className={`absolute inset-0 h-full w-full ${h.placeholderClass}`}
+                          aria-hidden="true"
+                        />
+                      )}
                       {h.video ? (
                         <video
                           className="absolute inset-0 h-full w-full object-cover"
@@ -319,13 +371,35 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                           aria-label={h.imageAlt ?? h.title}
                         />
                       ) : h.image ? (
-                        <Image
-                          src={assetUrl(h.image)}
-                          alt={h.imageAlt ?? h.title}
-                          fill
-                          sizes="(min-width: 1024px) 960px, 100vw"
-                          className="object-cover"
-                        />
+                        h.inset ? (
+                          <div className="flex w-full items-center justify-center p-10 sm:p-16">
+                            <div
+                              className={
+                                "relative w-full overflow-hidden rounded-2xl shadow-xl shadow-black/10 sm:rounded-3xl " +
+                                (h.maxWidthClass ?? "")
+                              }
+                              style={{ aspectRatio: h.aspect ?? "16/10" }}
+                            >
+                              <Image
+                                src={assetUrl(h.image)}
+                                alt={h.imageAlt ?? h.title}
+                                fill
+                                sizes="(min-width: 1024px) 960px, 100vw"
+                                quality={90}
+                                className="object-contain"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <Image
+                            src={assetUrl(h.image)}
+                            alt={h.imageAlt ?? h.title}
+                            fill
+                            sizes="(min-width: 1024px) 960px, 100vw"
+                            quality={90}
+                            className="object-cover"
+                          />
+                        )
                       ) : (
                         <div
                           className="absolute inset-0 opacity-[0.15] mix-blend-overlay"
