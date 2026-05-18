@@ -686,13 +686,24 @@ export function ColorPickerFabV8({
   // Radial at inner edge = L 0 (dark)
   // Radial at outer edge = L 1 (light)
   const TONE_C_MAX = 0.32;
+  // Map the thumb's radial distance across the *full* range from where
+  // tone first enters (toneEnterThreshold) to toneOuter, so the selector
+  // is already deep inside the tone UI as soon as the user crosses into
+  // it — no dead space between the tone-enter point and the inner edge.
+  const toneEffT = inToneArc
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          (dist - toneEnterThreshold) /
+            Math.max(1, toneOuter - toneEnterThreshold),
+        ),
+      )
+    : 0;
   let toneL = 0.6;
   let toneC = TONE_C_MAX;
   if (inToneArc) {
-    toneL = Math.max(
-      0,
-      Math.min(1, (dist - toneInner) / Math.max(1, toneOuter - toneInner)),
-    );
+    toneL = toneEffT;
     toneC =
       TONE_C_MAX *
       Math.max(0, Math.min(1, toneSpan > 0 ? tonePosAngular / toneSpan : 0));
@@ -793,10 +804,11 @@ export function ColorPickerFabV8({
     : 0;
   const ribbonIndicatorPos =
     expanded && !inToneArc ? polar(cx, cy, ribbonMid, indicatorDeg) : null;
-  // Tone indicator follows the pointer freely inside the tone band (clamped).
-  // The visual position scales out with the tone UI so the indicator lands
-  // on the *visible* (scaled) tone surface rather than under the user's
-  // thumb at the un-scaled position.
+  // Tone indicator: mapped through toneEffT (same compression as the L
+  // value the picker reports) so it leads the thumb — by the time the
+  // thumb has crossed into the tone band, the indicator is already sitting
+  // well inside the tone arc instead of pinned at the inner edge. Scaled
+  // by toneScale so it lands on the visible (scaled) tone surface.
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
@@ -804,7 +816,10 @@ export function ColorPickerFabV8({
         toneScale *
           Math.max(
             toneInner + indicatorSize / 2,
-            Math.min(toneOuter - indicatorSize / 2, dist),
+            Math.min(
+              toneOuter - indicatorSize / 2,
+              toneInner + toneEffT * (toneOuter - toneInner),
+            ),
           ),
         toneStartDeg + tonePosAngular,
       )
