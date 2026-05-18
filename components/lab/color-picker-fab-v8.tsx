@@ -52,7 +52,7 @@ export const DEFAULT_CONFIG: Config = {
   ribbonOuter: 184,
   toneInner: 200,
   toneOuter: 264,
-  toneSpanDeg: 55,
+  toneSpanDeg: 44,
   indicatorSize: 28,
   arcSpanDeg: 106,
   swatchSpanDeg: 90,
