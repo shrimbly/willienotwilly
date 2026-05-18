@@ -301,30 +301,65 @@ const PICK_MESSAGES = [
   "Uh, ok!",
 ];
 
+function formatOklch(raw: string) {
+  // Parse "oklch(L C H)" — L and C are 0-1 floats, H is 0-360.
+  // Spec recommends 3 decimals for L/C (perceptually meaningful at that
+  // resolution) and 2 for hue.
+  const m = raw.match(
+    /oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/i,
+  );
+  if (!m) return raw;
+  const l = parseFloat(m[1]);
+  const c = parseFloat(m[2]);
+  const h = parseFloat(m[3]);
+  const a = m[4] !== undefined ? parseFloat(m[4]) : null;
+  const fmt = (n: number, d: number) =>
+    Number.isFinite(n) ? Number(n.toFixed(d)).toString() : "0";
+  const base = `oklch(${fmt(l, 3)} ${fmt(c, 3)} ${fmt(h, 2)}`;
+  return a !== null ? `${base} / ${fmt(a, 3)})` : `${base})`;
+}
+
 function useColorFormats(color: string | null) {
   return useMemo(() => {
     if (!color || typeof window === "undefined") {
-      return { oklch: color ?? "", hex: "", rgb: "" };
+      return { oklch: color ? formatOklch(color) : "", hex: "", rgb: "" };
     }
-    const probe = document.createElement("div");
-    probe.style.position = "absolute";
-    probe.style.visibility = "hidden";
-    probe.style.color = color;
-    document.body.appendChild(probe);
-    const computed = getComputedStyle(probe).color;
-    document.body.removeChild(probe);
-    const m = computed.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-    if (!m) return { oklch: color, hex: "", rgb: computed };
-    const r = +m[1];
-    const g = +m[2];
-    const b = +m[3];
+    // Use canvas to resolve any CSS-recognised colour (including oklch)
+    // to sRGB pixel bytes. getComputedStyle returns colour-space-aware
+    // strings (e.g. "oklch(...)" or "color(srgb ...)") which our regex
+    // couldn't always parse.
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "rgba(0,0,0,0)";
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        const data = ctx.getImageData(0, 0, 1, 1).data;
+        r = data[0];
+        g = data[1];
+        b = data[2];
+      }
+    } catch {
+      // canvas tainted or unavailable
+    }
     const hex =
       "#" +
       [r, g, b]
         .map((n) => n.toString(16).padStart(2, "0"))
         .join("")
         .toUpperCase();
-    return { oklch: color, hex, rgb: `rgb(${r}, ${g}, ${b})` };
+    return {
+      oklch: formatOklch(color),
+      hex,
+      rgb: `rgb(${r}, ${g}, ${b})`,
+    };
   }, [color]);
 }
 
