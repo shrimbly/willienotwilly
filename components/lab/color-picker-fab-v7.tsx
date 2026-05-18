@@ -1,6 +1,11 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
+import {
+  AnimatePresence,
+  motion,
+  useSpring,
+  useTransform,
+} from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export type PickerControl = {
@@ -777,9 +782,13 @@ export function ColorPickerFabV7({
   // clamped to the ribbon's angular extent (same idea as the tone arc's
   // centre clamp) so the arc never slides off the side or bottom of the
   // screen at the picker's terminal edges.
-  const PREVIEW_ARC_GAP = 26;
-  const PREVIEW_ARC_THICKNESS = 17;
-  const PREVIEW_ARC_HALF_WIDTH_DEG = 22;
+  const PREVIEW_ARC_GAP = 24;
+  const PREVIEW_ARC_THICKNESS = 14;
+  const PREVIEW_ARC_HALF_WIDTH_DEG = 14;
+  // Extra margin past the picker's terminal angles so the preview arc's
+  // ends never reach into the off-screen territory below the FAB / past
+  // the right edge — even on small mobile viewports.
+  const PREVIEW_ARC_EDGE_MARGIN_DEG = 10;
   let previewArcAngleDeg: number | null = null;
   let previewArcRadius = 0;
   if (inToneArc) {
@@ -794,8 +803,10 @@ export function ColorPickerFabV7({
     previewArcRadius = ribbonOuter + PREVIEW_ARC_GAP;
   }
   if (previewArcAngleDeg !== null) {
-    const minCenter = ribbonStartDeg + PREVIEW_ARC_HALF_WIDTH_DEG;
-    const maxCenter = ribbonEndDeg - PREVIEW_ARC_HALF_WIDTH_DEG;
+    const minCenter =
+      ribbonStartDeg + PREVIEW_ARC_HALF_WIDTH_DEG + PREVIEW_ARC_EDGE_MARGIN_DEG;
+    const maxCenter =
+      ribbonEndDeg - PREVIEW_ARC_HALF_WIDTH_DEG - PREVIEW_ARC_EDGE_MARGIN_DEG;
     if (minCenter <= maxCenter) {
       previewArcAngleDeg = Math.max(
         minCenter,
@@ -805,6 +816,7 @@ export function ColorPickerFabV7({
       previewArcAngleDeg = (ribbonStartDeg + ribbonEndDeg) / 2;
     }
   }
+
   const arcSegmentPath = (
     originX: number,
     originY: number,
@@ -823,6 +835,34 @@ export function ColorPickerFabV7({
     const large = halfWidthDeg * 2 > 180 ? 1 : 0;
     return `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`;
   };
+
+  // Smooth the preview arc's angle and radius with a spring so the
+  // indicator glides between positions instead of jumping (especially
+  // noticeable when stepping between discrete swatch positions). When the
+  // preview first appears we snap without animating, then spring on
+  // subsequent updates.
+  const previewAngleSpring = useSpring(0, { stiffness: 360, damping: 28 });
+  const previewRadiusSpring = useSpring(0, { stiffness: 360, damping: 28 });
+  const previewVisibleRef = useRef(false);
+  useEffect(() => {
+    if (previewArcAngleDeg !== null) {
+      if (!previewVisibleRef.current) {
+        previewAngleSpring.jump(previewArcAngleDeg);
+        previewRadiusSpring.jump(previewArcRadius);
+        previewVisibleRef.current = true;
+      } else {
+        previewAngleSpring.set(previewArcAngleDeg);
+        previewRadiusSpring.set(previewArcRadius);
+      }
+    } else {
+      previewVisibleRef.current = false;
+    }
+  }, [previewArcAngleDeg, previewArcRadius, previewAngleSpring, previewRadiusSpring]);
+  const previewPathD = useTransform(
+    [previewAngleSpring, previewRadiusSpring],
+    ([a, r]: number[]) =>
+      arcSegmentPath(cx, cy, r, a, PREVIEW_ARC_HALF_WIDTH_DEG),
+  );
 
   const fabBackground =
     previewColor ??
@@ -1181,14 +1221,8 @@ export function ColorPickerFabV7({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.18, ease: SOFT_EASE }}
                   >
-                    <path
-                      d={arcSegmentPath(
-                        cx,
-                        cy,
-                        previewArcRadius,
-                        previewArcAngleDeg,
-                        PREVIEW_ARC_HALF_WIDTH_DEG,
-                      )}
+                    <motion.path
+                      d={previewPathD}
                       stroke="rgba(255,255,255,0.95)"
                       strokeWidth={PREVIEW_ARC_THICKNESS + 3}
                       strokeLinecap="round"
@@ -1197,14 +1231,8 @@ export function ColorPickerFabV7({
                         filter: "drop-shadow(0 4px 14px rgba(0,0,0,0.25))",
                       }}
                     />
-                    <path
-                      d={arcSegmentPath(
-                        cx,
-                        cy,
-                        previewArcRadius,
-                        previewArcAngleDeg,
-                        PREVIEW_ARC_HALF_WIDTH_DEG,
-                      )}
+                    <motion.path
+                      d={previewPathD}
                       stroke={previewColor}
                       strokeWidth={PREVIEW_ARC_THICKNESS}
                       strokeLinecap="round"
