@@ -84,7 +84,7 @@ export default function ColorPickerV5LabPage() {
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950">
-      <div className="mx-auto max-w-md px-6 pb-32 pt-16">
+      <div className="mx-auto max-w-md px-6 pb-32 pt-28">
         <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
           Lab · v5
         </p>

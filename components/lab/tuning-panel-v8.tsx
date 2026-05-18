@@ -57,7 +57,7 @@ type Props = {
 };
 
 export function TuningPanelV8({ config, onChange, onCommit, onReset }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div className="fixed left-4 top-4 z-50 w-72 max-w-[calc(100vw-2rem)] select-none rounded-xl border border-foreground/10 bg-background/80 text-foreground shadow-xl backdrop-blur-md">
