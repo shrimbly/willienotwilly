@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import {
   ColorPickerFabV9,
@@ -10,18 +10,15 @@ import {
 } from "@/components/lab/color-picker-fab-v9";
 import { TuningPanelV9 as TuningPanel } from "@/components/lab/tuning-panel-v9";
 
-// --- Galaxy S24 mock device ----------------------------------------------
+// --- Galaxy S24 mock device (desktop only) ------------------------------
 // Galaxy S24's CSS viewport is roughly 360 × 780 (1080 × 2340 native at
-// 3× DPR). Drawing the mock at those CSS dimensions makes the picker's
-// FAB size (56), inset (41) etc. read as realistic mobile measurements.
+// 3× DPR); we render the mock slightly shorter (720) so it floats with
+// room to breathe inside the page.
 const DEVICE_SCREEN_W = 360;
 const DEVICE_SCREEN_H = 720;
-const DEVICE_BEZEL = 6; // thin Galaxy-style bezel
+const DEVICE_BEZEL = 6;
 const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
 const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
-// Padding between the page viewport edges and the device frame. The
-// picker's fabInset is shifted by this amount so the FAB still lands
-// FAB_INSET_FROM_SCREEN px from the device-screen edge inside the bezel.
 const DEVICE_PADDING = 24;
 const FAB_INSET_FROM_SCREEN = 41;
 const DEVICE_FRAME_BOTTOM = DEVICE_PADDING;
@@ -30,7 +27,7 @@ const DEVICE_SCREEN_BOTTOM = DEVICE_FRAME_BOTTOM + DEVICE_BEZEL;
 const DEVICE_SCREEN_RIGHT = DEVICE_FRAME_RIGHT + DEVICE_BEZEL;
 const FAB_VIEWPORT_INSET = DEVICE_SCREEN_BOTTOM + FAB_INSET_FROM_SCREEN;
 
-// --- Thumb cursor --------------------------------------------------------
+// --- Thumb cursor (desktop only) -----------------------------------------
 const THUMB_ASPECT = 354 / 360;
 const THUMB_FAB_MULTIPLE = 4.5;
 const THUMB_TIP_OFFSET_X = -0.19;
@@ -98,26 +95,12 @@ function ThumbCursor({
 
 type PickEvent = { color: string; id: number };
 
-// Origin point (in device-screen coords) the colour-wash wave should
-// expand from — anchored to the FAB's bottom-right corner so the wave
-// feels like it's emanating from where the user just released their
-// finger. Recomputed if the screen-relative FAB inset changes.
 const WAVE_ORIGIN_X = DEVICE_SCREEN_W - FAB_INSET_FROM_SCREEN;
 const WAVE_ORIGIN_Y = DEVICE_SCREEN_H - FAB_INSET_FROM_SCREEN;
-// Wave radius — at least the screen's diagonal so the colour fully
-// covers the device-screen by the end of the animation.
 const WAVE_RADIUS = Math.ceil(
   Math.hypot(DEVICE_SCREEN_W, DEVICE_SCREEN_H) * 1.05,
 );
 
-// --- Device frame: chrome + screen surface ------------------------------
-// Screen surface sits at z-0 so the picker's backdrop blur affects it
-// like the rest of the page; bezel ring sits at z-31 (above the picker's
-// z-30 backdrop) so the phone's chrome stays sharp during the wash.
-//
-// The screen starts solid white with the word "Willie" rendered in white
-// — invisible by design. Each committed colour pick washes a coloured
-// circle out from the FAB-corner, painting Willie against the new colour.
 function DeviceFrame({
   pickHistory,
   onWaveComplete,
@@ -233,20 +216,39 @@ function previewAnchor(c: Config, key: keyof Config) {
 
 const SETTLE_MS = 220;
 const POST_REPLAY_HOLD_MS = 1100;
+const DESC_TEXT =
+  "v8 with a Galaxy S24-sized mock on desktop, a life-size thumb cursor while the FAB is held, and a wave-reveal of the picked colour on the device screen.";
 
 export default function ColorPickerV9LabPage() {
-  // Override fabInset so the FAB lands FAB_INSET_FROM_SCREEN px from the
-  // device-screen edge (inside the bezel + page padding).
-  const [config, setConfig] = useState<Config>(() => ({
-    ...DEFAULT_CONFIG,
-    fabInset: FAB_VIEWPORT_INSET,
-  }));
+  // Base config: default FAB inset (41 px from viewport corner). On
+  // desktop we render the device mock and shift the FAB further inside
+  // the viewport via renderedConfig below.
+  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [control, setControl] = useState<PickerControl | null>(null);
   const [thumbEnabled, setThumbEnabled] = useState(true);
   const [pressed, setPressed] = useState(false);
   const [pickHistory, setPickHistory] = useState<PickEvent[]>([]);
+  const [latestPick, setLatestPick] = useState<PickEvent | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // On desktop we shift the FAB inside the device-screen edge; on mobile
+  // we use the default inset so the FAB sits at the viewport corner like
+  // earlier versions did. screenEdgeInset stays at the device-screen
+  // inset on desktop and falls back to fabInset on mobile.
+  const renderedConfig: Config = isMobile
+    ? config
+    : { ...config, fabInset: FAB_VIEWPORT_INSET };
 
   const clearReplayTimers = () => {
     replayTimers.current.forEach((id) => clearTimeout(id));
@@ -318,13 +320,17 @@ export default function ColorPickerV9LabPage() {
     }, SETTLE_MS);
   };
 
-  const handlePick = (color: string) => {
-    setPickHistory((h) => [...h, { color, id: Date.now() + Math.random() }]);
+  const handlePressedChange = (p: boolean) => {
+    setPressed(p);
+    if (p) setHasInteracted(true);
   };
 
-  // Once a wave completes, every pick before it is fully painted over and
-  // can be dropped from the stack. Leaves just the latest completed wave
-  // plus anything still mid-animation.
+  const handlePick = (color: string) => {
+    const ev = { color, id: Date.now() + Math.random() };
+    setLatestPick(ev);
+    setPickHistory((h) => [...h, ev]);
+  };
+
   const handleWaveComplete = (id: number) => {
     setPickHistory((h) => {
       const idx = h.findIndex((p) => p.id === id);
@@ -333,7 +339,42 @@ export default function ColorPickerV9LabPage() {
     });
   };
 
-  const showThumb = thumbEnabled && pressed;
+  const showThumb = !isMobile && thumbEnabled && pressed;
+
+  // Decide what to show in the description slot: hidden while pressing
+  // the FAB; once we have a pick, show "Oh, nice." in that colour;
+  // otherwise the default lab description.
+  let descSlot: React.ReactNode;
+  if (pressed) {
+    descSlot = null;
+  } else if (latestPick) {
+    descSlot = (
+      <motion.h2
+        key={`pick-${latestPick.id}`}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-3 select-none font-semibold tracking-tight"
+        style={{ fontSize: 44, lineHeight: 1.05, color: latestPick.color }}
+      >
+        Oh, nice.
+      </motion.h2>
+    );
+  } else {
+    descSlot = (
+      <motion.p
+        key="desc"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-3 text-sm leading-relaxed text-muted-foreground"
+      >
+        {DESC_TEXT}
+      </motion.p>
+    );
+  }
 
   return (
     <div
@@ -348,47 +389,71 @@ export default function ColorPickerV9LabPage() {
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">
           Radial color picker
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          v8 with a Galaxy S24-sized mock, a life-size thumb cursor that
-          appears while the FAB is held, and a wave-reveal of the picked
-          colour on the word &ldquo;Willie&rdquo; on the device screen.
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground/70">
-          Press and hold the FAB. Mouse position drives the thumb.
-        </p>
+        <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
       </div>
 
       <TuningPanel
         config={config}
         onChange={handleChange}
         onReset={() => {
-          setConfig({ ...DEFAULT_CONFIG, fabInset: FAB_VIEWPORT_INSET });
+          setConfig(DEFAULT_CONFIG);
           setControl(null);
           setPickHistory([]);
+          setLatestPick(null);
+          setHasInteracted(false);
           clearAll();
         }}
       />
 
-      <DeviceFrame
-        pickHistory={pickHistory}
-        onWaveComplete={handleWaveComplete}
-      />
+      {!isMobile && (
+        <DeviceFrame
+          pickHistory={pickHistory}
+          onWaveComplete={handleWaveComplete}
+        />
+      )}
 
       <ColorPickerFabV9
-        config={config}
+        config={renderedConfig}
         control={control}
-        onPressedChange={setPressed}
+        onPressedChange={handlePressedChange}
         onPick={handlePick}
-        screenEdgeInset={FAB_INSET_FROM_SCREEN}
+        screenEdgeInset={isMobile ? undefined : FAB_INSET_FROM_SCREEN}
       />
 
       {showThumb && (
-        <ThumbCursor fabSize={config.fabSize} fabInset={config.fabInset} />
+        <ThumbCursor
+          fabSize={renderedConfig.fabSize}
+          fabInset={renderedConfig.fabInset}
+        />
       )}
 
-      <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
-        Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
-      </div>
+      {/* "Press & hold" hint sits just above the FAB and only shows
+          until the user has touched it once. */}
+      <AnimatePresence>
+        {!hasInteracted && (
+          <motion.div
+            key="press-hint"
+            className="pointer-events-none fixed z-[60] select-none rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur"
+            style={{
+              bottom:
+                renderedConfig.fabInset + renderedConfig.fabSize + 14,
+              right: renderedConfig.fabInset,
+            }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Press &amp; hold
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!isMobile && (
+        <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
+          Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
+        </div>
+      )}
     </div>
   );
 }

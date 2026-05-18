@@ -1254,13 +1254,20 @@ export function ColorPickerFabV9({
                 return (
                   <motion.div
                     key={i}
-                    className="absolute rounded-full ring-1 ring-foreground/10 shadow-lg"
+                    className="absolute rounded-full shadow-lg"
                     style={{
                       width: swatchSize,
                       height: swatchSize,
                       background: s.color,
                       left: x - swatchSize / 2,
                       top: y - swatchSize / 2,
+                      // Match the indicator/marker treatment: thicker white
+                      // ring + faint dark outer halo while the swatch is
+                      // the active hover target, falling back to a thin
+                      // foreground hairline at rest.
+                      boxShadow: isActive
+                        ? "0 0 0 2.5px rgba(255,255,255,0.95), 0 0 0 3.5px rgba(0,0,0,0.20), 0 4px 14px rgba(0,0,0,0.18)"
+                        : "0 0 0 1px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.12)",
                     }}
                     initial={{ scale: 0.7, opacity: 0, x: 0, y: 0 }}
                     animate={{
