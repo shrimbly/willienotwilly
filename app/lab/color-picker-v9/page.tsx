@@ -224,12 +224,8 @@ function DeviceFrame({
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none font-semibold tracking-tight text-white"
-            style={{
-              fontSize: 76,
-              lineHeight: 1,
-              fontFamily: 'var(--font-geist-sans)',
-            }}
+            className="select-none font-sans font-semibold tracking-tight text-white"
+            style={{ fontSize: 76, lineHeight: 1 }}
           >
             Oh, nice.
           </h2>
@@ -579,11 +575,10 @@ export default function ColorPickerV9LabPage() {
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none whitespace-nowrap text-center font-semibold tracking-tight text-white"
+            className="select-none whitespace-nowrap text-center font-sans font-semibold tracking-tight text-white"
             style={{
               fontSize: "clamp(80px, 24vw, 112px)",
               lineHeight: 1,
-              fontFamily: 'var(--font-geist-sans)',
             }}
           >
             Oh, nice.
