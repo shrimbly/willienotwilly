@@ -41,12 +41,12 @@ export const DEFAULT_CONFIG: Config = {
   holdMs: 180,
   fabSize: 56,
   fabInset: 41,
-  swatchSize: 26,
-  arcRadius: 109,
-  ribbonInner: 133,
-  ribbonOuter: 162,
-  toneInner: 175,
-  toneOuter: 250,
+  swatchSize: 30,
+  arcRadius: 124,
+  ribbonInner: 154,
+  ribbonOuter: 184,
+  toneInner: 200,
+  toneOuter: 280,
   toneSpanDeg: 55,
   indicatorSize: 28,
   arcSpanDeg: 106,
@@ -763,6 +763,45 @@ export function ColorPickerFabV7({
     : null;
   const toneRibbonMarkerColor = `oklch(${ribbonL} ${ribbonC} ${lockedToneHue})`;
 
+  // Preview ribbon: small tangential arc-segment indicator that floats just
+  // outside whichever layer is currently active, so the live colour stays
+  // visible past the user's thumb / FAB. Radius moves outward as the gesture
+  // progresses: at swatch hover, just past where the ribbon will appear; on
+  // the ribbon (or in the tone arc), just past the tone UI.
+  const PREVIEW_ARC_GAP = 18;
+  const PREVIEW_ARC_THICKNESS = 12;
+  const PREVIEW_ARC_HALF_WIDTH_DEG = 22;
+  let previewArcAngleDeg: number | null = null;
+  let previewArcRadius = 0;
+  if (inToneArc) {
+    previewArcAngleDeg = toneStartDeg + tonePosAngular;
+    previewArcRadius = toneOuter + PREVIEW_ARC_GAP;
+  } else if (expanded && inRibbonArc) {
+    previewArcAngleDeg = ribbonStartDeg + ribbonPos;
+    previewArcRadius = toneOuter + PREVIEW_ARC_GAP;
+  } else if (!expanded && activeIdx >= 0) {
+    previewArcAngleDeg = swatchStartDeg + activeIdx * swatchStep;
+    previewArcRadius = ribbonOuter + PREVIEW_ARC_GAP;
+  }
+  const arcSegmentPath = (
+    originX: number,
+    originY: number,
+    r: number,
+    midDeg: number,
+    halfWidthDeg: number,
+  ) => {
+    const startDeg = midDeg - halfWidthDeg;
+    const endDeg = midDeg + halfWidthDeg;
+    const sRad = (startDeg * Math.PI) / 180;
+    const eRad = (endDeg * Math.PI) / 180;
+    const sx = originX + r * Math.cos(sRad);
+    const sy = originY + r * Math.sin(sRad);
+    const ex = originX + r * Math.cos(eRad);
+    const ey = originY + r * Math.sin(eRad);
+    const large = halfWidthDeg * 2 > 180 ? 1 : 0;
+    return `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+  };
+
   const fabBackground =
     previewColor ??
     picked ??
@@ -1103,6 +1142,53 @@ export function ColorPickerFabV7({
                     exit={{ scale: 0.6, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 480, damping: 30 }}
                   />
+                )}
+              </AnimatePresence>
+
+              {/* Preview ribbon: floating arc-segment colour preview that
+                  sits just outside whichever layer is active, so the live
+                  colour stays visible past the user's thumb. */}
+              <AnimatePresence>
+                {previewColor && previewArcAngleDeg !== null && (
+                  <motion.svg
+                    key="preview-ribbon"
+                    className="absolute pointer-events-none"
+                    style={{ inset: 0, overflow: "visible" }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: SOFT_EASE }}
+                  >
+                    <path
+                      d={arcSegmentPath(
+                        cx,
+                        cy,
+                        previewArcRadius,
+                        previewArcAngleDeg,
+                        PREVIEW_ARC_HALF_WIDTH_DEG,
+                      )}
+                      stroke="rgba(255,255,255,0.95)"
+                      strokeWidth={PREVIEW_ARC_THICKNESS + 3}
+                      strokeLinecap="round"
+                      fill="none"
+                      style={{
+                        filter: "drop-shadow(0 4px 14px rgba(0,0,0,0.25))",
+                      }}
+                    />
+                    <path
+                      d={arcSegmentPath(
+                        cx,
+                        cy,
+                        previewArcRadius,
+                        previewArcAngleDeg,
+                        PREVIEW_ARC_HALF_WIDTH_DEG,
+                      )}
+                      stroke={previewColor}
+                      strokeWidth={PREVIEW_ARC_THICKNESS}
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                  </motion.svg>
                 )}
               </AnimatePresence>
             </motion.div>
