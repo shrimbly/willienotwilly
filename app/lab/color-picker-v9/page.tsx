@@ -20,8 +20,19 @@ const THUMB_FAB_MULTIPLE = 4.5;
 // fingertip — not the corner of the artwork — sits at the cursor.
 const THUMB_TIP_OFFSET_X = -0.16;
 const THUMB_TIP_OFFSET_Y = -0.13;
+// Picker center for rotation (math angle, default picker fans up-left
+// from the FAB) and the angular range the rotation maps across.
+const PICKER_CENTER_DEG = 225;
+const PICKER_HALF_SPAN_DEG = 53; // matches DEFAULT_CONFIG.arcSpanDeg / 2
+const THUMB_MAX_ROTATION_DEG = 30;
 
-function ThumbCursor({ fabSize }: { fabSize: number }) {
+function ThumbCursor({
+  fabSize,
+  fabInset,
+}: {
+  fabSize: number;
+  fabInset: number;
+}) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const handler = (e: PointerEvent) => {
@@ -38,6 +49,23 @@ function ThumbCursor({ fabSize }: { fabSize: number }) {
   if (!pos) return null;
   const width = fabSize * THUMB_FAB_MULTIPLE;
   const height = width * THUMB_ASPECT;
+  // Compute rotation: angle of the cursor from the FAB's bottom-right
+  // corner. Pointer near the picker's lower end (math ~172°) rotates
+  // CCW; near the upper end (math ~278°) rotates CW. Clamped to
+  // ±THUMB_MAX_ROTATION_DEG so the wrist twist stays believable.
+  let rotation = 0;
+  if (typeof window !== "undefined") {
+    const fabCornerX = window.innerWidth - fabInset;
+    const fabCornerY = window.innerHeight - fabInset;
+    const angleRad = Math.atan2(pos.y - fabCornerY, pos.x - fabCornerX);
+    const angleDeg = ((angleRad * 180) / Math.PI + 360) % 360;
+    let offset = ((angleDeg - PICKER_CENTER_DEG + 540) % 360) - 180;
+    offset = Math.max(
+      -PICKER_HALF_SPAN_DEG,
+      Math.min(PICKER_HALF_SPAN_DEG, offset),
+    );
+    rotation = (offset / PICKER_HALF_SPAN_DEG) * THUMB_MAX_ROTATION_DEG;
+  }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -52,6 +80,9 @@ function ThumbCursor({ fabSize }: { fabSize: number }) {
         // tip-offset constants so the actual fingertip sits at the cursor.
         left: pos.x + width * THUMB_TIP_OFFSET_X,
         top: pos.y + height * THUMB_TIP_OFFSET_Y,
+        transform: `rotate(${rotation.toFixed(2)}deg)`,
+        transformOrigin: `${-width * THUMB_TIP_OFFSET_X}px ${-height * THUMB_TIP_OFFSET_Y}px`,
+        transition: "transform 120ms ease-out",
         filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
       }}
     />
@@ -94,6 +125,7 @@ const POST_REPLAY_HOLD_MS = 1100;
 export default function ColorPickerV9LabPage() {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [control, setControl] = useState<PickerControl | null>(null);
+  const [thumbEnabled, setThumbEnabled] = useState(true);
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
 
@@ -111,6 +143,26 @@ export default function ColorPickerV9LabPage() {
   };
 
   useEffect(() => clearAll, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Ignore the toggle while typing in an input/textarea.
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "t" || e.key === "T") {
+        setThumbEnabled((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const runReplay = (c: Config, key: keyof Config) => {
     clearReplayTimers();
@@ -149,7 +201,11 @@ export default function ColorPickerV9LabPage() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 [&_*]:cursor-none">
+    <div
+      className={`relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 ${
+        thumbEnabled ? "[&_*]:cursor-none" : ""
+      }`}
+    >
       <div className="mx-auto max-w-md px-6 pb-32 pt-28">
         <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
           Lab · v9
@@ -181,7 +237,13 @@ export default function ColorPickerV9LabPage() {
 
       <ColorPickerFabV9 config={config} control={control} />
 
-      <ThumbCursor fabSize={config.fabSize} />
+      {thumbEnabled && (
+        <ThumbCursor fabSize={config.fabSize} fabInset={config.fabInset} />
+      )}
+
+      <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
+        Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
+      </div>
     </div>
   );
 }
