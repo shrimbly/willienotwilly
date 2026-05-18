@@ -224,12 +224,8 @@ function DeviceFrame({
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none font-semibold tracking-tight text-white"
-            style={{
-              fontSize: 76,
-              lineHeight: 1,
-              fontFamily: 'Helvetica, Arial, sans-serif',
-            }}
+            className="select-none font-sans font-semibold tracking-tight text-white"
+            style={{ fontSize: 76, lineHeight: 1 }}
           >
             Oh, nice.
           </h2>
@@ -550,6 +546,37 @@ export default function ColorPickerV9LabPage() {
                       </motion.button>
                     </div>
                   )}
+                  {!isMobile && (
+                    <div className="mt-10 hidden font-sans lg:block">
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Type sample · Geist
+                      </p>
+                      <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+                        H1 — The quick brown fox, jumps.
+                      </h1>
+                      <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                        H2 — The quick brown fox, jumps.
+                      </h2>
+                      <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+                        H3 — The quick brown fox, jumps.
+                      </h3>
+                      <h4 className="mt-2 text-xl font-semibold tracking-tight">
+                        H4 — The quick brown fox, jumps.
+                      </h4>
+                      <h5 className="mt-2 text-lg font-semibold tracking-tight">
+                        H5 — The quick brown fox, jumps.
+                      </h5>
+                      <h6 className="mt-2 text-base font-semibold tracking-tight">
+                        H6 — The quick brown fox, jumps.
+                      </h6>
+                      <p className="mt-3 text-base leading-relaxed">
+                        Body — The quick brown fox, jumps over the lazy dog.
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        Small — The quick brown fox, jumps over the lazy dog.
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -579,11 +606,10 @@ export default function ColorPickerV9LabPage() {
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none whitespace-nowrap text-center font-semibold tracking-tight text-white"
+            className="select-none whitespace-nowrap text-center font-sans font-semibold tracking-tight text-white"
             style={{
               fontSize: "clamp(80px, 24vw, 112px)",
               lineHeight: 1,
-              fontFamily: 'Helvetica, Arial, sans-serif',
             }}
           >
             Oh, nice.
