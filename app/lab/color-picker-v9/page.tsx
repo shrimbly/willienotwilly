@@ -502,34 +502,48 @@ export default function ColorPickerV9LabPage() {
                   </p>
                   {!isMobile && (
                     <div className="mt-6 hidden lg:block">
-                      <Button
-                        variant="secondary"
-                        size="sm"
+                      <motion.button
+                        type="button"
                         onClick={() => setShowQr((v) => !v)}
                         aria-expanded={showQr}
+                        layout
+                        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                        className="flex flex-col items-stretch overflow-hidden rounded-md bg-secondary text-left text-secondary-foreground shadow-xs outline-none transition-colors hover:bg-secondary/80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
-                        <QrCode />
-                        Show QR to try on mobile
-                      </Button>
-                      <AnimatePresence>
-                        {showQr && pageUrl && (
-                          <motion.div
-                            key="qr-popover"
-                            initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                            className="mt-4 inline-flex flex-col items-center gap-2 rounded-xl border border-foreground/10 bg-background/90 p-4 shadow-lg backdrop-blur"
-                          >
-                            <div className="rounded-md bg-white p-3">
-                              <QRCodeSVG value={pageUrl} size={160} level="M" />
-                            </div>
-                            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                              Scan to open on your phone
-                            </span>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                        <motion.span
+                          layout="position"
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium"
+                        >
+                          <QrCode className="size-4" />
+                          Try it on mobile
+                        </motion.span>
+                        <AnimatePresence initial={false}>
+                          {showQr && pageUrl && (
+                            <motion.div
+                              key="qr-inner"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{
+                                duration: 0.24,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="flex flex-col items-center gap-2 px-3 pb-3"
+                            >
+                              <div className="rounded-md bg-white p-3">
+                                <QRCodeSVG
+                                  value={pageUrl}
+                                  size={160}
+                                  level="M"
+                                />
+                              </div>
+                              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                                Scan to open on your phone
+                              </span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
                     </div>
                   )}
                 </motion.div>
