@@ -269,7 +269,10 @@ export function ColorPickerFabV8({
   const toneSpan = toneSpanDeg;
   const toneMid = (toneInner + toneOuter) / 2;
   const toneLocalC = toneOuter;
-  const toneEnterThreshold = ribbonOuter + 12;
+  // Once the thumb is fully across the ribbon band, pop the tone UI in and
+  // let the ribbon snap back to its resting scale (same hand-off pattern as
+  // swatches → ribbon).
+  const toneEnterThreshold = ribbonOuter - 4;
   const polarTone = (r: number, deg: number) => {
     const rad = (deg * Math.PI) / 180;
     return {
@@ -611,7 +614,7 @@ export function ColorPickerFabV8({
   // so each swatch/ribbon segment glides outward to meet the thumb.
   const SWATCH_LIFT_MAX = 14;
   const RIBBON_LIFT_MAX = 12;
-  const RIBBON_THICKEN_MAX = 0.06; // scale factor on top of lift
+  const RIBBON_THICKEN_MAX = 0.12; // scale factor on top of lift
   // How close to the swatch ring the thumb has to be before swatches start
   // lifting. Lifts fully when the thumb is at or past the swatch ring. Once
   // the user crosses into the next layer (expanded), the lift releases so
