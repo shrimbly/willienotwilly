@@ -366,7 +366,7 @@ function useColorFormats(color: string | null) {
 function ColorChip({ color }: { color: string }) {
   const formats = useColorFormats(color);
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState<"hex" | "rgb" | null>(null);
+  const [copied, setCopied] = useState<"oklch" | "hex" | "rgb" | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -379,8 +379,13 @@ function ColorChip({ color }: { color: string }) {
     return () => window.removeEventListener("pointerdown", onDocClick);
   }, [open]);
 
-  const handleCopy = async (kind: "hex" | "rgb") => {
-    const text = kind === "hex" ? formats.hex : formats.rgb;
+  const handleCopy = async (kind: "oklch" | "hex" | "rgb") => {
+    const text =
+      kind === "oklch"
+        ? formats.oklch
+        : kind === "hex"
+          ? formats.hex
+          : formats.rgb;
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -414,6 +419,20 @@ function ColorChip({ color }: { color: string }) {
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             className="absolute left-1/2 top-full z-10 mt-2 flex w-max -translate-x-1/2 flex-col gap-1 rounded-md bg-black/40 p-1 text-[11px] text-white shadow-xl ring-1 ring-white/15 backdrop-blur-md"
           >
+            <button
+              type="button"
+              onClick={() => handleCopy("oklch")}
+              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
+            >
+              {copied === "oklch" ? (
+                <Check className="size-3" />
+              ) : (
+                <Copy className="size-3" />
+              )}
+              <span>
+                {copied === "oklch" ? "Copied" : `Copy OKLCH · ${formats.oklch}`}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() => handleCopy("hex")}
