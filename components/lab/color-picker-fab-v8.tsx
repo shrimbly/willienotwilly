@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG: Config = {
   arcSpanDeg: 106,
   swatchSpanDeg: 90,
   arcRotationDeg: 0,
-  expandPad: 10,
+  expandPad: -8,
   ribbonL: 0.7,
   ribbonC: 0.18,
   openDurationMs: 360,
