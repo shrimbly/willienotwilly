@@ -169,10 +169,12 @@ function DeviceFrame({
   pickHistory,
   onWaveComplete,
   rightInset,
+  message,
 }: {
   pickHistory: PickEvent[];
   onWaveComplete: (id: number) => void;
   rightInset: number;
+  message: string;
 }) {
   return (
     <>
@@ -224,10 +226,10 @@ function DeviceFrame({
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none font-sans font-semibold tracking-tight text-white"
+            className="select-none text-balance text-center font-sans font-semibold tracking-tight text-white"
             style={{ fontSize: 76, lineHeight: 1 }}
           >
-            Oh, nice.
+            {message}
           </h2>
         </div>
       </div>
@@ -285,6 +287,19 @@ const POST_REPLAY_HOLD_MS = 1100;
 const DESC_TEXT =
   "Polished interactions, refined spacing and animations. On desktop the picker lives inside a Galaxy S24-sized mock with a life-size cursor (yes, that's a photo of my actual thumb) so you can see exactly what gets covered by a real finger.";
 
+const PICK_MESSAGES = [
+  "Oh, nice.",
+  "Mmm, yes.",
+  "Tasty.",
+  "I like.",
+  "Wowee.",
+  "Uh, ok!",
+  "Here for it.",
+  "Large.",
+  "In charge.",
+  "How neat.",
+];
+
 export default function ColorPickerV9LabPage() {
   // Base config: default FAB inset (41 px from viewport corner). On
   // desktop we render the device mock and shift the FAB further inside
@@ -295,6 +310,7 @@ export default function ColorPickerV9LabPage() {
   const [pressed, setPressed] = useState(false);
   const [pickHistory, setPickHistory] = useState<PickEvent[]>([]);
   const [latestPick, setLatestPick] = useState<PickEvent | null>(null);
+  const [pickCount, setPickCount] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
@@ -427,7 +443,13 @@ export default function ColorPickerV9LabPage() {
     const ev = { color, id: Date.now() + Math.random() };
     setLatestPick(ev);
     setPickHistory((h) => [...h, ev]);
+    setPickCount((n) => n + 1);
   };
+
+  const pickMessage =
+    pickCount > 0
+      ? PICK_MESSAGES[(pickCount - 1) % PICK_MESSAGES.length]
+      : PICK_MESSAGES[0];
 
   const handleWaveComplete = (id: number) => {
     setPickHistory((h) => {
@@ -575,13 +597,13 @@ export default function ColorPickerV9LabPage() {
           style={{ paddingTop: 180 }}
         >
           <h2
-            className="select-none whitespace-nowrap text-center font-sans font-semibold tracking-tight text-white"
+            className="select-none text-balance text-center font-sans font-semibold tracking-tight text-white"
             style={{
               fontSize: "clamp(64px, 20vw, 112px)",
               lineHeight: 1,
             }}
           >
-            Oh, nice.
+            {pickMessage}
           </h2>
         </div>
       )}
@@ -594,6 +616,7 @@ export default function ColorPickerV9LabPage() {
           setControl(null);
           setPickHistory([]);
           setLatestPick(null);
+          setPickCount(0);
           setHasInteracted(false);
           clearAll();
         }}
@@ -604,6 +627,7 @@ export default function ColorPickerV9LabPage() {
           pickHistory={pickHistory}
           onWaveComplete={handleWaveComplete}
           rightInset={desktopRightInset}
+          message={pickMessage}
         />
       )}
 
