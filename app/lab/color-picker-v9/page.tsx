@@ -33,8 +33,8 @@ const FAB_VIEWPORT_INSET = DEVICE_SCREEN_BOTTOM + FAB_INSET_FROM_SCREEN;
 // --- Thumb cursor --------------------------------------------------------
 const THUMB_ASPECT = 354 / 360;
 const THUMB_FAB_MULTIPLE = 4.5;
-const THUMB_TIP_OFFSET_X = -0.22;
-const THUMB_TIP_OFFSET_Y = -0.19;
+const THUMB_TIP_OFFSET_X = -0.19;
+const THUMB_TIP_OFFSET_Y = -0.16;
 const PICKER_CENTER_DEG = 225;
 const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
