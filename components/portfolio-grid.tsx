@@ -140,7 +140,7 @@ export function PortfolioGrid({ projects }: { projects: Project[] }) {
   return (
     <div className="flex flex-col gap-8 sm:gap-12">
       <BlurFade delay={80} duration={600}>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
+        <div className="flex flex-wrap gap-1.5 sm:gap-3">
           {categoryFilters.map((f) => {
             const active = filter === f.value;
             return (
@@ -150,9 +150,9 @@ export function PortfolioGrid({ projects }: { projects: Project[] }) {
                 onClick={() => setFilter(f.value)}
                 aria-pressed={active}
                 className={
-                  "relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border px-5 py-2.5 text-sm font-medium transition-[color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] " +
+                  "relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border px-3 py-2 text-sm font-medium transition-[color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-2.5 " +
                   "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-700 before:ease-[cubic-bezier(0.22,1,0.36,1)] " +
-                  (f.value === "all" ? "mr-3 sm:mr-5 " : "") +
+                  (f.value === "all" ? "mr-1.5 sm:mr-5 " : "") +
                   (active
                     ? "border-foreground bg-foreground text-background before:opacity-100 before:blur-none"
                     : "border-border bg-card text-foreground hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none")
