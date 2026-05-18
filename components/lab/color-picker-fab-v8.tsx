@@ -608,17 +608,18 @@ export function ColorPickerFabV8({
   const inArc = inSwatchArc || inRibbonArc || inToneArc;
   const expanded = inArc && dist > expandThreshold;
 
-  // --- v8 touch-lift: as the thumb approaches a layer, push it slightly out
-  // from under the finger so the user can see what they're selecting. The
-  // amount ramps with the pointer's radial position within the layer's band,
-  // so each swatch/ribbon segment glides outward to meet the thumb.
+  // --- v8 touch-lift: each layer moves to make room for the layer above it
+  // as the user progresses through the gesture.
+  //  • Approach: the layer ramps OUT from under the thumb as the thumb
+  //    closes in on it (swatch lift / ribbon pop).
+  //  • Hand-off: once the user passes into the next layer, the previous
+  //    layer recedes INWARD (closer to the FAB) to clear the working area,
+  //    and the next layer pops outward to show what's being selected.
   const SWATCH_LIFT_MAX = 14;
-  const RIBBON_LIFT_MAX = 12;
-  const RIBBON_THICKEN_MAX = 0.12; // scale factor on top of lift
-  // How close to the swatch ring the thumb has to be before swatches start
-  // lifting. Lifts fully when the thumb is at or past the swatch ring. Once
-  // the user crosses into the next layer (expanded), the lift releases so
-  // the swatches spring back to their resting position.
+  const SWATCH_RECEDE = -12; // inward shift once the user is past the swatches
+  const RIBBON_THICKEN_MAX = 0.12; // scale boost while ribbon is under thumb
+  const RIBBON_RECEDE_SCALE = 0.9; // shrink/pull ribbon in once tone is active
+  const TONE_LIFT_SCALE = 1.12; // pop the tone UI out so it's not under thumb
   const overSwatches = !expanded && inSwatchArc && dist > fabR + 8;
   const swatchLiftT = overSwatches
     ? Math.max(
@@ -626,7 +627,13 @@ export function ColorPickerFabV8({
         Math.min(1, (dist - (fabR + 8)) / Math.max(1, arcRadius - (fabR + 8))),
       )
     : 0;
-  const swatchLift = swatchLiftT * SWATCH_LIFT_MAX;
+  let swatchOffset = 0;
+  if (overSwatches) {
+    swatchOffset = swatchLiftT * SWATCH_LIFT_MAX;
+  } else if (expanded) {
+    swatchOffset = SWATCH_RECEDE;
+  }
+  const swatchLift = swatchOffset;
   const overRibbon = expanded && inRibbonArc && !inToneArc;
   const ribbonLiftT = overRibbon
     ? Math.max(
@@ -637,8 +644,13 @@ export function ColorPickerFabV8({
         ),
       )
     : 0;
-  const ribbonScale = 1 + ribbonLiftT * RIBBON_THICKEN_MAX;
-  const ribbonExtraLift = ribbonLiftT * RIBBON_LIFT_MAX;
+  let ribbonScale = 1;
+  if (inToneArc) {
+    ribbonScale = RIBBON_RECEDE_SCALE;
+  } else if (overRibbon) {
+    ribbonScale = 1 + ribbonLiftT * RIBBON_THICKEN_MAX;
+  }
+  const toneScale = inToneArc ? TONE_LIFT_SCALE : 1;
 
   // Each swatch's colour is derived from the ribbon hue at its angular
   // position, so the swatch and the ribbon segment directly outside it always
@@ -782,11 +794,18 @@ export function ColorPickerFabV8({
   const ribbonIndicatorPos =
     expanded && !inToneArc ? polar(cx, cy, ribbonMid, indicatorDeg) : null;
   // Tone indicator follows the pointer freely inside the tone band (clamped).
+  // The visual position scales out with the tone UI so the indicator lands
+  // on the *visible* (scaled) tone surface rather than under the user's
+  // thumb at the un-scaled position.
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
         cy,
-        Math.max(toneInner + indicatorSize / 2, Math.min(toneOuter - indicatorSize / 2, dist)),
+        toneScale *
+          Math.max(
+            toneInner + indicatorSize / 2,
+            Math.min(toneOuter - indicatorSize / 2, dist),
+          ),
         toneStartDeg + tonePosAngular,
       )
     : null;
@@ -804,7 +823,7 @@ export function ColorPickerFabV8({
           toneInner + toneRibbonMarkerSize / 2,
           Math.min(toneOuter - toneRibbonMarkerSize / 2, r),
         );
-        return polar(cx, cy, rClamped, angleDeg);
+        return polar(cx, cy, rClamped * toneScale, angleDeg);
       })()
     : null;
   const toneRibbonMarkerColor = `oklch(${ribbonL} ${ribbonC} ${lockedToneHue})`;
@@ -824,24 +843,14 @@ export function ColorPickerFabV8({
   // ends never reach into the off-screen territory below the FAB / past
   // the right edge — even on small mobile viewports.
   const PREVIEW_ARC_EDGE_MARGIN_DEG = 10;
-  // When the thumb gets close to the tone arc's outer edge it covers the
-  // preview ribbon. Push the preview further out the closer the thumb
-  // gets to the outer rim, up to this many extra pixels at the rim.
-  const PREVIEW_ARC_THUMB_LIFT = 28;
   let previewArcAngleDeg: number | null = null;
   let previewArcRadius = 0;
   if (inToneArc) {
     previewArcAngleDeg =
       lockedPreviewArcAngleRef.current ?? toneStartDeg + tonePosAngular;
-    const thumbRadialT = Math.max(
-      0,
-      Math.min(
-        1,
-        (dist - toneInner) / Math.max(1, toneOuter - toneInner),
-      ),
-    );
-    previewArcRadius =
-      toneOuter + PREVIEW_ARC_GAP + thumbRadialT * PREVIEW_ARC_THUMB_LIFT;
+    // Sit just outside the *scaled* tone outer edge — the tone UI itself
+    // now does the work of lifting out from under the thumb.
+    previewArcRadius = toneOuter * toneScale + PREVIEW_ARC_GAP;
   } else if (expanded && inRibbonArc) {
     previewArcAngleDeg = ribbonStartDeg + ribbonPos;
     previewArcRadius = toneOuter + PREVIEW_ARC_GAP;
@@ -1029,9 +1038,12 @@ export function ColorPickerFabV8({
                       filter: "drop-shadow(0 6px 22px rgba(0,0,0,0.22))",
                     }}
                     initial={{ scale: 0.94, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
+                    animate={{ scale: toneScale, opacity: 1 }}
                     exit={{ scale: 0.94, opacity: 0 }}
-                    transition={{ duration: openSec * 0.9, ease: SOFT_EASE }}
+                    transition={{
+                      scale: { type: "spring", stiffness: 320, damping: 28 },
+                      opacity: { duration: openSec * 0.6, ease: SOFT_EASE },
+                    }}
                   >
                     <div
                       className="absolute inset-0"
