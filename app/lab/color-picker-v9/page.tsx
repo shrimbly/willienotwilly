@@ -290,9 +290,7 @@ const DESC_TEXT =
 const PICK_MESSAGES = [
   "Oh, nice.",
   "Mmm, yes.",
-  "Tasty.",
   "I like.",
-  "Wowee.",
   "Uh, ok!",
   "Here for it.",
   "Large.",
