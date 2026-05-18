@@ -18,8 +18,8 @@ const THUMB_FAB_MULTIPLE = 3.0;
 // Fine-tune where the thumb tip lives within the PNG (as fractions of the
 // rendered width/height). Negative shifts the image up/left so the actual
 // fingertip — not the corner of the artwork — sits at the cursor.
-const THUMB_TIP_OFFSET_X = -0.08;
-const THUMB_TIP_OFFSET_Y = -0.06;
+const THUMB_TIP_OFFSET_X = -0.16;
+const THUMB_TIP_OFFSET_Y = -0.13;
 
 function ThumbCursor({ fabSize }: { fabSize: number }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
