@@ -283,7 +283,7 @@ function previewAnchor(c: Config, key: keyof Config) {
 const SETTLE_MS = 220;
 const POST_REPLAY_HOLD_MS = 1100;
 const DESC_TEXT =
-  "Polished interactions, refined spacing, and richer animations. On desktop the picker lives inside a Galaxy S24-sized mock with a life-size cursor (yes, that's a photo of my actual thumb) so you can see exactly what gets covered by a real finger.";
+  "Polished interactions, refined spacing and animations. On desktop the picker lives inside a Galaxy S24-sized mock with a life-size cursor (yes, that's a photo of my actual thumb) so you can see exactly what gets covered by a real finger.";
 
 export default function ColorPickerV9LabPage() {
   // Base config: default FAB inset (41 px from viewport corner). On
