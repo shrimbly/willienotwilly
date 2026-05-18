@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Radial color picker",
     entries: [
       {
+        slug: "color-picker-v8",
+        version: "v8",
+        title: "Improved touch-interaction visibility",
+        note: "Swatches drift outward as the thumb approaches; ribbon thickens and lifts while it's under the thumb — so the layer you're aiming at never hides under your finger.",
+      },
+      {
         slug: "color-picker-v7",
         version: "v7",
         title: "Third layer: tone plane (L × C)",
