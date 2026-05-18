@@ -231,6 +231,7 @@ export default function ColorPickerV9LabPage() {
   const [latestPick, setLatestPick] = useState<PickEvent | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [vp, setVp] = useState({ w: 0, h: 0 });
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
 
@@ -239,7 +240,14 @@ export default function ColorPickerV9LabPage() {
     setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    const onResize = () =>
+      setVp({ w: window.innerWidth, h: window.innerHeight });
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => {
+      mq.removeEventListener("change", handler);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   // On desktop we shift the FAB inside the device-screen edge; on mobile
@@ -341,40 +349,32 @@ export default function ColorPickerV9LabPage() {
 
   const showThumb = !isMobile && thumbEnabled && pressed;
 
-  // Decide what to show in the description slot: hidden while pressing
-  // the FAB; once we have a pick, show "Oh, nice." in that colour;
-  // otherwise the default lab description.
-  let descSlot: React.ReactNode;
-  if (pressed) {
-    descSlot = null;
-  } else if (latestPick) {
-    descSlot = (
-      <motion.h2
-        key={`pick-${latestPick.id}`}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-3 select-none font-semibold tracking-tight"
-        style={{ fontSize: 44, lineHeight: 1.05, color: latestPick.color }}
-      >
-        Oh, nice.
-      </motion.h2>
-    );
-  } else {
-    descSlot = (
-      <motion.p
-        key="desc"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-3 text-sm leading-relaxed text-muted-foreground"
-      >
-        {DESC_TEXT}
-      </motion.p>
-    );
-  }
+  // The description hides while the FAB is being pressed and otherwise
+  // shows the default lab description. On mobile, once a colour has
+  // been picked the entire page header is hidden (handled below) so
+  // the description doesn't need a "picked" variant of its own.
+  const descSlot: React.ReactNode = pressed ? null : (
+    <motion.p
+      key="desc"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      className="mt-3 text-sm leading-relaxed text-muted-foreground"
+    >
+      {DESC_TEXT}
+    </motion.p>
+  );
+
+  // Once the user has picked at least one colour on mobile, we hide
+  // every text element on the page and replace the gradient background
+  // with a wave-revealed coloured surface plus a white "Oh, nice." sat
+  // dead-centre on top of it.
+  const mobilePickActive = isMobile && latestPick !== null;
+  const mobileWaveRadius =
+    vp.w > 0 ? Math.ceil(Math.hypot(vp.w, vp.h) * 1.1) : 1500;
+  const mobileWaveOriginX = vp.w - renderedConfig.fabInset;
+  const mobileWaveOriginY = vp.h - renderedConfig.fabInset;
 
   return (
     <div
@@ -382,15 +382,52 @@ export default function ColorPickerV9LabPage() {
         showThumb ? "[&_*]:cursor-none" : ""
       }`}
     >
-      <div className="mx-auto max-w-md px-6 pb-32 pt-28">
-        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          Lab · v9
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-          Radial color picker
-        </h1>
-        <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
-      </div>
+      {mobilePickActive && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-0 select-none overflow-hidden"
+          style={{ background: "#ffffff" }}
+        >
+          {pickHistory.map((p) => (
+            <motion.div
+              key={p.id}
+              className="absolute inset-0"
+              style={{ background: p.color, willChange: "clip-path" }}
+              initial={{
+                clipPath: `circle(0px at ${mobileWaveOriginX}px ${mobileWaveOriginY}px)`,
+              }}
+              animate={{
+                clipPath: `circle(${mobileWaveRadius}px at ${mobileWaveOriginX}px ${mobileWaveOriginY}px)`,
+              }}
+              transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+              onAnimationComplete={() => handleWaveComplete(p.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!mobilePickActive && (
+        <div className="mx-auto max-w-md px-6 pb-32 pt-28">
+          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            Lab · v9
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+            Radial color picker
+          </h1>
+          <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
+        </div>
+      )}
+
+      {mobilePickActive && (
+        <div className="pointer-events-none fixed inset-0 z-10 flex items-center justify-center px-6">
+          <h2
+            className="select-none text-center font-semibold tracking-tight text-white"
+            style={{ fontSize: 72, lineHeight: 1.02 }}
+          >
+            Oh, nice.
+          </h2>
+        </div>
+      )}
 
       <TuningPanel
         config={config}
