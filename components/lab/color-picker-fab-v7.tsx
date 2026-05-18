@@ -378,6 +378,10 @@ export function ColorPickerFabV7({
   // so the plane appears centred on whatever direction the user dragged from.
   const lockedToneCenterRef = useRef<number | null>(null);
   const lockedToneHueRef = useRef<number | null>(null);
+  // Lock the preview ribbon's angular position to where the pointer was on
+  // the ribbon at the moment the user crossed into the tone band. The tone
+  // arc is fixed at its entry angle, so the preview should be too.
+  const lockedPreviewArcAngleRef = useRef<number | null>(null);
   const wasInToneRef = useRef(false);
   // Compute ribbon hue at the pointer angle (used to lock the tone hue, even
   // when the pointer is already past the ribbon radially).
@@ -390,6 +394,7 @@ export function ColorPickerFabV7({
     if (!wasInToneRef.current) {
       lockedToneCenterRef.current = pointerDeg;
       lockedToneHueRef.current = ribbonHueAtPointer;
+      lockedPreviewArcAngleRef.current = ribbonStartDeg + ribbonPos;
       wasInToneRef.current = true;
     }
   } else {
@@ -397,6 +402,7 @@ export function ColorPickerFabV7({
     if (!effOpen) {
       lockedToneCenterRef.current = null;
       lockedToneHueRef.current = null;
+      lockedPreviewArcAngleRef.current = null;
     }
   }
   // Clamp the tone arc's centre so its angular range never extends past the
@@ -777,7 +783,8 @@ export function ColorPickerFabV7({
   let previewArcAngleDeg: number | null = null;
   let previewArcRadius = 0;
   if (inToneArc) {
-    previewArcAngleDeg = toneStartDeg + tonePosAngular;
+    previewArcAngleDeg =
+      lockedPreviewArcAngleRef.current ?? toneStartDeg + tonePosAngular;
     previewArcRadius = toneOuter + PREVIEW_ARC_GAP;
   } else if (expanded && inRibbonArc) {
     previewArcAngleDeg = ribbonStartDeg + ribbonPos;
