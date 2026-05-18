@@ -94,8 +94,8 @@ function ProjectCard({ project }: { project: Project }) {
               aria-hidden="true"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 opacity-0 translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 sm:p-6">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0 opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100" />
+          <div className="absolute inset-x-0 bottom-0 flex translate-y-0 items-end justify-between gap-4 p-5 opacity-100 transition-all duration-300 sm:translate-y-1 sm:p-6 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
             <div className="flex flex-col gap-1">
               <h2 className="text-xl font-medium tracking-tight text-white sm:text-2xl">
                 {project.title}
