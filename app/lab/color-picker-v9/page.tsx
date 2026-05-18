@@ -35,11 +35,13 @@ const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
 
 function ThumbCursor({
+  visible,
   fabSize,
   fabBottom,
   fabRight,
   clipRect,
 }: {
+  visible: boolean;
   fabSize: number;
   fabBottom: number;
   fabRight: number;
@@ -58,19 +60,18 @@ function ThumbCursor({
     const handler = (e: PointerEvent) => {
       setPos({ x: e.clientX, y: e.clientY });
     };
-    const clear = () => setPos(null);
-    // Listen to pointerdown too so the thumb image appears the instant
-    // the user presses (without waiting for the next pointermove).
+    // Track pointer position globally so the thumb has a ready position
+    // the moment `visible` flips on — otherwise we'd have to wait for
+    // the next pointer event, which makes the thumb appear to lag the
+    // FAB press.
     window.addEventListener("pointermove", handler);
     window.addEventListener("pointerdown", handler);
-    window.addEventListener("pointerleave", clear);
     return () => {
       window.removeEventListener("pointermove", handler);
       window.removeEventListener("pointerdown", handler);
-      window.removeEventListener("pointerleave", clear);
     };
   }, []);
-  if (!pos) return null;
+  if (!visible || !pos) return null;
   const width = fabSize * THUMB_FAB_MULTIPLE;
   const height = width * THUMB_ASPECT;
   let rotation = 0;
@@ -494,7 +495,7 @@ export default function ColorPickerV9LabPage() {
               )}
             </AnimatePresence>
             {!isMobile && (
-              <div className="hidden lg:mt-auto lg:flex lg:pb-6">
+              <div className="hidden lg:mt-auto lg:flex lg:pb-2">
                 <span className="pointer-events-none select-none rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
                   Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
                 </span>
@@ -561,8 +562,9 @@ export default function ColorPickerV9LabPage() {
         fabRightInset={isMobile ? undefined : fabRightDesktop}
       />
 
-      {showThumb && (
+      {!isMobile && (
         <ThumbCursor
+          visible={thumbEnabled && pressed}
           fabSize={renderedConfig.fabSize}
           fabBottom={actualFabBottom}
           fabRight={actualFabRight}
