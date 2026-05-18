@@ -888,16 +888,17 @@ export function ColorPickerFabV9({
   // Tone indicator: mapped through toneEffT so it leads the thumb. The
   // centre is allowed to reach all the way to the inner/outer edges of
   // the (scaled) tone band, so the indicator circle can clip past the
-  // edges by up to its radius. An additional fixed lift puts the
-  // indicator a bit further out from the visible tone surface so it
-  // clears the user's thumb tip more reliably.
-  const TONE_INDICATOR_LIFT_PX = 18;
+  // edges by up to its radius. Lift ramps with toneEffT — zero at the
+  // inner edge (so the indicator can still reach pure black) and up to
+  // TONE_INDICATOR_LIFT_PX at the outer edge — pushing the indicator
+  // further out from the thumb tip as the user scrubs outward.
+  const TONE_INDICATOR_LIFT_PX = 24;
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
         cy,
         toneScale * (toneInner + toneEffT * (toneOuter - toneInner)) +
-          TONE_INDICATOR_LIFT_PX,
+          toneEffT * TONE_INDICATOR_LIFT_PX,
         toneStartDeg + tonePosAngular,
       )
     : null;
