@@ -770,9 +770,16 @@ export function ColorPickerFabV9({
   // tone first enters (toneEnterThreshold) to toneOuter, so the selector
   // is already deep inside the tone UI as soon as the user crosses into
   // it — no dead space between the tone-enter point and the inner edge.
+  // toneEffT is allowed to dip slightly negative when the user pulls
+  // the thumb back below toneEnterThreshold (still inside the
+  // hysteresis band before they exit tone mode). The negative range
+  // lets the indicator drift a bit past the visible inner edge so the
+  // selector isn't pinned right at the inner boundary while the thumb
+  // pulls further in — but toneL clamps to 0 (pure black) so the
+  // colour the picker reports doesn't go invalid.
   const toneEffT = inToneArc
     ? Math.max(
-        0,
+        -0.18,
         Math.min(
           1,
           (dist - toneEnterThreshold) /
@@ -783,7 +790,7 @@ export function ColorPickerFabV9({
   let toneL = 0.6;
   let toneC = TONE_C_MAX;
   if (inToneArc) {
-    toneL = toneEffT;
+    toneL = Math.max(0, toneEffT);
     toneC =
       TONE_C_MAX *
       Math.max(0, Math.min(1, toneSpan > 0 ? tonePosAngular / toneSpan : 0));
@@ -885,20 +892,14 @@ export function ColorPickerFabV9({
     : 0;
   const ribbonIndicatorPos =
     expanded && !inToneArc ? polar(cx, cy, ribbonMid, indicatorDeg) : null;
-  // Tone indicator: mapped through toneEffT so it leads the thumb. The
-  // centre is allowed to reach all the way to the inner/outer edges of
-  // the (scaled) tone band, so the indicator circle can clip past the
-  // edges by up to its radius. Lift ramps with toneEffT — zero at the
-  // inner edge (so the indicator can still reach pure black) and up to
-  // TONE_INDICATOR_LIFT_PX at the outer edge — pushing the indicator
-  // further out from the thumb tip as the user scrubs outward.
-  const TONE_INDICATOR_LIFT_PX = 24;
+  // Tone indicator: mapped through toneEffT so it leads the thumb.
+  // Sits on the visible (scaled) tone surface so it can reach the
+  // inner and outer edges exactly.
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
         cy,
-        toneScale * (toneInner + toneEffT * (toneOuter - toneInner)) +
-          toneEffT * TONE_INDICATOR_LIFT_PX,
+        toneScale * (toneInner + toneEffT * (toneOuter - toneInner)),
         toneStartDeg + tonePosAngular,
       )
     : null;
