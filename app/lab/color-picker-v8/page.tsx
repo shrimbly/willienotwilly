@@ -9,6 +9,48 @@ import {
 } from "@/components/lab/color-picker-fab-v8";
 import { TuningPanelV8 as TuningPanel } from "@/components/lab/tuning-panel-v8";
 
+// Thumb image is 360 × 354 (W × H). The aspect ratio is used to derive
+// the rendered height from the configured width.
+const THUMB_ASPECT = 354 / 360;
+// Width as a multiple of the FAB diameter (the user's thumb is about 1.8×
+// the FAB in real life).
+const THUMB_FAB_MULTIPLE = 1.8;
+
+function ThumbCursor({ fabSize }: { fabSize: number }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const handler = (e: PointerEvent) => {
+      setPos({ x: e.clientX, y: e.clientY });
+    };
+    const clear = () => setPos(null);
+    window.addEventListener("pointermove", handler);
+    window.addEventListener("pointerleave", clear);
+    return () => {
+      window.removeEventListener("pointermove", handler);
+      window.removeEventListener("pointerleave", clear);
+    };
+  }, []);
+  if (!pos) return null;
+  const width = fabSize * THUMB_FAB_MULTIPLE;
+  const height = width * THUMB_ASPECT;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/lab/thumb.png"
+      alt=""
+      width={width}
+      height={height}
+      draggable={false}
+      className="pointer-events-none fixed z-[100] select-none"
+      style={{
+        left: pos.x - width / 2,
+        top: pos.y,
+        filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
+      }}
+    />
+  );
+}
+
 const ANIMATION_KEYS: ReadonlyArray<keyof Config> = [
   "holdMs",
   "openDurationMs",
@@ -100,7 +142,7 @@ export default function ColorPickerV8LabPage() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 [&_*]:cursor-none">
       <div className="mx-auto max-w-md px-6 pb-32 pt-28">
         <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
           Lab · v8
@@ -130,6 +172,8 @@ export default function ColorPickerV8LabPage() {
       />
 
       <ColorPickerFabV8 config={config} control={control} />
+
+      <ThumbCursor fabSize={config.fabSize} />
     </div>
   );
 }
