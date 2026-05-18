@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import {
   ColorPickerFabV9,
@@ -15,7 +15,7 @@ import { TuningPanelV9 as TuningPanel } from "@/components/lab/tuning-panel-v9";
 // 3× DPR). Drawing the mock at those CSS dimensions makes the picker's
 // FAB size (56), inset (41) etc. read as realistic mobile measurements.
 const DEVICE_SCREEN_W = 360;
-const DEVICE_SCREEN_H = 780;
+const DEVICE_SCREEN_H = 720;
 const DEVICE_BEZEL = 6; // thin Galaxy-style bezel
 const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
 const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
@@ -96,51 +96,35 @@ function ThumbCursor({
   );
 }
 
-// --- Willie word with picker-triggered wave reveal ----------------------
 type PickEvent = { color: string; id: number };
 
-function WillieWord({ pick }: { pick: PickEvent | null }) {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 flex items-start justify-center"
-      style={{ paddingTop: 180 }}
-    >
-      <div className="relative">
-        <h2
-          className="select-none font-semibold tracking-tight"
-          style={{ fontSize: 76, lineHeight: 1, color: "#ffffff" }}
-        >
-          Willie
-        </h2>
-        <AnimatePresence>
-          {pick && (
-            <motion.h2
-              key={pick.id}
-              className="absolute inset-0 select-none font-semibold tracking-tight"
-              style={{
-                fontSize: 76,
-                lineHeight: 1,
-                color: pick.color,
-              }}
-              initial={{ clipPath: "circle(0px at 100% 100%)" }}
-              animate={{ clipPath: "circle(1400px at 100% 100%)" }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
-            >
-              Willie
-            </motion.h2>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
+// Origin point (in device-screen coords) the colour-wash wave should
+// expand from — anchored to the FAB's bottom-right corner so the wave
+// feels like it's emanating from where the user just released their
+// finger. Recomputed if the screen-relative FAB inset changes.
+const WAVE_ORIGIN_X = DEVICE_SCREEN_W - FAB_INSET_FROM_SCREEN;
+const WAVE_ORIGIN_Y = DEVICE_SCREEN_H - FAB_INSET_FROM_SCREEN;
+// Wave radius — at least the screen's diagonal so the colour fully
+// covers the device-screen by the end of the animation.
+const WAVE_RADIUS = Math.ceil(
+  Math.hypot(DEVICE_SCREEN_W, DEVICE_SCREEN_H) * 1.05,
+);
 
 // --- Device frame: chrome + screen surface ------------------------------
 // Screen surface sits at z-0 so the picker's backdrop blur affects it
 // like the rest of the page; bezel ring sits at z-31 (above the picker's
 // z-30 backdrop) so the phone's chrome stays sharp during the wash.
-function DeviceFrame({ pick }: { pick: PickEvent | null }) {
+//
+// The screen starts solid white with the word "Willie" rendered in white
+// — invisible by design. Each committed colour pick washes a coloured
+// circle out from the FAB-corner, painting Willie against the new colour.
+function DeviceFrame({
+  pickHistory,
+  onWaveComplete,
+}: {
+  pickHistory: PickEvent[];
+  onWaveComplete: (id: number) => void;
+}) {
   return (
     <>
       <div
@@ -152,27 +136,51 @@ function DeviceFrame({ pick }: { pick: PickEvent | null }) {
           width: DEVICE_SCREEN_W,
           height: DEVICE_SCREEN_H,
           borderRadius: 38,
-          background:
-            "linear-gradient(155deg, #1a1a22 0%, #0c0c12 60%, #06060a 100%)",
+          background: "#ffffff",
         }}
       >
+        {pickHistory.map((p) => (
+          <motion.div
+            key={p.id}
+            className="absolute inset-0"
+            style={{ background: p.color }}
+            initial={{
+              clipPath: `circle(0px at ${WAVE_ORIGIN_X}px ${WAVE_ORIGIN_Y}px)`,
+            }}
+            animate={{
+              clipPath: `circle(${WAVE_RADIUS}px at ${WAVE_ORIGIN_X}px ${WAVE_ORIGIN_Y}px)`,
+            }}
+            transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+            onAnimationComplete={() => onWaveComplete(p.id)}
+          />
+        ))}
         <div
-          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-950 ring-1 ring-zinc-700"
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 ring-1 ring-zinc-700"
           style={{ top: 12, width: 11, height: 11 }}
         />
-        <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-400">
+        <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500 mix-blend-difference">
           9:41
         </div>
-        <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-400">
+        <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500 mix-blend-difference">
           <span>5G</span>
           <span>•</span>
           <span>100%</span>
         </div>
         <div
-          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-600/60"
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-500/60"
           style={{ bottom: 8, width: 96, height: 4 }}
         />
-        <WillieWord pick={pick} />
+        <div
+          className="pointer-events-none absolute inset-0 flex items-start justify-center"
+          style={{ paddingTop: 180 }}
+        >
+          <h2
+            className="select-none font-semibold tracking-tight text-white"
+            style={{ fontSize: 76, lineHeight: 1 }}
+          >
+            Willie
+          </h2>
+        </div>
       </div>
       <div
         aria-hidden
@@ -236,7 +244,7 @@ export default function ColorPickerV9LabPage() {
   const [control, setControl] = useState<PickerControl | null>(null);
   const [thumbEnabled, setThumbEnabled] = useState(true);
   const [pressed, setPressed] = useState(false);
-  const [pick, setPick] = useState<PickEvent | null>(null);
+  const [pickHistory, setPickHistory] = useState<PickEvent[]>([]);
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
 
@@ -311,7 +319,18 @@ export default function ColorPickerV9LabPage() {
   };
 
   const handlePick = (color: string) => {
-    setPick({ color, id: Date.now() + Math.random() });
+    setPickHistory((h) => [...h, { color, id: Date.now() + Math.random() }]);
+  };
+
+  // Once a wave completes, every pick before it is fully painted over and
+  // can be dropped from the stack. Leaves just the latest completed wave
+  // plus anything still mid-animation.
+  const handleWaveComplete = (id: number) => {
+    setPickHistory((h) => {
+      const idx = h.findIndex((p) => p.id === id);
+      if (idx === -1) return h;
+      return h.slice(idx);
+    });
   };
 
   const showThumb = thumbEnabled && pressed;
@@ -345,12 +364,15 @@ export default function ColorPickerV9LabPage() {
         onReset={() => {
           setConfig({ ...DEFAULT_CONFIG, fabInset: FAB_VIEWPORT_INSET });
           setControl(null);
-          setPick(null);
+          setPickHistory([]);
           clearAll();
         }}
       />
 
-      <DeviceFrame pick={pick} />
+      <DeviceFrame
+        pickHistory={pickHistory}
+        onWaveComplete={handleWaveComplete}
+      />
 
       <ColorPickerFabV9
         config={config}
