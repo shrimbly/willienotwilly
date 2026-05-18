@@ -1014,23 +1014,27 @@ export function ColorPickerFabV9({
               key="backdrop"
               className="pointer-events-none fixed z-30 rounded-full"
               style={{
-                width: "300vmax",
-                height: "300vmax",
+                width: "200vmax",
+                height: "200vmax",
                 left: cx,
                 top: cy,
-                marginLeft: "-150vmax",
-                marginTop: "-150vmax",
+                marginLeft: "-100vmax",
+                marginTop: "-100vmax",
                 background:
                   "radial-gradient(circle, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.06) 30%, rgba(0,0,0,0.02) 55%, rgba(0,0,0,0) 100%)",
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
                 mask: "radial-gradient(circle, black 0%, black 35%, transparent 75%)",
                 WebkitMask: "radial-gradient(circle, black 0%, black 35%, transparent 75%)",
+                // Promote to its own compositing layer up front so the blur
+                // doesn't bounce between paint surfaces during the open
+                // transition (the main source of mobile flicker).
+                willChange: "transform, opacity",
               }}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0 }}
-              transition={{ duration: 0.2, ease: [0.42, 0, 1, 1] }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.6, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.42, 0, 1, 1] }}
             />
 
             <motion.div
@@ -1055,6 +1059,7 @@ export function ColorPickerFabV9({
                       clipPath: `path('${ribbonPath}')`,
                       WebkitClipPath: `path('${ribbonPath}')`,
                       filter: "drop-shadow(0 4px 14px rgba(0,0,0,0.18))",
+                      willChange: "transform, opacity",
                     }}
                     initial={{
                       scale: ribbonScaleFromPct / 100,
@@ -1095,6 +1100,7 @@ export function ColorPickerFabV9({
                       clipPath: `path('${tonePath}')`,
                       WebkitClipPath: `path('${tonePath}')`,
                       filter: "drop-shadow(0 6px 22px rgba(0,0,0,0.22))",
+                      willChange: "transform, opacity",
                     }}
                     initial={{ scale: 0.94, opacity: 0 }}
                     animate={{ scale: toneScale, opacity: 1 }}
