@@ -292,10 +292,6 @@ const PICK_MESSAGES = [
   "Mmm, yes.",
   "I like.",
   "Uh, ok!",
-  "Here for it.",
-  "Large.",
-  "In charge.",
-  "How neat.",
 ];
 
 export default function ColorPickerV9LabPage() {
