@@ -425,23 +425,6 @@ export default function ColorPickerV9LabPage() {
 
   const showThumb = !isMobile && thumbEnabled && pressed;
 
-  // The description hides while the FAB is being pressed and otherwise
-  // shows the default lab description. On mobile, once a colour has
-  // been picked the entire page header is hidden (handled below) so
-  // the description doesn't need a "picked" variant of its own.
-  const descSlot: React.ReactNode = pressed ? null : (
-    <motion.p
-      key="desc"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className="mt-3 text-sm leading-relaxed text-muted-foreground"
-    >
-      {DESC_TEXT}
-    </motion.p>
-  );
-
   // Once the user has picked at least one colour on mobile, we hide
   // every text element on the page and replace the gradient background
   // with a wave-revealed coloured surface plus a white "Oh, nice." sat
@@ -484,14 +467,35 @@ export default function ColorPickerV9LabPage() {
 
       {!mobilePickActive && (
         <div className="mx-auto max-w-5xl px-6 pb-32 pt-28 lg:flex lg:items-stretch lg:gap-12 lg:pt-28 lg:min-h-[100dvh]" style={{ paddingBottom: undefined }}>
-          <div className="lg:flex-1 lg:max-w-md lg:self-start">
-            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              Lab · v9
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              Radial color picker
-            </h1>
-            <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
+          <div className="lg:flex lg:flex-col lg:flex-1 lg:max-w-md lg:self-stretch">
+            <AnimatePresence mode="wait">
+              {!pressed && (
+                <motion.div
+                  key="header"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    Lab · v9
+                  </p>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+                    Radial color picker
+                  </h1>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {DESC_TEXT}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {!isMobile && (
+              <div className="hidden lg:mt-auto lg:flex lg:pb-2">
+                <span className="pointer-events-none select-none rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
+                  Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
+                </span>
+              </div>
+            )}
           </div>
           <div
             aria-hidden
@@ -589,11 +593,6 @@ export default function ColorPickerV9LabPage() {
         )}
       </AnimatePresence>
 
-      {!isMobile && (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
-          Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
-        </div>
-      )}
     </div>
   );
 }
