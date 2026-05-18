@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import {
   ColorPickerFabV9,
@@ -18,20 +19,22 @@ const DEVICE_SCREEN_H = 780;
 const DEVICE_BEZEL = 6; // thin Galaxy-style bezel
 const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
 const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
+// Padding between the page viewport edges and the device frame. The
+// picker's fabInset is shifted by this amount so the FAB still lands
+// FAB_INSET_FROM_SCREEN px from the device-screen edge inside the bezel.
+const DEVICE_PADDING = 24;
+const FAB_INSET_FROM_SCREEN = 41;
+const DEVICE_FRAME_BOTTOM = DEVICE_PADDING;
+const DEVICE_FRAME_RIGHT = DEVICE_PADDING;
+const DEVICE_SCREEN_BOTTOM = DEVICE_FRAME_BOTTOM + DEVICE_BEZEL;
+const DEVICE_SCREEN_RIGHT = DEVICE_FRAME_RIGHT + DEVICE_BEZEL;
+const FAB_VIEWPORT_INSET = DEVICE_SCREEN_BOTTOM + FAB_INSET_FROM_SCREEN;
 
 // --- Thumb cursor --------------------------------------------------------
-// Thumb image is 360 × 354 (W × H). The aspect ratio is used to derive
-// the rendered height from the configured width.
 const THUMB_ASPECT = 354 / 360;
-// Width as a multiple of the FAB diameter — sized large so the thumb
-// reads at roughly life-size on screen.
 const THUMB_FAB_MULTIPLE = 4.5;
-// Fine-tune where the thumb tip lives within the PNG (as fractions of the
-// rendered width/height). Negative shifts the image up/left so the actual
-// fingertip — not the corner of the artwork — sits at the cursor.
 const THUMB_TIP_OFFSET_X = -0.16;
 const THUMB_TIP_OFFSET_Y = -0.13;
-// Picker center for rotation and the angular range mapped to wrist twist.
 const PICKER_CENTER_DEG = 225;
 const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
@@ -93,56 +96,90 @@ function ThumbCursor({
   );
 }
 
-// --- Device frame: split into two layers so the picker's backdrop blur
-// can pass through the screen area but not affect the physical bezel.
-// Screen surface sits at z-0 (gets blurred along with page content);
-// the bezel ring sits at z-[31] (above the picker's z-30 backdrop) so
-// the phone's chrome reads as solid, unaffected glass.
-function DeviceFrame() {
+// --- Willie word with picker-triggered wave reveal ----------------------
+type PickEvent = { color: string; id: number };
+
+function WillieWord({ pick }: { pick: PickEvent | null }) {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 flex items-start justify-center"
+      style={{ paddingTop: 180 }}
+    >
+      <div className="relative">
+        <h2
+          className="select-none font-semibold tracking-tight"
+          style={{ fontSize: 76, lineHeight: 1, color: "#ffffff" }}
+        >
+          Willie
+        </h2>
+        <AnimatePresence>
+          {pick && (
+            <motion.h2
+              key={pick.id}
+              className="absolute inset-0 select-none font-semibold tracking-tight"
+              style={{
+                fontSize: 76,
+                lineHeight: 1,
+                color: pick.color,
+              }}
+              initial={{ clipPath: "circle(0px at 100% 100%)" }}
+              animate={{ clipPath: "circle(1400px at 100% 100%)" }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
+            >
+              Willie
+            </motion.h2>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// --- Device frame: chrome + screen surface ------------------------------
+// Screen surface sits at z-0 so the picker's backdrop blur affects it
+// like the rest of the page; bezel ring sits at z-31 (above the picker's
+// z-30 backdrop) so the phone's chrome stays sharp during the wash.
+function DeviceFrame({ pick }: { pick: PickEvent | null }) {
   return (
     <>
-      {/* Screen surface — below the picker backdrop, so it blurs with the
-          rest of the page. Status bar / camera / home indicator live here
-          so they also wash out underneath the picker, like a real phone. */}
       <div
         aria-hidden
         className="pointer-events-none fixed z-0 select-none overflow-hidden"
         style={{
-          bottom: DEVICE_BEZEL,
-          right: DEVICE_BEZEL,
+          bottom: DEVICE_SCREEN_BOTTOM,
+          right: DEVICE_SCREEN_RIGHT,
           width: DEVICE_SCREEN_W,
           height: DEVICE_SCREEN_H,
           borderRadius: 38,
           background:
-            "linear-gradient(to bottom right, rgb(245 245 247), rgb(228 228 231))",
+            "linear-gradient(155deg, #1a1a22 0%, #0c0c12 60%, #06060a 100%)",
         }}
       >
         <div
-          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 ring-1 ring-zinc-700"
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-950 ring-1 ring-zinc-700"
           style={{ top: 12, width: 11, height: 11 }}
         />
-        <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
+        <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-400">
           9:41
         </div>
-        <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500">
+        <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-400">
           <span>5G</span>
           <span>•</span>
           <span>100%</span>
         </div>
         <div
-          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-400/60"
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-600/60"
           style={{ bottom: 8, width: 96, height: 4 }}
         />
+        <WillieWord pick={pick} />
       </div>
-      {/* Bezel ring — sits above the picker backdrop so it stays sharp. A
-          CSS border draws the bezel; the interior is transparent so the
-          screen surface (below) shows through unmodified by the bezel. */}
       <div
         aria-hidden
         className="pointer-events-none fixed z-[31] select-none"
         style={{
-          bottom: 0,
-          right: 0,
+          bottom: DEVICE_FRAME_BOTTOM,
+          right: DEVICE_FRAME_RIGHT,
           width: DEVICE_FRAME_W,
           height: DEVICE_FRAME_H,
           border: `${DEVICE_BEZEL}px solid #0a0a0a`,
@@ -190,10 +227,16 @@ const SETTLE_MS = 220;
 const POST_REPLAY_HOLD_MS = 1100;
 
 export default function ColorPickerV9LabPage() {
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  // Override fabInset so the FAB lands FAB_INSET_FROM_SCREEN px from the
+  // device-screen edge (inside the bezel + page padding).
+  const [config, setConfig] = useState<Config>(() => ({
+    ...DEFAULT_CONFIG,
+    fabInset: FAB_VIEWPORT_INSET,
+  }));
   const [control, setControl] = useState<PickerControl | null>(null);
   const [thumbEnabled, setThumbEnabled] = useState(true);
   const [pressed, setPressed] = useState(false);
+  const [pick, setPick] = useState<PickEvent | null>(null);
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
 
@@ -267,6 +310,10 @@ export default function ColorPickerV9LabPage() {
     }, SETTLE_MS);
   };
 
+  const handlePick = (color: string) => {
+    setPick({ color, id: Date.now() + Math.random() });
+  };
+
   const showThumb = thumbEnabled && pressed;
 
   return (
@@ -283,14 +330,12 @@ export default function ColorPickerV9LabPage() {
           Radial color picker
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Same touch-visibility behaviour as v8, but rendered inside a
-          Galaxy S24-sized mock with a life-size thumb that appears while
-          the FAB is held — so the picker can be evaluated against a real
-          finger on a realistic-density device.
+          v8 with a Galaxy S24-sized mock, a life-size thumb cursor that
+          appears while the FAB is held, and a wave-reveal of the picked
+          colour on the word &ldquo;Willie&rdquo; on the device screen.
         </p>
         <p className="mt-2 text-xs text-muted-foreground/70">
-          Press and hold the FAB to see the picker. Mouse position drives
-          the thumb.
+          Press and hold the FAB. Mouse position drives the thumb.
         </p>
       </div>
 
@@ -298,18 +343,21 @@ export default function ColorPickerV9LabPage() {
         config={config}
         onChange={handleChange}
         onReset={() => {
-          setConfig(DEFAULT_CONFIG);
+          setConfig({ ...DEFAULT_CONFIG, fabInset: FAB_VIEWPORT_INSET });
           setControl(null);
+          setPick(null);
           clearAll();
         }}
       />
 
-      <DeviceFrame />
+      <DeviceFrame pick={pick} />
 
       <ColorPickerFabV9
         config={config}
         control={control}
         onPressedChange={setPressed}
+        onPick={handlePick}
+        screenEdgeInset={FAB_INSET_FROM_SCREEN}
       />
 
       {showThumb && (

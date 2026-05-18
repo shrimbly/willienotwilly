@@ -21,6 +21,13 @@ type Props = {
   // Fires whenever the user starts pressing the FAB and again when they
   // release. Used by v9's lab page to time the thumb-cursor overlay.
   onPressedChange?: (pressed: boolean) => void;
+  // Optional override for the FAB-to-screen-edge distance used by the
+  // tone arc's screen-edge clamp. Defaults to fabInset. Used in v9 to
+  // decouple the FAB's viewport positioning (large inset to clear the
+  // device frame's padding) from the in-device edge distance the clamp
+  // should reason about (small inset because the device-screen edge is
+  // close to the FAB).
+  screenEdgeInset?: number;
 };
 
 export type Config = {
@@ -120,6 +127,7 @@ export function ColorPickerFabV9({
   config: configOverride,
   control,
   onPressedChange,
+  screenEdgeInset,
 }: Props) {
   const config = { ...DEFAULT_CONFIG, ...configOverride };
   const {
@@ -434,11 +442,15 @@ export function ColorPickerFabV9({
   const toneHalfSpan = toneSpan / 2;
   const TONE_VIEWPORT_MARGIN = 14; // px from viewport bottom/right
   const scaledToneOuter = toneOuter * TONE_LIFT_SCALE;
+  // Use the explicit screenEdgeInset if provided; otherwise fall back to
+  // fabInset. v9 sets these independently so the clamp reasons about the
+  // distance to the device-screen edge instead of the viewport edge.
+  const edgeInsetForClamp = screenEdgeInset ?? fabInset;
   const screenGapRatio = Math.max(
     0,
     Math.min(
       1,
-      Math.max(0, fabInset - TONE_VIEWPORT_MARGIN) /
+      Math.max(0, edgeInsetForClamp - TONE_VIEWPORT_MARGIN) /
         Math.max(1, scaledToneOuter),
     ),
   );
