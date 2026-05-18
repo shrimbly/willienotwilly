@@ -763,13 +763,16 @@ export function ColorPickerFabV7({
     : null;
   const toneRibbonMarkerColor = `oklch(${ribbonL} ${ribbonC} ${lockedToneHue})`;
 
-  // Preview ribbon: small tangential arc-segment indicator that floats just
-  // outside whichever layer is currently active, so the live colour stays
-  // visible past the user's thumb / FAB. Radius moves outward as the gesture
+  // Preview ribbon: tangential arc-segment indicator that floats just outside
+  // whichever layer is currently active, so the live colour stays visible
+  // past the user's thumb / FAB. Radius moves outward as the gesture
   // progresses: at swatch hover, just past where the ribbon will appear; on
-  // the ribbon (or in the tone arc), just past the tone UI.
-  const PREVIEW_ARC_GAP = 18;
-  const PREVIEW_ARC_THICKNESS = 12;
+  // the ribbon (or in the tone arc), just past the tone UI. Centre angle is
+  // clamped to the ribbon's angular extent (same idea as the tone arc's
+  // centre clamp) so the arc never slides off the side or bottom of the
+  // screen at the picker's terminal edges.
+  const PREVIEW_ARC_GAP = 26;
+  const PREVIEW_ARC_THICKNESS = 17;
   const PREVIEW_ARC_HALF_WIDTH_DEG = 22;
   let previewArcAngleDeg: number | null = null;
   let previewArcRadius = 0;
@@ -782,6 +785,18 @@ export function ColorPickerFabV7({
   } else if (!expanded && activeIdx >= 0) {
     previewArcAngleDeg = swatchStartDeg + activeIdx * swatchStep;
     previewArcRadius = ribbonOuter + PREVIEW_ARC_GAP;
+  }
+  if (previewArcAngleDeg !== null) {
+    const minCenter = ribbonStartDeg + PREVIEW_ARC_HALF_WIDTH_DEG;
+    const maxCenter = ribbonEndDeg - PREVIEW_ARC_HALF_WIDTH_DEG;
+    if (minCenter <= maxCenter) {
+      previewArcAngleDeg = Math.max(
+        minCenter,
+        Math.min(maxCenter, previewArcAngleDeg),
+      );
+    } else {
+      previewArcAngleDeg = (ribbonStartDeg + ribbonEndDeg) / 2;
+    }
   }
   const arcSegmentPath = (
     originX: number,
