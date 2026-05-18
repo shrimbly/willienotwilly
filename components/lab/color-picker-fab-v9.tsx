@@ -418,20 +418,23 @@ export function ColorPickerFabV9({
     const t = Math.max(0, Math.min(1, ribbonPos / arcSpanDeg));
     return t * 360;
   })();
-  if (inToneRadial) {
-    if (!wasInToneRef.current) {
-      lockedToneCenterRef.current = pointerDeg;
-      lockedToneHueRef.current = ribbonHueAtPointer;
-      lockedPreviewArcAngleRef.current = ribbonStartDeg + ribbonPos;
-      wasInToneRef.current = true;
-    }
-  } else {
+  // Once the user crosses into the tone band we lock onto tone mode
+  // for the rest of the gesture. Without this, pulling the thumb back
+  // toward the FAB to pick darker tones (low L) snaps the picker back
+  // out into the ribbon, because the inner edge of the tone band sits
+  // right on top of the ribbon's outer edge. The lock only releases
+  // when the picker itself closes.
+  if (inToneRadial && !wasInToneRef.current) {
+    lockedToneCenterRef.current = pointerDeg;
+    lockedToneHueRef.current = ribbonHueAtPointer;
+    lockedPreviewArcAngleRef.current = ribbonStartDeg + ribbonPos;
+    wasInToneRef.current = true;
+  }
+  if (!effOpen) {
     wasInToneRef.current = false;
-    if (!effOpen) {
-      lockedToneCenterRef.current = null;
-      lockedToneHueRef.current = null;
-      lockedPreviewArcAngleRef.current = null;
-    }
+    lockedToneCenterRef.current = null;
+    lockedToneHueRef.current = null;
+    lockedPreviewArcAngleRef.current = null;
   }
   // Clamp the tone arc's centre so its angular range never extends past
   // (a) the ribbon's angular extent, OR (b) the viewport's bottom-right
@@ -651,7 +654,12 @@ export function ColorPickerFabV9({
   else tonePosAngular = toneSpan;
   const inToneAngular =
     toneRawOffset <= toneSpan + 25 || toneRawOffset >= 360 - 25;
-  const inToneArc = inToneRadial && inToneAngular;
+  // Sticky once entered: the picker stays in tone mode from the first
+  // time the pointer crosses into the tone band until the gesture
+  // ends, so the user can scrub all the way back to dark tones without
+  // accidentally falling back into the ribbon.
+  const inToneArc =
+    effOpen && (wasInToneRef.current || (inToneRadial && inToneAngular));
 
   // Picker is "in range" when the pointer is over the swatch fan, ribbon, or
   // tone plane (whichever is closest along the gesture).
