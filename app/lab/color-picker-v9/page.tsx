@@ -524,80 +524,57 @@ export default function ColorPickerV9LabPage() {
                   </p>
                   {!isMobile && (
                     <div className="mt-6 hidden lg:block">
-                      <button
+                      <motion.button
                         type="button"
                         onClick={() => setShowQr((v) => !v)}
                         aria-expanded={showQr}
+                        layout
+                        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                         className="flex w-fit flex-col items-stretch overflow-hidden rounded-md bg-secondary text-left text-secondary-foreground shadow-xs outline-none transition-colors hover:bg-secondary/80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
-                        <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium">
+                        <motion.span
+                          layout="position"
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium"
+                        >
                           <QrCode className="size-4" />
                           Try it on mobile
-                        </span>
+                        </motion.span>
                         <AnimatePresence initial={false}>
                           {showQr && pageUrl && (
                             <motion.div
                               key="qr-inner"
-                              initial={{ height: 0, width: 0, opacity: 0 }}
+                              initial={{ opacity: 0 }}
                               animate={{
-                                height: "auto",
-                                width: "auto",
                                 opacity: 1,
                                 transition: {
-                                  height: {
-                                    duration: 0.34,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
-                                  width: {
-                                    duration: 0.34,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
-                                  opacity: {
-                                    duration: 0.18,
-                                    delay: 0.28,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
+                                  duration: 0.2,
+                                  delay: 0.32,
+                                  ease: [0.22, 1, 0.36, 1],
                                 },
                               }}
                               exit={{
-                                height: 0,
-                                width: 0,
                                 opacity: 0,
                                 transition: {
-                                  opacity: {
-                                    duration: 0.16,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
-                                  height: {
-                                    duration: 0.34,
-                                    delay: 0.14,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
-                                  width: {
-                                    duration: 0.34,
-                                    delay: 0.14,
-                                    ease: [0.22, 1, 0.36, 1],
-                                  },
+                                  duration: 0.16,
+                                  ease: [0.22, 1, 0.36, 1],
                                 },
                               }}
-                              className="overflow-hidden"
+                              className="flex flex-col items-center gap-2 px-3 pb-3"
                             >
-                              <div className="flex flex-col items-center gap-2 px-3 pb-3">
-                                <div className="rounded-md bg-white p-3">
-                                  <QRCodeSVG
-                                    value={pageUrl}
-                                    size={160}
-                                    level="M"
-                                  />
-                                </div>
-                                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                                  Scan to open on your phone
-                                </span>
+                              <div className="rounded-md bg-white p-3">
+                                <QRCodeSVG
+                                  value={pageUrl}
+                                  size={160}
+                                  level="M"
+                                />
                               </div>
+                              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                                Scan to open on your phone
+                              </span>
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </button>
+                      </motion.button>
                     </div>
                   )}
                 </motion.div>
