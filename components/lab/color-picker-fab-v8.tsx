@@ -613,8 +613,10 @@ export function ColorPickerFabV8({
   const RIBBON_LIFT_MAX = 12;
   const RIBBON_THICKEN_MAX = 0.06; // scale factor on top of lift
   // How close to the swatch ring the thumb has to be before swatches start
-  // lifting. Lifts fully when the thumb is at or past the swatch ring.
-  const overSwatches = inSwatchArc && dist > fabR + 8;
+  // lifting. Lifts fully when the thumb is at or past the swatch ring. Once
+  // the user crosses into the next layer (expanded), the lift releases so
+  // the swatches spring back to their resting position.
+  const overSwatches = !expanded && inSwatchArc && dist > fabR + 8;
   const swatchLiftT = overSwatches
     ? Math.max(
         0,
