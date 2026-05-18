@@ -1,6 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import {
   ColorPickerFabV9,
@@ -9,6 +11,7 @@ import {
   type PickerControl,
 } from "@/components/lab/color-picker-fab-v9";
 import { TuningPanelV9 as TuningPanel } from "@/components/lab/tuning-panel-v9";
+import { Button } from "@/components/ui/button";
 
 // --- Galaxy S24 mock device (desktop only) ------------------------------
 // Galaxy S24's CSS viewport is roughly 360 × 780 (1080 × 2340 native at
@@ -295,8 +298,14 @@ export default function ColorPickerV9LabPage() {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
+  const [showQr, setShowQr] = useState(false);
+  const [pageUrl, setPageUrl] = useState("");
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
+
+  useEffect(() => {
+    setPageUrl(window.location.href);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -491,6 +500,38 @@ export default function ColorPickerV9LabPage() {
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                     {DESC_TEXT}
                   </p>
+                  {!isMobile && (
+                    <div className="mt-6 hidden lg:block">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowQr((v) => !v)}
+                        aria-expanded={showQr}
+                      >
+                        <QrCode />
+                        Show QR to try on mobile
+                      </Button>
+                      <AnimatePresence>
+                        {showQr && pageUrl && (
+                          <motion.div
+                            key="qr-popover"
+                            initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                            className="mt-4 inline-flex flex-col items-center gap-2 rounded-xl border border-foreground/10 bg-background/90 p-4 shadow-lg backdrop-blur"
+                          >
+                            <div className="rounded-md bg-white p-3">
+                              <QRCodeSVG value={pageUrl} size={160} level="M" />
+                            </div>
+                            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                              Scan to open on your phone
+                            </span>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
