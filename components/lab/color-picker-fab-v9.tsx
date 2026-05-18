@@ -53,8 +53,8 @@ export const DEFAULT_CONFIG: Config = {
   arcRadius: 124,
   ribbonInner: 154,
   ribbonOuter: 184,
-  toneInner: 200,
-  toneOuter: 264,
+  toneInner: 192,
+  toneOuter: 248,
   toneSpanDeg: 44,
   indicatorSize: 28,
   arcSpanDeg: 106,
@@ -276,7 +276,7 @@ export function ColorPickerFabV9({
   // How much the tone UI pops out from under the thumb while active.
   // Defined early so the tone-centre clamp can compute its scaled-outer
   // extent for the viewport-edge constraint.
-  const TONE_LIFT_SCALE = 1.16;
+  const TONE_LIFT_SCALE = 1.13;
   // Once the thumb is fully across the ribbon band, pop the tone UI in and
   // let the ribbon snap back to its resting scale (same hand-off pattern as
   // swatches → ribbon).

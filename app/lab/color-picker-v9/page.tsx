@@ -93,40 +93,34 @@ function ThumbCursor({
   );
 }
 
-// --- Device frame: purely visual Galaxy S24 chrome ----------------------
-// Positioned at the viewport's bottom-right corner so its bottom-right
-// edge aligns with the picker FAB's own (bottom: 0, right: 0) origin.
+// --- Device frame: split into two layers so the picker's backdrop blur
+// can pass through the screen area but not affect the physical bezel.
+// Screen surface sits at z-0 (gets blurred along with page content);
+// the bezel ring sits at z-[31] (above the picker's z-30 backdrop) so
+// the phone's chrome reads as solid, unaffected glass.
 function DeviceFrame() {
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed z-0 select-none"
-      style={{
-        bottom: 0,
-        right: 0,
-        width: DEVICE_FRAME_W,
-        height: DEVICE_FRAME_H,
-        padding: DEVICE_BEZEL,
-        background: "#0a0a0a",
-        borderRadius: 44,
-        boxShadow:
-          "0 1px 0 1px rgba(255,255,255,0.04) inset, 0 24px 64px rgba(0,0,0,0.45)",
-      }}
-    >
+    <>
+      {/* Screen surface — below the picker backdrop, so it blurs with the
+          rest of the page. Status bar / camera / home indicator live here
+          so they also wash out underneath the picker, like a real phone. */}
       <div
-        className="relative h-full w-full overflow-hidden"
+        aria-hidden
+        className="pointer-events-none fixed z-0 select-none overflow-hidden"
         style={{
+          bottom: DEVICE_BEZEL,
+          right: DEVICE_BEZEL,
+          width: DEVICE_SCREEN_W,
+          height: DEVICE_SCREEN_H,
           borderRadius: 38,
           background:
             "linear-gradient(to bottom right, rgb(245 245 247), rgb(228 228 231))",
         }}
       >
-        {/* Punch-hole camera */}
         <div
           className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 ring-1 ring-zinc-700"
           style={{ top: 12, width: 11, height: 11 }}
         />
-        {/* Mock status bar */}
         <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
           9:41
         </div>
@@ -135,13 +129,30 @@ function DeviceFrame() {
           <span>•</span>
           <span>100%</span>
         </div>
-        {/* Subtle home indicator */}
         <div
           className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-400/60"
           style={{ bottom: 8, width: 96, height: 4 }}
         />
       </div>
-    </div>
+      {/* Bezel ring — sits above the picker backdrop so it stays sharp. A
+          CSS border draws the bezel; the interior is transparent so the
+          screen surface (below) shows through unmodified by the bezel. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed z-[31] select-none"
+        style={{
+          bottom: 0,
+          right: 0,
+          width: DEVICE_FRAME_W,
+          height: DEVICE_FRAME_H,
+          border: `${DEVICE_BEZEL}px solid #0a0a0a`,
+          borderRadius: 44,
+          boxSizing: "border-box",
+          boxShadow:
+            "0 1px 0 1px rgba(255,255,255,0.04) inset, 0 24px 64px rgba(0,0,0,0.45)",
+        }}
+      />
+    </>
   );
 }
 
