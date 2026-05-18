@@ -809,20 +809,21 @@ export function ColorPickerFabV9({
     setPointer({ x: e.clientX, y: e.clientY });
   };
 
+  // v9 doesn't persist the picked colour on the FAB — the demo's
+  // device-screen wave is the canonical visualization, and the FAB
+  // reverts to its base rainbow gradient as soon as the gesture
+  // commits. We still fire onPick so the page can record the colour.
   const commitPick = () => {
     if (inToneArc) {
-      setPicked(toneColor);
       onPick?.(toneColor);
       return;
     }
     if (expanded) {
-      setPicked(ribbonColor);
       onPick?.(ribbonColor);
       return;
     }
     if (activeIdx >= 0) {
       const c = swatchData[activeIdx].color;
-      setPicked(c);
       onPick?.(c);
     }
   };
