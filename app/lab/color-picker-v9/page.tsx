@@ -539,7 +539,7 @@ export default function ColorPickerV9LabPage() {
                           <QrCode className="size-4" />
                           Try it on mobile
                         </motion.span>
-                        <AnimatePresence initial={false}>
+                        <AnimatePresence initial={false} mode="popLayout">
                           {showQr && pageUrl && (
                             <motion.div
                               key="qr-inner"
@@ -555,7 +555,7 @@ export default function ColorPickerV9LabPage() {
                               exit={{
                                 opacity: 0,
                                 transition: {
-                                  duration: 0.16,
+                                  duration: 0.28,
                                   ease: [0.22, 1, 0.36, 1],
                                 },
                               }}
