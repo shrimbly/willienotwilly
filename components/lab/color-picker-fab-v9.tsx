@@ -988,21 +988,6 @@ export function ColorPickerFabV9({
 
   return (
     <>
-      <div className="pointer-events-none fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-full bg-background/80 px-4 py-2 font-mono text-xs backdrop-blur">
-        {picked ? (
-          <span className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-block h-3 w-3 rounded-full ring-1 ring-foreground/20"
-              style={{ background: picked }}
-            />
-            {picked}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">press &amp; hold</span>
-        )}
-      </div>
-
       <AnimatePresence>
         {effOpen && (
           <>

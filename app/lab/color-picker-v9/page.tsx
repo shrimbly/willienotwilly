@@ -419,10 +419,13 @@ export default function ColorPickerV9LabPage() {
       )}
 
       {mobilePickActive && (
-        <div className="pointer-events-none fixed inset-0 z-10 flex items-center justify-center px-6">
+        <div
+          className="pointer-events-none fixed inset-0 z-10 flex items-start justify-center px-6"
+          style={{ paddingTop: 180 }}
+        >
           <h2
             className="select-none text-center font-semibold tracking-tight text-white"
-            style={{ fontSize: 72, lineHeight: 1.02 }}
+            style={{ fontSize: 72, lineHeight: 1 }}
           >
             Oh, nice.
           </h2>
