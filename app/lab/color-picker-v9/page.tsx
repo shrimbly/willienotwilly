@@ -524,16 +524,21 @@ export default function ColorPickerV9LabPage() {
                   </p>
                   {!isMobile && (
                     <div className="mt-6 hidden lg:block">
-                      <button
+                      <motion.button
                         type="button"
                         onClick={() => setShowQr((v) => !v)}
                         aria-expanded={showQr}
+                        layout
+                        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
                         className="flex w-fit flex-col items-stretch overflow-hidden rounded-md bg-secondary text-left text-secondary-foreground shadow-xs outline-none transition-colors hover:bg-secondary/80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
-                        <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium">
+                        <motion.span
+                          layout="position"
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium"
+                        >
                           <QrCode className="size-4" />
                           Try it on mobile
-                        </span>
+                        </motion.span>
                         <AnimatePresence initial={false}>
                           {showQr && pageUrl && (
                             <motion.div
@@ -568,7 +573,7 @@ export default function ColorPickerV9LabPage() {
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </button>
+                      </motion.button>
                     </div>
                   )}
                 </motion.div>
