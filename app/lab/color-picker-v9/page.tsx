@@ -9,6 +9,17 @@ import {
 } from "@/components/lab/color-picker-fab-v9";
 import { TuningPanelV9 as TuningPanel } from "@/components/lab/tuning-panel-v9";
 
+// --- Galaxy S24 mock device ----------------------------------------------
+// Galaxy S24's CSS viewport is roughly 360 × 780 (1080 × 2340 native at
+// 3× DPR). Drawing the mock at those CSS dimensions makes the picker's
+// FAB size (56), inset (41) etc. read as realistic mobile measurements.
+const DEVICE_SCREEN_W = 360;
+const DEVICE_SCREEN_H = 780;
+const DEVICE_BEZEL = 6; // thin Galaxy-style bezel
+const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
+const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
+
+// --- Thumb cursor --------------------------------------------------------
 // Thumb image is 360 × 354 (W × H). The aspect ratio is used to derive
 // the rendered height from the configured width.
 const THUMB_ASPECT = 354 / 360;
@@ -20,10 +31,9 @@ const THUMB_FAB_MULTIPLE = 4.5;
 // fingertip — not the corner of the artwork — sits at the cursor.
 const THUMB_TIP_OFFSET_X = -0.16;
 const THUMB_TIP_OFFSET_Y = -0.13;
-// Picker center for rotation (math angle, default picker fans up-left
-// from the FAB) and the angular range the rotation maps across.
+// Picker center for rotation and the angular range mapped to wrist twist.
 const PICKER_CENTER_DEG = 225;
-const PICKER_HALF_SPAN_DEG = 53; // matches DEFAULT_CONFIG.arcSpanDeg / 2
+const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
 
 function ThumbCursor({
@@ -49,10 +59,6 @@ function ThumbCursor({
   if (!pos) return null;
   const width = fabSize * THUMB_FAB_MULTIPLE;
   const height = width * THUMB_ASPECT;
-  // Compute rotation: angle of the cursor from the FAB's bottom-right
-  // corner. Pointer near the picker's lower end (math ~172°) rotates
-  // CCW; near the upper end (math ~278°) rotates CW. Clamped to
-  // ±THUMB_MAX_ROTATION_DEG so the wrist twist stays believable.
   let rotation = 0;
   if (typeof window !== "undefined") {
     const fabCornerX = window.innerWidth - fabInset;
@@ -76,8 +82,6 @@ function ThumbCursor({
       draggable={false}
       className="pointer-events-none fixed z-[100] select-none"
       style={{
-        // Thumb tip lives near the top-left of the artwork; nudge with the
-        // tip-offset constants so the actual fingertip sits at the cursor.
         left: pos.x + width * THUMB_TIP_OFFSET_X,
         top: pos.y + height * THUMB_TIP_OFFSET_Y,
         transform: `rotate(${rotation.toFixed(2)}deg)`,
@@ -86,6 +90,58 @@ function ThumbCursor({
         filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
       }}
     />
+  );
+}
+
+// --- Device frame: purely visual Galaxy S24 chrome ----------------------
+// Positioned at the viewport's bottom-right corner so its bottom-right
+// edge aligns with the picker FAB's own (bottom: 0, right: 0) origin.
+function DeviceFrame() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed z-0 select-none"
+      style={{
+        bottom: 0,
+        right: 0,
+        width: DEVICE_FRAME_W,
+        height: DEVICE_FRAME_H,
+        padding: DEVICE_BEZEL,
+        background: "#0a0a0a",
+        borderRadius: 44,
+        boxShadow:
+          "0 1px 0 1px rgba(255,255,255,0.04) inset, 0 24px 64px rgba(0,0,0,0.45)",
+      }}
+    >
+      <div
+        className="relative h-full w-full overflow-hidden"
+        style={{
+          borderRadius: 38,
+          background:
+            "linear-gradient(to bottom right, rgb(245 245 247), rgb(228 228 231))",
+        }}
+      >
+        {/* Punch-hole camera */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 ring-1 ring-zinc-700"
+          style={{ top: 12, width: 11, height: 11 }}
+        />
+        {/* Mock status bar */}
+        <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
+          9:41
+        </div>
+        <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500">
+          <span>5G</span>
+          <span>•</span>
+          <span>100%</span>
+        </div>
+        {/* Subtle home indicator */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-zinc-400/60"
+          style={{ bottom: 8, width: 96, height: 4 }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -126,6 +182,7 @@ export default function ColorPickerV9LabPage() {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [control, setControl] = useState<PickerControl | null>(null);
   const [thumbEnabled, setThumbEnabled] = useState(true);
+  const [pressed, setPressed] = useState(false);
   const settleTimer = useRef<number | null>(null);
   const replayTimers = useRef<number[]>([]);
 
@@ -146,7 +203,6 @@ export default function ColorPickerV9LabPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Ignore the toggle while typing in an input/textarea.
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -200,10 +256,12 @@ export default function ColorPickerV9LabPage() {
     }, SETTLE_MS);
   };
 
+  const showThumb = thumbEnabled && pressed;
+
   return (
     <div
       className={`relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 ${
-        thumbEnabled ? "[&_*]:cursor-none" : ""
+        showThumb ? "[&_*]:cursor-none" : ""
       }`}
     >
       <div className="mx-auto max-w-md px-6 pb-32 pt-28">
@@ -214,14 +272,14 @@ export default function ColorPickerV9LabPage() {
           Radial color picker
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Same touch-visibility behaviour as v8, but with a life-size thumb
-          rendered in place of the cursor so the demo reads correctly on
-          desktop — useful for evaluating how much of the picker stays
-          unobstructed by a real finger.
+          Same touch-visibility behaviour as v8, but rendered inside a
+          Galaxy S24-sized mock with a life-size thumb that appears while
+          the FAB is held — so the picker can be evaluated against a real
+          finger on a realistic-density device.
         </p>
         <p className="mt-2 text-xs text-muted-foreground/70">
-          Move the mouse to drag the thumb. Press and hold on the FAB as
-          usual.
+          Press and hold the FAB to see the picker. Mouse position drives
+          the thumb.
         </p>
       </div>
 
@@ -235,9 +293,15 @@ export default function ColorPickerV9LabPage() {
         }}
       />
 
-      <ColorPickerFabV9 config={config} control={control} />
+      <DeviceFrame />
 
-      {thumbEnabled && (
+      <ColorPickerFabV9
+        config={config}
+        control={control}
+        onPressedChange={setPressed}
+      />
+
+      {showThumb && (
         <ThumbCursor fabSize={config.fabSize} fabInset={config.fabInset} />
       )}
 

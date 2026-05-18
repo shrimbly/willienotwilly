@@ -18,6 +18,9 @@ type Props = {
   onPick?: (color: string) => void;
   config?: Partial<Config>;
   control?: PickerControl | null;
+  // Fires whenever the user starts pressing the FAB and again when they
+  // release. Used by v9's lab page to time the thumb-cursor overlay.
+  onPressedChange?: (pressed: boolean) => void;
 };
 
 export type Config = {
@@ -116,6 +119,7 @@ export function ColorPickerFabV9({
   onPick,
   config: configOverride,
   control,
+  onPressedChange,
 }: Props) {
   const config = { ...DEFAULT_CONFIG, ...configOverride };
   const {
@@ -300,6 +304,10 @@ export function ColorPickerFabV9({
   const [picked, setPicked] = useState<string | null>(null);
   const [pressed, setPressed] = useState(false);
   const [fabCenter, setFabCenter] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    onPressedChange?.(pressed);
+  }, [pressed, onPressedChange]);
 
   const captureCenter = () => {
     const el = fabRef.current;
