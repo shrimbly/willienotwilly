@@ -413,17 +413,43 @@ export function ColorPickerFabV8({
       lockedPreviewArcAngleRef.current = null;
     }
   }
-  // Clamp the tone arc's centre so its angular range never extends past the
-  // ribbon's. The clamp shifts the centre rather than truncating the span; if
-  // the tone span is wider than the ribbon, it falls back to the midpoint.
+  // Clamp the tone arc's centre so its angular range never extends past
+  // (a) the ribbon's angular extent, OR (b) the viewport's bottom-right
+  // corner — keeping a fixed minimum gap between the (scaled) tone arc
+  // and the bottom / right screen edges.
   const toneMinBoundary = ribbonStartDeg;
   const toneMaxBoundary = ribbonEndDeg;
   const toneHalfSpan = toneSpan / 2;
-  const toneMinCenter = toneMinBoundary + toneHalfSpan;
-  const toneMaxCenter = toneMaxBoundary - toneHalfSpan;
+  const TONE_VIEWPORT_MARGIN = 14; // px from viewport bottom/right
+  const scaledToneOuter = toneOuter * TONE_LIFT_SCALE;
+  const screenGapRatio = Math.max(
+    0,
+    Math.min(
+      1,
+      Math.max(0, fabInset - TONE_VIEWPORT_MARGIN) /
+        Math.max(1, scaledToneOuter),
+    ),
+  );
+  const screenClearDeg =
+    (Math.asin(screenGapRatio) * 180) / Math.PI;
+  // Lowest allowed math angle for the tone arc's left edge (bottom
+  // viewport constraint) and highest allowed for its right edge (right
+  // viewport constraint). Math angle 180° = straight left of FAB; math
+  // angle 270° = straight up. Below 180° dips beneath the FAB level;
+  // above 270° pushes past the FAB to the right.
+  const screenMinToneStart = 180 - screenClearDeg;
+  const screenMaxToneEnd = 270 + screenClearDeg;
+  const toneMinCenter = Math.max(
+    toneMinBoundary + toneHalfSpan,
+    screenMinToneStart + toneHalfSpan,
+  );
+  const toneMaxCenter = Math.min(
+    toneMaxBoundary - toneHalfSpan,
+    screenMaxToneEnd - toneHalfSpan,
+  );
   let toneCenterDeg = lockedToneCenterRef.current ?? arcCenterDeg;
   if (toneMinCenter > toneMaxCenter) {
-    toneCenterDeg = (toneMinBoundary + toneMaxBoundary) / 2;
+    toneCenterDeg = (toneMinCenter + toneMaxCenter) / 2;
   } else {
     toneCenterDeg = Math.max(toneMinCenter, Math.min(toneMaxCenter, toneCenterDeg));
   }
