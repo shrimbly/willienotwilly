@@ -21,11 +21,9 @@ const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
 const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
 const DEVICE_PADDING = 24;
 const FAB_INSET_FROM_SCREEN = 41;
-const DEVICE_FRAME_BOTTOM = DEVICE_PADDING;
-const DEVICE_FRAME_RIGHT = DEVICE_PADDING;
-const DEVICE_SCREEN_BOTTOM = DEVICE_FRAME_BOTTOM + DEVICE_BEZEL;
-const DEVICE_SCREEN_RIGHT = DEVICE_FRAME_RIGHT + DEVICE_BEZEL;
-const FAB_VIEWPORT_INSET = DEVICE_SCREEN_BOTTOM + FAB_INSET_FROM_SCREEN;
+// Per-instance positioning happens at render time now since the
+// device's horizontal inset depends on viewport width (centred
+// max-w-5xl layout). See `desktopRightInset` in the component.
 
 // --- Thumb cursor (desktop only) -----------------------------------------
 const THUMB_ASPECT = 354 / 360;
@@ -104,9 +102,11 @@ const WAVE_RADIUS = Math.ceil(
 function DeviceFrame({
   pickHistory,
   onWaveComplete,
+  rightInset,
 }: {
   pickHistory: PickEvent[];
   onWaveComplete: (id: number) => void;
+  rightInset: number;
 }) {
   return (
     <>
@@ -114,8 +114,8 @@ function DeviceFrame({
         aria-hidden
         className="pointer-events-none fixed z-0 select-none overflow-hidden"
         style={{
-          bottom: DEVICE_SCREEN_BOTTOM,
-          right: DEVICE_SCREEN_RIGHT,
+          bottom: DEVICE_PADDING + DEVICE_BEZEL,
+          right: rightInset + DEVICE_BEZEL,
           width: DEVICE_SCREEN_W,
           height: DEVICE_SCREEN_H,
           borderRadius: 38,
@@ -169,8 +169,8 @@ function DeviceFrame({
         aria-hidden
         className="pointer-events-none fixed z-[31] select-none"
         style={{
-          bottom: DEVICE_FRAME_BOTTOM,
-          right: DEVICE_FRAME_RIGHT,
+          bottom: DEVICE_PADDING,
+          right: rightInset,
           width: DEVICE_FRAME_W,
           height: DEVICE_FRAME_H,
           border: `${DEVICE_BEZEL}px solid #0a0a0a`,
@@ -250,13 +250,22 @@ export default function ColorPickerV9LabPage() {
     };
   }, []);
 
-  // On desktop we shift the FAB inside the device-screen edge; on mobile
-  // we use the default inset so the FAB sits at the viewport corner like
-  // earlier versions did. screenEdgeInset stays at the device-screen
-  // inset on desktop and falls back to fabInset on mobile.
+  // On desktop, position the device + FAB so the device's right edge
+  // aligns with the right edge of a centred max-w-5xl content column.
+  // The text content sits in that column's left side and the device
+  // floats on its right side, giving a balanced two-column composition.
+  // On narrower (sub-5xl) viewports, the device falls back to the
+  // default 24 px padding from the viewport edge.
+  const CONTAINER_MAX_W = 1024;
+  const CONTAINER_INNER_W = CONTAINER_MAX_W - 24 * 2;
+  const desktopRightInset = isMobile
+    ? DEVICE_PADDING
+    : Math.max(DEVICE_PADDING, (vp.w - CONTAINER_INNER_W) / 2);
+  const fabInsetForDesktop =
+    desktopRightInset + DEVICE_BEZEL + FAB_INSET_FROM_SCREEN;
   const renderedConfig: Config = isMobile
     ? config
-    : { ...config, fabInset: FAB_VIEWPORT_INSET };
+    : { ...config, fabInset: fabInsetForDesktop };
 
   const clearReplayTimers = () => {
     replayTimers.current.forEach((id) => clearTimeout(id));
@@ -407,14 +416,21 @@ export default function ColorPickerV9LabPage() {
       )}
 
       {!mobilePickActive && (
-        <div className="mx-auto max-w-md px-6 pb-32 pt-28">
-          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Lab · v9
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Radial color picker
-          </h1>
-          <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
+        <div className="mx-auto max-w-5xl px-6 pb-32 pt-28 lg:flex lg:items-end lg:gap-12 lg:pb-12 lg:pt-12 lg:min-h-[100dvh]">
+          <div className="lg:flex-1 lg:max-w-md">
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              Lab · v9
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+              Radial color picker
+            </h1>
+            <AnimatePresence mode="wait">{descSlot}</AnimatePresence>
+          </div>
+          <div
+            aria-hidden
+            className="hidden shrink-0 lg:block"
+            style={{ width: DEVICE_FRAME_W, height: DEVICE_FRAME_H }}
+          />
         </div>
       )}
 
@@ -449,6 +465,7 @@ export default function ColorPickerV9LabPage() {
         <DeviceFrame
           pickHistory={pickHistory}
           onWaveComplete={handleWaveComplete}
+          rightInset={desktopRightInset}
         />
       )}
 
