@@ -28,6 +28,12 @@ type Props = {
   // should reason about (small inset because the device-screen edge is
   // close to the FAB).
   screenEdgeInset?: number;
+  // Optional per-axis overrides for the FAB's CSS bottom/right values.
+  // Used by v9 on desktop so the FAB can sit at the device mock's
+  // bottom-right (different bottom vs. right inset from the viewport)
+  // while config.fabInset stays symmetric for mobile.
+  fabBottomInset?: number;
+  fabRightInset?: number;
 };
 
 export type Config = {
@@ -128,6 +134,8 @@ export function ColorPickerFabV9({
   control,
   onPressedChange,
   screenEdgeInset,
+  fabBottomInset,
+  fabRightInset,
 }: Props) {
   const config = { ...DEFAULT_CONFIG, ...configOverride };
   const {
@@ -1406,8 +1414,8 @@ export function ColorPickerFabV9({
           width: fabSize,
           height: fabSize,
           background: fabBackground,
-          bottom: fabInset,
-          right: fabInset,
+          bottom: fabBottomInset ?? fabInset,
+          right: fabRightInset ?? fabInset,
         }}
         animate={{
           scale: previewColor ? 1.06 : pressed ? 0.92 : 1,

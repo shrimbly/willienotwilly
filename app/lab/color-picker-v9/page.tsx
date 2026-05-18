@@ -36,10 +36,22 @@ const THUMB_MAX_ROTATION_DEG = 30;
 
 function ThumbCursor({
   fabSize,
-  fabInset,
+  fabBottom,
+  fabRight,
+  clipRect,
 }: {
   fabSize: number;
-  fabInset: number;
+  fabBottom: number;
+  fabRight: number;
+  // When provided, the thumb image is clipped to this viewport-anchored
+  // rectangle so it doesn't extend past the device-screen on desktop.
+  clipRect?: {
+    bottom: number;
+    right: number;
+    width: number;
+    height: number;
+    borderRadius: number;
+  };
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
@@ -59,8 +71,8 @@ function ThumbCursor({
   const height = width * THUMB_ASPECT;
   let rotation = 0;
   if (typeof window !== "undefined") {
-    const fabCornerX = window.innerWidth - fabInset;
-    const fabCornerY = window.innerHeight - fabInset;
+    const fabCornerX = window.innerWidth - fabRight;
+    const fabCornerY = window.innerHeight - fabBottom;
     const angleRad = Math.atan2(pos.y - fabCornerY, pos.x - fabCornerX);
     const angleDeg = ((angleRad * 180) / Math.PI + 360) % 360;
     let offset = ((angleDeg - PICKER_CENTER_DEG + 540) % 360) - 180;
@@ -69,6 +81,52 @@ function ThumbCursor({
       Math.min(PICKER_HALF_SPAN_DEG, offset),
     );
     rotation = (offset / PICKER_HALF_SPAN_DEG) * THUMB_MAX_ROTATION_DEG;
+  }
+  // If a clip rect is provided, render the thumb inside a fixed
+  // overflow-hidden container at that rect and position the image with
+  // absolute coords relative to the container, so anything beyond the
+  // device-screen edges gets cleanly cropped.
+  if (clipRect) {
+    const clipLeft =
+      typeof window !== "undefined"
+        ? window.innerWidth - clipRect.right - clipRect.width
+        : 0;
+    const clipTop =
+      typeof window !== "undefined"
+        ? window.innerHeight - clipRect.bottom - clipRect.height
+        : 0;
+    const localX = pos.x - clipLeft + width * THUMB_TIP_OFFSET_X;
+    const localY = pos.y - clipTop + height * THUMB_TIP_OFFSET_Y;
+    return (
+      <div
+        className="pointer-events-none fixed z-[100] select-none overflow-hidden"
+        style={{
+          bottom: clipRect.bottom,
+          right: clipRect.right,
+          width: clipRect.width,
+          height: clipRect.height,
+          borderRadius: clipRect.borderRadius,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lab/thumb.png"
+          alt=""
+          width={width}
+          height={height}
+          draggable={false}
+          className="absolute"
+          style={{
+            left: localX,
+            top: localY,
+            transform: `rotate(${rotation.toFixed(2)}deg)`,
+            transformOrigin: `${-width * THUMB_TIP_OFFSET_X}px ${-height * THUMB_TIP_OFFSET_Y}px`,
+            transition: "transform 120ms ease-out",
+            filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
+          }}
+        />
+      </div>
+    );
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -261,11 +319,20 @@ export default function ColorPickerV9LabPage() {
   const desktopRightInset = isMobile
     ? DEVICE_PADDING
     : Math.max(DEVICE_PADDING, (vp.w - CONTAINER_INNER_W) / 2);
-  const fabInsetForDesktop =
+  // Desktop FAB lives at the device-screen's bottom-right corner.
+  // The device frame's vertical inset is DEVICE_PADDING (24); the
+  // device-screen edge sits DEVICE_BEZEL (6) inside that; the FAB sits
+  // FAB_INSET_FROM_SCREEN (41) further in. The right inset varies with
+  // viewport width to track the centred layout, so we need separate
+  // bottom and right values.
+  const fabBottomDesktop =
+    DEVICE_PADDING + DEVICE_BEZEL + FAB_INSET_FROM_SCREEN;
+  const fabRightDesktop =
     desktopRightInset + DEVICE_BEZEL + FAB_INSET_FROM_SCREEN;
-  const renderedConfig: Config = isMobile
-    ? config
-    : { ...config, fabInset: fabInsetForDesktop };
+  const renderedConfig: Config = config;
+  // Effective FAB insets (used for positioning hints + thumb clip).
+  const actualFabBottom = isMobile ? config.fabInset : fabBottomDesktop;
+  const actualFabRight = isMobile ? config.fabInset : fabRightDesktop;
 
   const clearReplayTimers = () => {
     replayTimers.current.forEach((id) => clearTimeout(id));
@@ -416,8 +483,8 @@ export default function ColorPickerV9LabPage() {
       )}
 
       {!mobilePickActive && (
-        <div className="mx-auto max-w-5xl px-6 pb-32 pt-28 lg:flex lg:items-end lg:gap-12 lg:pb-12 lg:pt-12 lg:min-h-[100dvh]">
-          <div className="lg:flex-1 lg:max-w-md">
+        <div className="mx-auto max-w-5xl px-6 pb-32 pt-28 lg:flex lg:items-stretch lg:gap-12 lg:pt-28 lg:min-h-[100dvh]" style={{ paddingBottom: undefined }}>
+          <div className="lg:flex-1 lg:max-w-md lg:self-start">
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               Lab · v9
             </p>
@@ -428,8 +495,12 @@ export default function ColorPickerV9LabPage() {
           </div>
           <div
             aria-hidden
-            className="hidden shrink-0 lg:block"
-            style={{ width: DEVICE_FRAME_W, height: DEVICE_FRAME_H }}
+            className="hidden shrink-0 lg:block lg:self-end"
+            style={{
+              width: DEVICE_FRAME_W,
+              height: DEVICE_FRAME_H,
+              marginBottom: DEVICE_PADDING,
+            }}
           />
         </div>
       )}
@@ -475,12 +546,22 @@ export default function ColorPickerV9LabPage() {
         onPressedChange={handlePressedChange}
         onPick={handlePick}
         screenEdgeInset={isMobile ? undefined : FAB_INSET_FROM_SCREEN}
+        fabBottomInset={isMobile ? undefined : fabBottomDesktop}
+        fabRightInset={isMobile ? undefined : fabRightDesktop}
       />
 
       {showThumb && (
         <ThumbCursor
           fabSize={renderedConfig.fabSize}
-          fabInset={renderedConfig.fabInset}
+          fabBottom={actualFabBottom}
+          fabRight={actualFabRight}
+          clipRect={{
+            bottom: DEVICE_PADDING + DEVICE_BEZEL,
+            right: desktopRightInset + DEVICE_BEZEL,
+            width: DEVICE_SCREEN_W,
+            height: DEVICE_SCREEN_H,
+            borderRadius: 38,
+          }}
         />
       )}
 
@@ -492,9 +573,8 @@ export default function ColorPickerV9LabPage() {
             key="press-hint"
             className="pointer-events-none fixed z-[60] select-none rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur"
             style={{
-              bottom:
-                renderedConfig.fabInset + renderedConfig.fabSize + 14,
-              right: renderedConfig.fabInset,
+              bottom: actualFabBottom + renderedConfig.fabSize + 14,
+              right: actualFabRight,
             }}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
