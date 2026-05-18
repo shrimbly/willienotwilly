@@ -877,6 +877,26 @@ export function ColorPickerFabV9({
     setPressed(false);
   };
 
+  // Safety net: pointer capture can be lost mid-drag (cursor leaving the
+  // viewport, browser focus changes, etc.) and when that happens the
+  // pointerup fires on whatever element is under the cursor — not on the
+  // FAB — so our React handler never runs and `pressed` stays true.
+  // While pressed, also listen on window so we always catch the release.
+  const handlePointerUpRef = useRef(handlePointerUp);
+  handlePointerUpRef.current = handlePointerUp;
+  useEffect(() => {
+    if (!pressed) return;
+    const onUp = () => handlePointerUpRef.current();
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
+    };
+  }, [pressed]);
+
   useEffect(() => {
     return () => {
       if (holdTimer.current) clearTimeout(holdTimer.current);
