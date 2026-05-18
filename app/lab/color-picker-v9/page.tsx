@@ -417,7 +417,7 @@ function ColorChip({ color }: { color: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-1/2 top-full z-10 mt-2 flex w-max -translate-x-1/2 flex-col gap-1 rounded-md bg-black/40 p-1 text-[11px] text-white shadow-xl ring-1 ring-white/15 backdrop-blur-md"
+            className="absolute left-1/2 top-full z-10 mt-2 grid w-max -translate-x-1/2 grid-cols-[auto_auto_auto_1fr] gap-y-1 rounded-md bg-black/40 p-1 text-[11px] text-white shadow-xl ring-1 ring-white/15 backdrop-blur-md"
           >
             {(
               [
@@ -430,7 +430,7 @@ function ColorChip({ color }: { color: string }) {
                 key={kind}
                 type="button"
                 onClick={() => handleCopy(kind)}
-                className="grid grid-cols-[auto_5.5rem_auto_1fr] items-center gap-x-2 rounded px-2.5 py-1.5 text-left font-mono hover:bg-white/15"
+                className="grid grid-cols-subgrid col-span-4 items-center gap-x-2 rounded px-2.5 py-1.5 text-left font-mono hover:bg-white/15"
               >
                 {copied === kind ? (
                   <Check className="size-3" />
