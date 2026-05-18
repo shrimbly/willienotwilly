@@ -15,6 +15,11 @@ const THUMB_ASPECT = 354 / 360;
 // Width as a multiple of the FAB diameter — sized large so the thumb
 // reads at roughly life-size on screen.
 const THUMB_FAB_MULTIPLE = 3.0;
+// Fine-tune where the thumb tip lives within the PNG (as fractions of the
+// rendered width/height). Negative shifts the image up/left so the actual
+// fingertip — not the corner of the artwork — sits at the cursor.
+const THUMB_TIP_OFFSET_X = -0.08;
+const THUMB_TIP_OFFSET_Y = -0.06;
 
 function ThumbCursor({ fabSize }: { fabSize: number }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -43,10 +48,10 @@ function ThumbCursor({ fabSize }: { fabSize: number }) {
       draggable={false}
       className="pointer-events-none fixed z-[100] select-none"
       style={{
-        // Thumb tip lives at the top-left of the artwork, so anchor there
-        // at the cursor position with no offset.
-        left: pos.x,
-        top: pos.y,
+        // Thumb tip lives near the top-left of the artwork; nudge with the
+        // tip-offset constants so the actual fingertip sits at the cursor.
+        left: pos.x + width * THUMB_TIP_OFFSET_X,
+        top: pos.y + height * THUMB_TIP_OFFSET_Y,
         filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
       }}
     />
