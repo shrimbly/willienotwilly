@@ -12,9 +12,9 @@ import { TuningPanelV8 as TuningPanel } from "@/components/lab/tuning-panel-v8";
 // Thumb image is 360 × 354 (W × H). The aspect ratio is used to derive
 // the rendered height from the configured width.
 const THUMB_ASPECT = 354 / 360;
-// Width as a multiple of the FAB diameter (the user's thumb is about 1.8×
-// the FAB in real life).
-const THUMB_FAB_MULTIPLE = 1.8;
+// Width as a multiple of the FAB diameter — sized large so the thumb
+// reads at roughly life-size on screen.
+const THUMB_FAB_MULTIPLE = 3.0;
 
 function ThumbCursor({ fabSize }: { fabSize: number }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -43,7 +43,9 @@ function ThumbCursor({ fabSize }: { fabSize: number }) {
       draggable={false}
       className="pointer-events-none fixed z-[100] select-none"
       style={{
-        left: pos.x - width / 2,
+        // Thumb tip lives at the top-left of the artwork, so anchor there
+        // at the cursor position with no offset.
+        left: pos.x,
         top: pos.y,
         filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
       }}
