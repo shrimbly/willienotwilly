@@ -804,23 +804,16 @@ export function ColorPickerFabV8({
     : 0;
   const ribbonIndicatorPos =
     expanded && !inToneArc ? polar(cx, cy, ribbonMid, indicatorDeg) : null;
-  // Tone indicator: mapped through toneEffT (same compression as the L
-  // value the picker reports) so it leads the thumb — by the time the
-  // thumb has crossed into the tone band, the indicator is already sitting
-  // well inside the tone arc instead of pinned at the inner edge. Scaled
-  // by toneScale so it lands on the visible (scaled) tone surface.
+  // Tone indicator: mapped through toneEffT so it leads the thumb. The
+  // centre is allowed to reach all the way to the inner/outer edges of
+  // the (scaled) tone band, so the indicator circle can clip past the
+  // edges by up to its radius — exposing the colour range that lives
+  // between the centre of the circle and its outer ring.
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
         cy,
-        toneScale *
-          Math.max(
-            toneInner + indicatorSize / 2,
-            Math.min(
-              toneOuter - indicatorSize / 2,
-              toneInner + toneEffT * (toneOuter - toneInner),
-            ),
-          ),
+        toneScale * (toneInner + toneEffT * (toneOuter - toneInner)),
         toneStartDeg + tonePosAngular,
       )
     : null;
