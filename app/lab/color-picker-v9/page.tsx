@@ -549,7 +549,7 @@ export default function ColorPickerV9LabPage() {
                   {!isMobile && (
                     <div className="mt-10 hidden font-sans lg:block">
                       <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Type sample · Geist
+                        Type sample · Inter
                       </p>
                       <h1 className="mt-3 text-4xl font-semibold tracking-tight">
                         H1 — The quick brown fox, jumps.
