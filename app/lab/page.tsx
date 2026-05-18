@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Radial color picker",
     entries: [
       {
+        slug: "color-picker-v9",
+        version: "v9",
+        title: "Life-size thumb cursor for desktop demo",
+        note: "Replaces the mouse cursor with a PNG of a real thumb so it's easier to evaluate how much of the picker is obstructed by a finger.",
+      },
+      {
         slug: "color-picker-v8",
         version: "v8",
         title: "Improved touch-interaction visibility",
