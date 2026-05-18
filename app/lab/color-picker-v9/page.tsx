@@ -419,44 +419,29 @@ function ColorChip({ color }: { color: string }) {
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             className="absolute left-1/2 top-full z-10 mt-2 flex w-max -translate-x-1/2 flex-col gap-1 rounded-md bg-black/40 p-1 text-[11px] text-white shadow-xl ring-1 ring-white/15 backdrop-blur-md"
           >
-            <button
-              type="button"
-              onClick={() => handleCopy("oklch")}
-              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
-            >
-              {copied === "oklch" ? (
-                <Check className="size-3" />
-              ) : (
-                <Copy className="size-3" />
-              )}
-              <span>
-                {copied === "oklch" ? "Copied" : `Copy OKLCH · ${formats.oklch}`}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCopy("hex")}
-              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
-            >
-              {copied === "hex" ? (
-                <Check className="size-3" />
-              ) : (
-                <Copy className="size-3" />
-              )}
-              <span>{copied === "hex" ? "Copied" : `Copy hex · ${formats.hex}`}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCopy("rgb")}
-              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
-            >
-              {copied === "rgb" ? (
-                <Check className="size-3" />
-              ) : (
-                <Copy className="size-3" />
-              )}
-              <span>{copied === "rgb" ? "Copied" : `Copy RGB · ${formats.rgb}`}</span>
-            </button>
+            {(
+              [
+                { kind: "oklch", label: "Copy OKLCH", value: formats.oklch },
+                { kind: "hex", label: "Copy hex", value: formats.hex },
+                { kind: "rgb", label: "Copy RGB", value: formats.rgb },
+              ] as const
+            ).map(({ kind, label, value }) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => handleCopy(kind)}
+                className="grid grid-cols-[auto_5.5rem_auto_1fr] items-center gap-x-2 rounded px-2.5 py-1.5 text-left font-mono hover:bg-white/15"
+              >
+                {copied === kind ? (
+                  <Check className="size-3" />
+                ) : (
+                  <Copy className="size-3" />
+                )}
+                <span>{copied === kind ? "Copied" : label}</span>
+                <span className="text-white/50">·</span>
+                <span>{copied === kind ? "" : value}</span>
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
