@@ -1,9 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { QrCode } from "lucide-react";
+import { Check, ChevronDown, Copy, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ColorPickerFabV9,
   DEFAULT_CONFIG,
@@ -170,11 +170,13 @@ function DeviceFrame({
   onWaveComplete,
   rightInset,
   message,
+  latestColor,
 }: {
   pickHistory: PickEvent[];
   onWaveComplete: (id: number) => void;
   rightInset: number;
   message: string;
+  latestColor: string | null;
 }) {
   return (
     <>
@@ -222,7 +224,7 @@ function DeviceFrame({
           style={{ bottom: 8, width: 96, height: 4 }}
         />
         <div
-          className="pointer-events-none absolute inset-0 flex items-start justify-center"
+          className="pointer-events-none absolute inset-0 flex flex-col items-center"
           style={{ paddingTop: 180 }}
         >
           <h2
@@ -231,6 +233,11 @@ function DeviceFrame({
           >
             {message}
           </h2>
+          {latestColor && (
+            <div className="mt-4">
+              <ColorChip color={latestColor} />
+            </div>
+          )}
         </div>
       </div>
       <div
@@ -293,6 +300,115 @@ const PICK_MESSAGES = [
   "I like.",
   "Uh, ok!",
 ];
+
+function useColorFormats(color: string | null) {
+  return useMemo(() => {
+    if (!color || typeof window === "undefined") {
+      return { oklch: color ?? "", hex: "", rgb: "" };
+    }
+    const probe = document.createElement("div");
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.color = color;
+    document.body.appendChild(probe);
+    const computed = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    const m = computed.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+    if (!m) return { oklch: color, hex: "", rgb: computed };
+    const r = +m[1];
+    const g = +m[2];
+    const b = +m[3];
+    const hex =
+      "#" +
+      [r, g, b]
+        .map((n) => n.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+    return { oklch: color, hex, rgb: `rgb(${r}, ${g}, ${b})` };
+  }, [color]);
+}
+
+function ColorChip({ color }: { color: string }) {
+  const formats = useColorFormats(color);
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<"hex" | "rgb" | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDocClick);
+    return () => window.removeEventListener("pointerdown", onDocClick);
+  }, [open]);
+
+  const handleCopy = async (kind: "hex" | "rgb") => {
+    const text = kind === "hex" ? formats.hex : formats.rgb;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1400);
+    } catch {
+      // clipboard rejected — silently ignore
+    }
+  };
+
+  return (
+    <div ref={ref} className="pointer-events-auto relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 font-mono text-[11px] tracking-tight text-white backdrop-blur-sm ring-1 ring-white/20 transition-colors hover:bg-white/25"
+      >
+        <span>{formats.oklch}</span>
+        <ChevronDown
+          className={`size-3 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="copy-menu"
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-1/2 top-full z-10 mt-2 flex w-max -translate-x-1/2 flex-col gap-1 rounded-md bg-black/40 p-1 text-[11px] text-white shadow-xl ring-1 ring-white/15 backdrop-blur-md"
+          >
+            <button
+              type="button"
+              onClick={() => handleCopy("hex")}
+              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
+            >
+              {copied === "hex" ? (
+                <Check className="size-3" />
+              ) : (
+                <Copy className="size-3" />
+              )}
+              <span>{copied === "hex" ? "Copied" : `Copy hex · ${formats.hex}`}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCopy("rgb")}
+              className="inline-flex items-center gap-2 rounded px-2.5 py-1.5 font-mono hover:bg-white/15"
+            >
+              {copied === "rgb" ? (
+                <Check className="size-3" />
+              ) : (
+                <Copy className="size-3" />
+              )}
+              <span>{copied === "rgb" ? "Copied" : `Copy RGB · ${formats.rgb}`}</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function ColorPickerV9LabPage() {
   // Base config: default FAB inset (41 px from viewport corner). On
@@ -596,7 +712,7 @@ export default function ColorPickerV9LabPage() {
 
       {mobilePickActive && (
         <div
-          className="pointer-events-none fixed inset-0 z-10 flex items-start justify-center px-6"
+          className="pointer-events-none fixed inset-0 z-10 flex flex-col items-center px-6"
           style={{ paddingTop: 180 }}
         >
           <h2
@@ -608,6 +724,11 @@ export default function ColorPickerV9LabPage() {
           >
             {pickMessage}
           </h2>
+          {latestPick && (
+            <div className="mt-5">
+              <ColorChip color={latestPick.color} />
+            </div>
+          )}
         </div>
       )}
 
@@ -631,6 +752,7 @@ export default function ColorPickerV9LabPage() {
           onWaveComplete={handleWaveComplete}
           rightInset={desktopRightInset}
           message={pickMessage}
+          latestColor={latestPick?.color ?? null}
         />
       )}
 
