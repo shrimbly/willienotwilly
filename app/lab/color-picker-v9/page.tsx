@@ -228,7 +228,7 @@ function DeviceFrame({
             style={{
               fontSize: 76,
               lineHeight: 1,
-              fontFamily: 'Helvetica, Arial, sans-serif',
+              fontFamily: 'var(--font-geist-sans)',
             }}
           >
             Oh, nice.
@@ -583,7 +583,7 @@ export default function ColorPickerV9LabPage() {
             style={{
               fontSize: "clamp(80px, 24vw, 112px)",
               lineHeight: 1,
-              fontFamily: 'Helvetica, Arial, sans-serif',
+              fontFamily: 'var(--font-geist-sans)',
             }}
           >
             Oh, nice.
