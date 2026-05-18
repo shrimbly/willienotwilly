@@ -269,6 +269,10 @@ export function ColorPickerFabV8({
   const toneSpan = toneSpanDeg;
   const toneMid = (toneInner + toneOuter) / 2;
   const toneLocalC = toneOuter;
+  // How much the tone UI pops out from under the thumb while active.
+  // Defined early so the tone-centre clamp can compute its scaled-outer
+  // extent for the viewport-edge constraint.
+  const TONE_LIFT_SCALE = 1.16;
   // Once the thumb is fully across the ribbon band, pop the tone UI in and
   // let the ribbon snap back to its resting scale (same hand-off pattern as
   // swatches → ribbon).
@@ -645,7 +649,7 @@ export function ColorPickerFabV8({
   const SWATCH_RECEDE = -12; // inward shift once the user is past the swatches
   const RIBBON_THICKEN_MAX = 0.12; // scale boost while ribbon is under thumb
   const RIBBON_RECEDE_SCALE = 0.9; // shrink/pull ribbon in once tone is active
-  const TONE_LIFT_SCALE = 1.16; // pop the tone UI out so it's not under thumb
+  // (TONE_LIFT_SCALE is declared earlier so the tone-centre clamp can use it.)
   const overSwatches = !expanded && inSwatchArc && dist > fabR + 8;
   const swatchLiftT = overSwatches
     ? Math.max(
