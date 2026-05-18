@@ -259,29 +259,7 @@ export const projects: Project[] = [
       { label: "Stack", value: "TypeScript" },
       { label: "Runtime", value: "Browser" },
     ],
-    highlights: [
-      {
-        title: "Bezier speed curves",
-        caption:
-          "Drag a curve to retime any clip — perfect for stitching a seamless out-to-in.",
-        aspect: "16/10",
-        placeholderClass: "bg-muted",
-      },
-      {
-        title: "Audio mixing",
-        caption:
-          "Crossfade and mix tracks directly in the timeline, all without leaving the browser.",
-        aspect: "4/3",
-        placeholderClass: "bg-muted",
-      },
-      {
-        title: "Client-side render",
-        caption:
-          "Media bunny does the heavy lifting locally — nothing leaves your machine.",
-        aspect: "16/10",
-        placeholderClass: "bg-muted",
-      },
-    ],
+    highlights: [],
   },
   {
     slug: "contact-sheet-prompting",
