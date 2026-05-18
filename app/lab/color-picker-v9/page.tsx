@@ -59,10 +59,14 @@ function ThumbCursor({
       setPos({ x: e.clientX, y: e.clientY });
     };
     const clear = () => setPos(null);
+    // Listen to pointerdown too so the thumb image appears the instant
+    // the user presses (without waiting for the next pointermove).
     window.addEventListener("pointermove", handler);
+    window.addEventListener("pointerdown", handler);
     window.addEventListener("pointerleave", clear);
     return () => {
       window.removeEventListener("pointermove", handler);
+      window.removeEventListener("pointerdown", handler);
       window.removeEventListener("pointerleave", clear);
     };
   }, []);
@@ -490,7 +494,7 @@ export default function ColorPickerV9LabPage() {
               )}
             </AnimatePresence>
             {!isMobile && (
-              <div className="hidden lg:mt-auto lg:flex lg:pb-2">
+              <div className="hidden lg:mt-auto lg:flex lg:pb-6">
                 <span className="pointer-events-none select-none rounded-full bg-background/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur">
                   Press <kbd className="rounded bg-foreground/10 px-1.5 py-0.5 text-foreground">t</kbd> to toggle thumb
                 </span>
