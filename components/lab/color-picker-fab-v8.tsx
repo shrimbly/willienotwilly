@@ -619,7 +619,7 @@ export function ColorPickerFabV8({
   const SWATCH_RECEDE = -12; // inward shift once the user is past the swatches
   const RIBBON_THICKEN_MAX = 0.12; // scale boost while ribbon is under thumb
   const RIBBON_RECEDE_SCALE = 0.9; // shrink/pull ribbon in once tone is active
-  const TONE_LIFT_SCALE = 1.12; // pop the tone UI out so it's not under thumb
+  const TONE_LIFT_SCALE = 1.22; // pop the tone UI out so it's not under thumb
   const overSwatches = !expanded && inSwatchArc && dist > fabR + 8;
   const swatchLiftT = overSwatches
     ? Math.max(
