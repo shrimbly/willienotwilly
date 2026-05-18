@@ -888,13 +888,16 @@ export function ColorPickerFabV9({
   // Tone indicator: mapped through toneEffT so it leads the thumb. The
   // centre is allowed to reach all the way to the inner/outer edges of
   // the (scaled) tone band, so the indicator circle can clip past the
-  // edges by up to its radius — exposing the colour range that lives
-  // between the centre of the circle and its outer ring.
+  // edges by up to its radius. An additional fixed lift puts the
+  // indicator a bit further out from the visible tone surface so it
+  // clears the user's thumb tip more reliably.
+  const TONE_INDICATOR_LIFT_PX = 18;
   const toneIndicatorPos = inToneArc && effPointer
     ? polar(
         cx,
         cy,
-        toneScale * (toneInner + toneEffT * (toneOuter - toneInner)),
+        toneScale * (toneInner + toneEffT * (toneOuter - toneInner)) +
+          TONE_INDICATOR_LIFT_PX,
         toneStartDeg + tonePosAngular,
       )
     : null;
