@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, FlaskConical } from "lucide-react";
 
 import { BlurFade } from "@/components/ui/blur-fade";
 import { AwardsView } from "@/components/awards-view";
@@ -93,6 +93,12 @@ function ProjectCard({ project }: { project: Project }) {
               }}
               aria-hidden="true"
             />
+          )}
+          {project.thumbnailBadge === "lab" && (
+            <span className="pointer-events-none absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-foreground shadow-sm backdrop-blur-sm sm:left-5 sm:top-5 sm:px-3 sm:text-[11px]">
+              <FlaskConical className="size-3 sm:size-3.5" />
+              Lab
+            </span>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0 opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100" />
           <div className="absolute inset-x-0 bottom-0 flex translate-y-0 items-end justify-between gap-4 p-5 opacity-100 transition-all duration-300 sm:translate-y-1 sm:p-6 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">

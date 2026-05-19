@@ -52,6 +52,8 @@ export type ProjectCredit = {
   prefix?: string;
 };
 
+export type ThumbnailBadge = "lab";
+
 export type Project = {
   slug: string;
   title: string;
@@ -76,6 +78,7 @@ export type Project = {
   stats: ProjectStat[];
   highlights: Highlight[];
   inset?: boolean;
+  thumbnailBadge?: ThumbnailBadge;
 };
 
 export type PortfolioFilter = "all" | ProjectCategory | "awards";
@@ -88,6 +91,29 @@ export const categoryFilters: { value: PortfolioFilter; label: string }[] = [
 ];
 
 export const projects: Project[] = [
+  {
+    slug: "lab",
+    title: "Lab",
+    blurb:
+      "An evolving set of interaction sketches. Latest experiment: a radial color picker designed for thumb-first selection on touch devices.",
+    description:
+      "A live lab of small interaction experiments. Each entry refines a tightly-scoped UI problem in isolation before anything ships. The current focus is a radial colour picker iterated across nine versions — hue ribbon, tone plane, touch-visibility lifts, a life-size thumb cursor for desktop preview, and a phone-mock with reveal animations.",
+    meta: "Personal · Active",
+    year: "2026",
+    href: "/lab",
+    external: false,
+    ctaLabel: "Open the lab",
+    category: "personal",
+    placeholderClass: "bg-muted",
+    video: "/videos/portfolio/lab-color-picker.mp4",
+    thumbnailBadge: "lab",
+    stats: [
+      { label: "Format", value: "Interaction sketches" },
+      { label: "Status", value: "Active" },
+      { label: "Stack", value: "Next · Motion" },
+    ],
+    highlights: [],
+  },
   {
     slug: "reflct",
     title: "Reflct",
