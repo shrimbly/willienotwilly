@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { siteConfig } from "@/lib/site";
 
 type Anchor = {
   href: string;
@@ -80,7 +81,7 @@ export function MobileHeader({ anchors }: MobileHeaderProps) {
             href="/"
             className="text-lg font-semibold hover:text-primary transition"
           >
-            Willie Falloon
+            {siteConfig.name}
           </Link>
 
           <div className="relative" ref={dropdownRef}>

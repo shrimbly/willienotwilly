@@ -2,8 +2,8 @@
  * Resolve a static asset path against the configured asset base URL.
  *
  * When NEXT_PUBLIC_ASSETS_BASE_URL is set (production), the path is prefixed
- * with it — typically https://assets.willienotwilly.com. When unset (local
- * dev), the path is returned unchanged so Next.js can serve it from /public.
+ * with it. When unset (local dev), the path is returned unchanged so Next.js
+ * can serve it from /public.
  *
  * Non-rooted paths (e.g. already-absolute URLs) are returned as-is.
  */

@@ -1,6 +1,7 @@
 import { Blog7 } from "@/components/blog7";
 import { SiteFooter } from "@/components/ui/site-footer";
 import { getAllPosts } from "@/lib/mdx";
+import { siteConfig } from "@/lib/site";
 
 export default function Home() {
   const posts = getAllPosts();
@@ -19,8 +20,8 @@ export default function Home() {
   return (
     <>
       <Blog7
-        heading="Willie Falloon"
-        description="This is a place to document personal projects and experiments. Lately I'm most interested in radiance fields, image editing models, agentic coding tools, and large language models."
+        heading={siteConfig.name}
+        description={siteConfig.home.description}
         posts={formattedPosts}
       />
       <SiteFooter variant="fixed" />

@@ -1,6 +1,12 @@
 {
-  "name": "blog",
+  "name": "willienotwilly",
   "version": "0.1.0",
+  "description": "A Next.js portfolio and MDX blog for personal projects, experiments, and visual case studies.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shrimbly/willienotwilly.git"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev",

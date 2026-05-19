@@ -1,6 +1,7 @@
 import { Linkedin, FileText } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SubscribeButton } from "@/components/ui/subscribe-button";
+import { siteConfig } from "@/lib/site";
 
 interface SiteFooterProps {
   variant?: "fixed" | "static";
@@ -18,11 +19,11 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
       <div className="container mx-auto px-4 py-4 sm:py-5">
         <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span className="font-mono text-xs sm:text-sm">
-            Willie Falloon — Auckland, NZ
+            {siteConfig.name} — {siteConfig.location}
           </span>
           <div className="flex items-center gap-4">
             <a
-              href="https://x.com/ReflctWillie"
+              href={siteConfig.links.x}
               className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Personal projects on X"
             >
@@ -30,7 +31,7 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
               <span className="text-xs sm:text-sm">Projects</span>
             </a>
             <a
-              href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
+              href={siteConfig.links.linkedin}
               className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Day job on LinkedIn"
             >
@@ -38,7 +39,7 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
               <span className="text-xs sm:text-sm">Day job</span>
             </a>
             <a
-              href="/resume.html"
+              href={siteConfig.links.resume}
               className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Resume"
             >
@@ -52,4 +53,3 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
     </footer>
   );
 }
-

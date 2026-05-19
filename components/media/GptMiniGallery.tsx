@@ -11,34 +11,33 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
-
-const R2_BASE = "https://assets.willienotwilly.com";
+import { assetUrl } from "@/lib/asset-url";
 
 const images = [
   {
     src: "/images/gpt-mini-results/image_100.png",
     alt: "GPT-Image1-mini recursion 100 - primary run",
-    video: `${R2_BASE}/videos/gptmini_evolution.mp4`,
+    video: assetUrl("/videos/gptmini_evolution.mp4"),
   },
   {
     src: "/images/gpt-mini-results/image_100-2.png",
     alt: "GPT-Image1-mini recursion 100 - variation 2",
-    video: `${R2_BASE}/videos/gptmini_evolution_3.mp4`,
+    video: assetUrl("/videos/gptmini_evolution_3.mp4"),
   },
   {
     src: "/images/gpt-mini-results/image_100-3.png",
     alt: "GPT-Image1-mini recursion 100 - variation 3",
-    video: `${R2_BASE}/videos/gptmini_evolution_2.mp4`,
+    video: assetUrl("/videos/gptmini_evolution_2.mp4"),
   },
   {
     src: "/images/gpt-mini-results/image_100-4.png",
     alt: "GPT-Image1-mini recursion 100 - variation 4",
-    video: `${R2_BASE}/videos/gptmini_evolution_4.mp4`,
+    video: assetUrl("/videos/gptmini_evolution_4.mp4"),
   },
   {
     src: "/images/gpt-mini-results/image_100-5.png",
     alt: "GPT-Image1-mini recursion 100 - variation 5",
-    video: `${R2_BASE}/videos/gptmini_evolution_5.mp4`,
+    video: assetUrl("/videos/gptmini_evolution_5.mp4"),
   },
 ];
 

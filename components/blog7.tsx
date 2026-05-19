@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/lib/site";
 
 interface Post {
   id: string;
@@ -26,8 +27,8 @@ interface Blog7Props {
 
 function Blog7({
   tagline,
-  heading = "Willie Falloon",
-  description = "I'm Willie, I work in advertising as 'the tech guy'. Lately I'm most interested in radiance fields, image editing models, agentic coding tools, and large language models. This is just a place where I document personal projects and experiments.",
+  heading = siteConfig.name,
+  description = siteConfig.home.description,
   buttonText,
   buttonUrl,
   posts = [],

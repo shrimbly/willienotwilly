@@ -4,11 +4,11 @@ import { SiteFooter } from "@/components/ui/site-footer";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { PortfolioGrid } from "@/components/portfolio-grid";
 import { projects } from "@/lib/portfolio";
+import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Portfolio",
-  description:
-    "Selected projects by Willie Falloon — AI tooling, 3D Gaussian Splatting, creative software, and product leadership.",
+  description: siteConfig.portfolio.metadataDescription,
 };
 
 export default function PortfolioPage() {
@@ -25,13 +25,12 @@ export default function PortfolioPage() {
           <header className="flex flex-col gap-10">
             <BlurFade delay={80}>
               <h1 className="text-pretty text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-                Willie Falloon
+                {siteConfig.name}
               </h1>
             </BlurFade>
             <BlurFade delay={160}>
               <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                I&rsquo;m a product designer and a builder. When I have an
-                idea, I build the software to bring it to life.
+                {siteConfig.portfolio.description}
               </p>
             </BlurFade>
           </header>

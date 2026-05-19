@@ -11,6 +11,7 @@ import { Linkedin, FileText } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SiteFooter } from "@/components/ui/site-footer";
 import { SubscribeButton } from "@/components/ui/subscribe-button";
+import { siteConfig } from "@/lib/site";
 
 // Import custom components for MDX
 import { ModelChart } from "@/components/charts/ModelChart";
@@ -87,25 +88,24 @@ export async function generateMetadata({
     };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://willienotwilly.com";
   const ogImage = post.image || "/TNTR OG.jpg";
 
   return {
     title: post.title,
     description: post.summary,
     keywords: post.keywords,
-    authors: [{ name: "Willie Falloon", url: siteUrl }],
-    creator: "Willie Falloon",
-    publisher: "Willie Falloon",
+    authors: [{ name: siteConfig.name, url: siteConfig.url }],
+    creator: siteConfig.name,
+    publisher: siteConfig.name,
     openGraph: {
       title: post.title,
       description: post.summary,
       type: "article",
-      url: `${siteUrl}/${slug}`,
-      siteName: "Willie Falloon",
+      url: `${siteConfig.url}/${slug}`,
+      siteName: siteConfig.name,
       locale: "en_US",
       publishedTime: post.publishedTime,
-      authors: ["Willie Falloon"],
+      authors: [siteConfig.name],
       images: [
         {
           url: ogImage,
@@ -117,14 +117,14 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      site: "@ReflctWillie",
-      creator: "@ReflctWillie",
+      site: siteConfig.twitterHandle,
+      creator: siteConfig.twitterHandle,
       title: post.title,
       description: post.summary,
       images: [ogImage],
     },
     alternates: {
-      canonical: `${siteUrl}/${slug}`,
+      canonical: `${siteConfig.url}/${slug}`,
     },
   };
 }
@@ -152,7 +152,7 @@ export default async function PostPage({
         <aside className="relative hidden lg:block">
           <nav className="sticky top-24">
             <Link href="/" className="mb-8 block text-xl font-semibold hover:text-primary transition">
-              Willie Falloon
+              {siteConfig.name}
             </Link>
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Jump ahead
@@ -177,21 +177,21 @@ export default async function PostPage({
             </div>
 <div className="mt-8 flex gap-3 pl-3">
                               <a
-                                href="https://x.com/ReflctWillie"
+                                href={siteConfig.links.x}
                                 className="text-muted-foreground transition hover:text-primary"
                                 aria-label="X"
                               >
                                 <XIcon className="h-4 w-4" />
                               </a>
                               <a
-                                href="https://www.linkedin.com/in/willie-falloon-961a8a68/"
+                                href={siteConfig.links.linkedin}
                                 className="text-muted-foreground transition hover:text-primary"
                                 aria-label="LinkedIn"
                               >
                                 <Linkedin className="h-4 w-4" />
                               </a>
                               <a
-                                href="/resume.html"
+                                href={siteConfig.links.resume}
                                 className="text-muted-foreground transition hover:text-primary"
                                 aria-label="Resume"
                               >
