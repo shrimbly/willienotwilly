@@ -95,7 +95,7 @@ function ProjectCard({ project }: { project: Project }) {
             />
           )}
           {project.thumbnailBadge === "lab" && (
-            <span className="pointer-events-none absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-foreground shadow-sm backdrop-blur-sm sm:left-5 sm:top-5 sm:px-3 sm:text-[11px]">
+            <span className="pointer-events-none absolute left-4 top-4 z-10 inline-flex -translate-y-1 items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:left-5 sm:top-5 sm:px-3 sm:text-[11px]">
               <FlaskConical className="size-3 sm:size-3.5" />
               Lab
             </span>
