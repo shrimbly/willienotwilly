@@ -345,22 +345,22 @@ export const projects: Project[] = [
   },
   {
     slug: "lab",
-    title: "Lab",
+    title: "Radial color picker",
     blurb:
-      "An evolving set of interaction sketches. Latest experiment: a radial color picker designed for thumb-first selection on touch devices.",
+      "A thumb-first colour picker iterated across nine versions in the lab. Hue ribbon, tone plane, and a life-size thumb cursor for desktop preview.",
     description:
-      "A live lab of small interaction experiments. Each entry refines a tightly-scoped UI problem in isolation before anything ships. The current focus is a radial colour picker iterated across nine versions — hue ribbon, tone plane, touch-visibility lifts, a life-size thumb cursor for desktop preview, and a phone-mock with reveal animations.",
-    meta: "Personal · Active",
+      "An interaction sketch iterated across nine versions in the lab. The radial colour picker is built around the thumb: a hue ribbon and tone plane expand from a corner FAB, layers lift and thicken as the touch approaches them so nothing hides under a finger, and the desktop preview replaces the cursor with a life-size photograph of an actual thumb inside a Galaxy S24 mock so you can see exactly what gets covered. The lab page walks each version side-by-side.",
+    meta: "Lab · Personal",
     year: "2026",
     href: "/lab",
     external: false,
-    ctaLabel: "Open the lab",
+    ctaLabel: "Open in the lab",
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/lab-color-picker.mp4",
     thumbnailBadge: "lab",
     stats: [
-      { label: "Format", value: "Interaction sketches" },
+      { label: "Format", value: "Lab sketch" },
       { label: "Status", value: "Active" },
       { label: "Stack", value: "Next · Motion" },
     ],
