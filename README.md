@@ -11,7 +11,9 @@ Personal site, portfolio, MDX blog, and small lab for creative tooling experimen
 
 ## What is this?
 
-This repo is the source for [willienotwilly.com](https://willienotwilly.com): a quiet portfolio/blog shell for documenting projects, experiments, prompts, charts, demos, and notes. It is intentionally small enough to fork and customize, but has enough structure to hold a real body of work.
+This repo is the source for [willienotwilly.com](https://willienotwilly.com): a quiet portfolio/blog shell for documenting projects, experiments, prompts, charts, demos, and notes.
+
+It is not packaged as a polished template or product. It is a personal site that happens to be open source. If something in here is useful, you are very welcome to fork it, pull it apart, rename everything, and run with it.
 
 The useful bits:
 
