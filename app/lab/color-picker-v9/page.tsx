@@ -294,12 +294,7 @@ const POST_REPLAY_HOLD_MS = 1100;
 const DESC_TEXT =
   "Polished interactions, refined spacing and animations. On desktop the picker lives inside a Galaxy S24-sized mock with a life-size cursor (yes, that's a photo of my actual thumb) so you can see exactly what gets covered by a real finger.";
 
-const PICK_MESSAGES = [
-  "Oh, nice.",
-  "Mmm, yes.",
-  "I like.",
-  "Uh, ok!",
-];
+const PICK_MESSAGE = "Oh, nice.";
 
 function formatOklch(raw: string) {
   // Parse "oklch(L C H)" — L and C are 0-1 floats, H is 0-360.
@@ -459,7 +454,6 @@ export default function ColorPickerV9LabPage() {
   const [pressed, setPressed] = useState(false);
   const [pickHistory, setPickHistory] = useState<PickEvent[]>([]);
   const [latestPick, setLatestPick] = useState<PickEvent | null>(null);
-  const [pickCount, setPickCount] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
@@ -592,13 +586,7 @@ export default function ColorPickerV9LabPage() {
     const ev = { color, id: Date.now() + Math.random() };
     setLatestPick(ev);
     setPickHistory((h) => [...h, ev]);
-    setPickCount((n) => n + 1);
   };
-
-  const pickMessage =
-    pickCount > 0
-      ? PICK_MESSAGES[(pickCount - 1) % PICK_MESSAGES.length]
-      : PICK_MESSAGES[0];
 
   const handleWaveComplete = (id: number) => {
     setPickHistory((h) => {
@@ -654,13 +642,20 @@ export default function ColorPickerV9LabPage() {
         <div className="mx-auto max-w-5xl px-6 pb-32 pt-28 lg:flex lg:items-stretch lg:gap-12 lg:pt-28 lg:min-h-[100dvh]" style={{ paddingBottom: undefined }}>
           <div className="lg:flex lg:flex-col lg:flex-1 lg:max-w-md lg:self-stretch">
             <AnimatePresence mode="wait">
-              {!pressed && (
+              {(!pressed || !isMobile) && (
                 <motion.div
                   key="header"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  initial={isMobile ? { opacity: 0 } : false}
+                  animate={
+                    isMobile
+                      ? { opacity: 1 }
+                      : {
+                          opacity: pressed ? 0.55 : 1,
+                          filter: pressed ? "blur(6px)" : "blur(0px)",
+                        }
+                  }
+                  exit={isMobile ? { opacity: 0 } : undefined}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                     Lab · v9
@@ -761,7 +756,7 @@ export default function ColorPickerV9LabPage() {
               lineHeight: 1,
             }}
           >
-            {pickMessage}
+            {PICK_MESSAGE}
           </h2>
           {latestPick && (
             <div className="mt-5">
@@ -779,7 +774,6 @@ export default function ColorPickerV9LabPage() {
           setControl(null);
           setPickHistory([]);
           setLatestPick(null);
-          setPickCount(0);
           setHasInteracted(false);
           clearAll();
         }}
@@ -790,7 +784,7 @@ export default function ColorPickerV9LabPage() {
           pickHistory={pickHistory}
           onWaveComplete={handleWaveComplete}
           rightInset={desktopRightInset}
-          message={pickMessage}
+          message={PICK_MESSAGE}
           latestColor={latestPick?.color ?? null}
         />
       )}
