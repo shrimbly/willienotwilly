@@ -136,6 +136,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     <video
                       className="absolute inset-0 h-full w-full object-cover"
                       src={assetUrl(project.heroVideo ?? project.video!)}
+                      poster={project.heroPoster ? assetUrl(project.heroPoster) : project.poster ? assetUrl(project.poster) : undefined}
                       autoPlay
                       muted
                       loop
@@ -363,6 +364,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                         <video
                           className="absolute inset-0 h-full w-full object-cover"
                           src={assetUrl(h.video)}
+                          poster={h.poster ? assetUrl(h.poster) : undefined}
                           autoPlay
                           muted
                           loop

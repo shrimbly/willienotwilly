@@ -41,6 +41,7 @@ function ProjectCard({ project }: { project: Project }) {
                 <video
                   className="block h-auto max-h-full w-auto max-w-full rounded-xl object-cover shadow-lg shadow-black/10 sm:rounded-2xl"
                   src={assetUrl(project.video)}
+                  poster={project.poster ? assetUrl(project.poster) : undefined}
                   width={project.imageWidth ?? 1600}
                   height={project.imageHeight ?? 900}
                   autoPlay
@@ -55,6 +56,7 @@ function ProjectCard({ project }: { project: Project }) {
               <video
                 className="absolute inset-0 h-full w-full object-cover"
                 src={assetUrl(project.video)}
+                poster={project.poster ? assetUrl(project.poster) : undefined}
                 autoPlay
                 muted
                 loop

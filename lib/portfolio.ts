@@ -29,6 +29,7 @@ export type Highlight = {
   image?: string;
   imageAlt?: string;
   video?: string;
+  poster?: string;
   media?: HighlightMedia[];
   logos?: ProviderLogo[];
   phones?: PhoneShot[];
@@ -70,7 +71,9 @@ export type Project = {
   imageWidth?: number;
   imageHeight?: number;
   video?: string;
+  poster?: string;
   heroVideo?: string;
+  heroPoster?: string;
   heroImage?: string;
   heroEmbed?: string;
   heroCredit?: ProjectCredit;
@@ -603,6 +606,39 @@ export const projects: Project[] = [
         placeholderClass: "bg-neutral-100",
         image: "/images/portfolio/if-you-seek/image-10.webp",
         imageAlt: "If You Seek — sensory film still",
+      },
+    ],
+  },
+  {
+    slug: "book-the-lakehouse",
+    title: "Book the Lakehouse",
+    blurb:
+      "A gorgeous, low-cost private booking calendar for the family holiday home, built with local cookies and elastic UI gestures.",
+    description:
+      "A private family booking calendar engineered with local identity cookies, elastic drag-to-book gestures, stay photo uploads via Vercel Blob, and a strict zero-idle-cost serverless footprint. Highlighting premium CSS and JS animations that make calendar interactions feel tactile, cozy, and alive.",
+    meta: "Personal · Web App",
+    year: "2024",
+    href: "https://github.com/shrimbly/book-the-lakehouse",
+    external: true,
+    category: "personal",
+    placeholderClass: "bg-gradient-to-br from-[#1c1b19] to-[#2b2a27]",
+    video: "/videos/portfolio/book-the-lakehouse.mp4",
+    poster: "/images/portfolio/posters/book-the-lakehouse.jpg",
+    heroPoster: "/images/portfolio/posters/book-the-lakehouse.jpg",
+    stats: [
+      { label: "Role", value: "Creator" },
+      { label: "Stack", value: "Next.js · Neon · Vercel Blob" },
+      { label: "Cost", value: "Zero idle cost" },
+    ],
+    highlights: [
+      {
+        title: "Micro-interactions & tactile details",
+        caption:
+          "Every visual element is tuned for responsiveness and satisfaction: from the elastic spring of the custom calendar drag-select ribbons to cozy UI physics and instant fluid feedback.",
+        aspect: "16/9",
+        placeholderClass: "bg-[#252422]",
+        video: "/videos/portfolio/book-the-lakehouse-booking.mp4",
+        poster: "/images/portfolio/posters/book-the-lakehouse-booking.jpg",
       },
     ],
   },
