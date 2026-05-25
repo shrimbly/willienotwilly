@@ -359,6 +359,8 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/lab-color-picker.mp4",
+    poster: "/images/portfolio/posters/lab-color-picker.jpg",
+    heroPoster: "/images/portfolio/posters/lab-color-picker.jpg",
     thumbnailBadge: "lab",
     stats: [
       { label: "Format", value: "Experiment" },

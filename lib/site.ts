@@ -19,7 +19,7 @@ export const siteConfig = {
   },
   portfolio: {
     description:
-      "Obsessive product designer and builder. Based in New Zealand, user-centric to a fault, equally invested in the tiny interaction details and the big product moves. I design in code.",
+      "Obsessive product builder straddling the worlds of design and code. I’m equally invested in tiny interaction details and big product moves. I’m a sucker for a weekend personal project.",
     metadataDescription:
       "Selected projects by Willie Falloon - AI tooling, 3D Gaussian Splatting, creative software, and product leadership.",
   },

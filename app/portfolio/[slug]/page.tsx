@@ -33,7 +33,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const project = getProjectBySlug(slug);
   if (!project) notFound();
 
-  const externalReady = project.external && project.href !== "#";
+  const externalReady = project.href && project.href !== "#";
   const isInternalHref = project.href.startsWith("/");
   const ctaLabel = project.ctaLabel ?? "Visit project";
 

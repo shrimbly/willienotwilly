@@ -69,7 +69,7 @@ function ProjectCard({ project }: { project: Project }) {
       <article className="flex flex-col">
         <div
           className={
-            "squircle relative aspect-[3/2] w-full overflow-hidden rounded-[44px] border border-border/70 transition-colors duration-300 group-hover:border-border sm:rounded-[52px] " +
+            "squircle relative aspect-[3/2] w-full overflow-hidden rounded-[44px] border border-border/70 transition-colors duration-300 group-hover:border-border sm:rounded-[52px] isolate " +
             (project.inset
               ? "bg-[linear-gradient(135deg,#EEEEEE_0%,#FFFFFF_100%)]"
               : "bg-card")
