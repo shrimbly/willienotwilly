@@ -111,8 +111,8 @@ export const projects: Project[] = [
     heroVideo: "/videos/portfolio/reflct-hero.mp4",
     stats: [
       { label: "Role", value: "Founder" },
+      { label: "Tech", value: "Gaussian Splatting" },
       { label: "Status", value: "Active" },
-      { label: "Stack", value: "Next · Three" },
     ],
     highlights: [
       {
@@ -231,9 +231,9 @@ export const projects: Project[] = [
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/sharp.mp4",
     stats: [
-      { label: "Stars", value: "152" },
-      { label: "Language", value: "Python" },
-      { label: "Use", value: "3DGS prep" },
+      { label: "GitHub", value: "152 stars" },
+      { label: "Core Math", value: "Laplacian Variance" },
+      { label: "Format", value: "CLI · TUI · Desktop" },
     ],
     highlights: [
       {
@@ -261,9 +261,9 @@ export const projects: Project[] = [
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/ezpz.mp4",
     stats: [
-      { label: "Stars", value: "105" },
-      { label: "Stack", value: "TypeScript" },
-      { label: "Runtime", value: "Browser" },
+      { label: "GitHub", value: "105 stars" },
+      { label: "Video Engine", value: "Media Bunny" },
+      { label: "Runtime", value: "100% Client" },
     ],
     highlights: [],
   },
@@ -283,9 +283,8 @@ export const projects: Project[] = [
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/contact-sheet.mp4",
     stats: [
-      { label: "Year", value: "2025" },
       { label: "Format", value: "Technique" },
-      { label: "Adopted", value: "Industry-wide" },
+      { label: "Focus", value: "Image to Video" },
     ],
     highlights: [
       {
@@ -332,8 +331,7 @@ export const projects: Project[] = [
     video: "/videos/portfolio/flip.mp4",
     stats: [
       { label: "Status", value: "Retired" },
-      { label: "Focus", value: "Marketplaces" },
-      { label: "Runtime", value: "Browser" },
+      { label: "Focus", value: "E-commerce" },
     ],
     highlights: [
       {
@@ -364,8 +362,7 @@ export const projects: Project[] = [
     thumbnailBadge: "lab",
     stats: [
       { label: "Format", value: "Experiment" },
-      { label: "Status", value: "Active" },
-      { label: "Stack", value: "Next · Motion" },
+      { label: "Focus", value: "Interaction" },
     ],
     highlights: [],
   },
@@ -442,8 +439,8 @@ export const projects: Project[] = [
     heroImage: "/images/portfolio/wewrangle-audio/script-v2.png",
     stats: [
       { label: "Role", value: "Head of Product" },
-      { label: "Clients", value: "Kroger, Coles, New World, Genesis" },
-      { label: "Year", value: "2024" },
+      { label: "Focus", value: "Audio" },
+      { label: "Market", value: "Enterprise" },
     ],
     highlights: [
       {
@@ -490,8 +487,8 @@ export const projects: Project[] = [
     heroImage: "/images/portfolio/wewrangle-studio/results-v2.png",
     stats: [
       { label: "Role", value: "Head of Product" },
-      { label: "Client", value: "AA Insurance" },
-      { label: "Year", value: "2024" },
+      { label: "Focus", value: "Image Gen" },
+      { label: "Market", value: "Enterprise" },
     ],
     highlights: [
       {
@@ -627,8 +624,8 @@ export const projects: Project[] = [
     heroPoster: "/images/portfolio/posters/book-the-lakehouse.jpg",
     stats: [
       { label: "Role", value: "Creator" },
-      { label: "Stack", value: "Next.js · Neon · Vercel Blob" },
-      { label: "Cost", value: "Zero idle cost" },
+      { label: "Focus", value: "UX Polish" },
+      { label: "Cost", value: "Zero" },
     ],
     highlights: [
       {

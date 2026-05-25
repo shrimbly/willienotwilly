@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, FlaskConical } from "lucide-react";
@@ -18,8 +18,54 @@ import {
 type FilterValue = PortfolioFilter;
 
 function ProjectCard({ project }: { project: Project }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (
+      typeof window === "undefined" ||
+      window.matchMedia("(hover: hover)").matches
+    ) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  const playOnHover = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (window.matchMedia("(hover: hover)").matches) {
+      video.play().catch(() => {});
+    }
+  };
+
+  const pauseOnLeave = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (window.matchMedia("(hover: hover)").matches) {
+      video.pause();
+    }
+  };
+
   return (
-    <Link href={`/portfolio/${project.slug}`} className="group block">
+    <Link
+      href={`/portfolio/${project.slug}`}
+      className="group block"
+      onMouseEnter={project.video ? playOnHover : undefined}
+      onMouseLeave={project.video ? pauseOnLeave : undefined}
+    >
       <article className="flex flex-col">
         <div
           className={
@@ -39,12 +85,12 @@ function ProjectCard({ project }: { project: Project }) {
             project.inset ? (
               <div className="absolute inset-2 flex items-center justify-center sm:inset-3">
                 <video
+                  ref={videoRef}
                   className="block h-auto max-h-full w-auto max-w-full rounded-xl object-cover shadow-lg shadow-black/10 sm:rounded-2xl"
                   src={assetUrl(project.video)}
                   poster={project.poster ? assetUrl(project.poster) : undefined}
                   width={project.imageWidth ?? 1600}
                   height={project.imageHeight ?? 900}
-                  autoPlay
                   muted
                   loop
                   playsInline
@@ -54,10 +100,10 @@ function ProjectCard({ project }: { project: Project }) {
               </div>
             ) : (
               <video
+                ref={videoRef}
                 className="absolute inset-0 h-full w-full object-cover"
                 src={assetUrl(project.video)}
                 poster={project.poster ? assetUrl(project.poster) : undefined}
-                autoPlay
                 muted
                 loop
                 playsInline
