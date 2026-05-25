@@ -85,7 +85,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               </p>
             </BlurFade>
             <BlurFade delay={320}>
-              <div className="flex flex-col gap-8 pt-0 sm:flex-row sm:items-center sm:pt-6">
+              <div className="flex flex-col gap-8 pt-0 sm:flex-row sm:items-center sm:gap-12 sm:pt-6">
                 <div className="flex flex-wrap gap-x-12 gap-y-6">
                   {project.stats.map((s) => (
                     <div key={s.label} className="flex flex-col gap-1.5">
@@ -99,7 +99,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   ))}
                 </div>
                 {externalReady && (
-                  <CtaLink className="squircle group inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:border-foreground/40 hover:bg-foreground hover:text-background w-full sm:w-auto sm:ml-auto">
+                  <CtaLink className="squircle group inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:border-foreground/40 hover:bg-foreground hover:text-background w-full sm:w-auto">
                     {ctaLabel}
                     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </CtaLink>
