@@ -85,19 +85,21 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               </p>
             </BlurFade>
             <BlurFade delay={320}>
-              <div className="flex flex-wrap items-center gap-x-10 gap-y-6 pt-2">
-                {project.stats.map((s) => (
-                  <div key={s.label} className="flex flex-col gap-1">
-                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                      {s.label}
-                    </span>
-                    <span className="text-sm font-medium sm:text-base">
-                      {s.value}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center pt-2">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:flex sm:flex-wrap sm:items-center sm:gap-x-10 sm:gap-y-6">
+                  {project.stats.map((s) => (
+                    <div key={s.label} className="flex flex-col gap-1">
+                      <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                        {s.label}
+                      </span>
+                      <span className="text-sm font-medium sm:text-base whitespace-nowrap">
+                        {s.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 {externalReady && (
-                  <CtaLink className="squircle group ml-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:border-foreground/40 hover:bg-foreground hover:text-background">
+                  <CtaLink className="squircle group inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:border-foreground/40 hover:bg-foreground hover:text-background w-full sm:w-auto sm:ml-auto">
                     {ctaLabel}
                     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </CtaLink>
