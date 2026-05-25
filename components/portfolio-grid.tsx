@@ -208,8 +208,8 @@ export function PortfolioGrid({ projects }: { projects: Project[] }) {
                 onClick={() => setFilter(f.value)}
                 aria-pressed={active}
                 className={
-                  "relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border px-3 py-2 text-sm font-medium transition-[color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-2.5 " +
-                  "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-500 before:ease-[cubic-bezier(0.22,1,0.36,1)] " +
+                  "relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border px-3 py-2 text-sm font-medium transition-[color,border-color] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-2.5 " +
+                  "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-[320ms] before:ease-[cubic-bezier(0.22,1,0.36,1)] " +
                   (f.value === "all" ? "mr-1.5 sm:mr-5 " : "") +
                   (active
                     ? "border-foreground bg-foreground text-background before:opacity-100 before:blur-none"
