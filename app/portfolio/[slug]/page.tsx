@@ -99,7 +99,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   ))}
                 </div>
                 {externalReady && (
-                  <CtaLink className="squircle group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-[color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] w-full sm:w-auto before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-700 before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
+                  <CtaLink className="squircle group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-[color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] w-full sm:w-auto before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-500 before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
                     {ctaLabel}
                     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </CtaLink>
@@ -445,7 +445,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     {project.title}
                   </p>
                 </div>
-                <CtaLink className="squircle group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border border-border bg-card px-6 py-3 text-sm font-medium transition-[color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-700 before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
+                <CtaLink className="squircle group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border border-border bg-card px-6 py-3 text-sm font-medium transition-[color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-500 before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
                   {ctaLabel}
                   <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                 </CtaLink>
