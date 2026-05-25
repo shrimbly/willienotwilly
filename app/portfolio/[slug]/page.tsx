@@ -85,14 +85,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               </p>
             </BlurFade>
             <BlurFade delay={320}>
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center pt-2">
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:flex sm:flex-wrap sm:items-center sm:gap-x-10 sm:gap-y-6">
+              <div className="flex flex-col gap-8 pt-0 sm:flex-row sm:items-center sm:pt-6">
+                <div className="flex flex-wrap gap-x-12 gap-y-6">
                   {project.stats.map((s) => (
-                    <div key={s.label} className="flex flex-col gap-1">
+                    <div key={s.label} className="flex flex-col gap-1.5">
                       <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                         {s.label}
                       </span>
-                      <span className="text-sm font-medium sm:text-base whitespace-nowrap">
+                      <span className="text-sm font-medium sm:text-base">
                         {s.value}
                       </span>
                     </div>
