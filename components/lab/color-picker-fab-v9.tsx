@@ -34,6 +34,7 @@ type Props = {
   // while config.fabInset stays symmetric for mobile.
   fabBottomInset?: number;
   fabRightInset?: number;
+  disableBackdropBlur?: boolean;
 };
 
 export type Config = {
@@ -136,6 +137,7 @@ export function ColorPickerFabV9({
   screenEdgeInset,
   fabBottomInset,
   fabRightInset,
+  disableBackdropBlur = false,
 }: Props) {
   const config = { ...DEFAULT_CONFIG, ...configOverride };
   const {
@@ -1062,8 +1064,10 @@ export function ColorPickerFabV9({
                 marginTop: "-100vmax",
                 background:
                   "radial-gradient(circle, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.06) 30%, rgba(0,0,0,0.02) 55%, rgba(0,0,0,0) 100%)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
+                backdropFilter: disableBackdropBlur ? "none" : "blur(10px)",
+                WebkitBackdropFilter: disableBackdropBlur
+                  ? "none"
+                  : "blur(10px)",
                 mask: "radial-gradient(circle, black 0%, black 35%, transparent 75%)",
                 WebkitMask: "radial-gradient(circle, black 0%, black 35%, transparent 75%)",
                 // Promote to its own compositing layer up front so the blur

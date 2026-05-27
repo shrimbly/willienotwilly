@@ -118,7 +118,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     width={project.imageWidth ?? 1600}
                     height={project.imageHeight ?? 900}
                     sizes="(min-width: 1024px) 1200px, 100vw"
-                    quality={90}
+                    unoptimized
                     className="block h-auto w-full rounded-2xl shadow-xl shadow-black/10 sm:rounded-3xl"
                     priority
                   />
@@ -152,7 +152,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                       alt={project.imageAlt ?? project.title}
                       fill
                       sizes="(min-width: 1024px) 1200px, 100vw"
-                      quality={90}
+                      unoptimized
                       className="object-cover"
                       priority
                     />
@@ -207,6 +207,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                               alt={p.alt ?? `${h.title} — ${pidx + 1}`}
                               fill
                               sizes="(min-width: 1024px) 180px, 30vw"
+                              unoptimized
                               className="object-cover"
                             />
                           </div>
@@ -236,6 +237,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                               alt={g.alt ?? `${h.title} — ${gidx + 1}`}
                               fill
                               sizes="(min-width: 1024px) 300px, 50vw"
+                              unoptimized
                               className="object-cover"
                             />
                           </div>
@@ -389,7 +391,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                                 alt={h.imageAlt ?? h.title}
                                 fill
                                 sizes="(min-width: 1024px) 960px, 100vw"
-                                quality={90}
+                                unoptimized
                                 className="object-contain"
                               />
                             </div>
@@ -400,7 +402,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                             alt={h.imageAlt ?? h.title}
                             fill
                             sizes="(min-width: 1024px) 960px, 100vw"
-                            quality={90}
+                            unoptimized
                             className="object-cover"
                           />
                         )

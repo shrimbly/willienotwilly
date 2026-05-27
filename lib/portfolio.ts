@@ -108,6 +108,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/reflct-1-1.mp4",
+    poster: "/images/portfolio/posters/reflct-1-1.jpg",
     heroVideo: "/videos/portfolio/reflct-hero.mp4",
     stats: [
       { label: "Role", value: "Founder" },
@@ -166,6 +167,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/banana.mp4",
+    poster: "/images/portfolio/posters/banana.jpg",
     stats: [
       { label: "Stars", value: "1.4k" },
       { label: "License", value: "MIT" },
@@ -230,6 +232,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/sharp.mp4",
+    poster: "/images/portfolio/posters/sharp.jpg",
     stats: [
       { label: "GitHub", value: "152 stars" },
       { label: "Core Math", value: "Laplacian Variance" },
@@ -260,6 +263,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/ezpz.mp4",
+    poster: "/images/portfolio/posters/ezpz.jpg",
     stats: [
       { label: "GitHub", value: "105 stars" },
       { label: "Video Engine", value: "Media Bunny" },
@@ -282,6 +286,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/contact-sheet.mp4",
+    poster: "/images/portfolio/posters/contact-sheet.jpg",
     stats: [
       { label: "Format", value: "Technique" },
       { label: "Focus", value: "Image to Video" },
@@ -329,6 +334,7 @@ export const projects: Project[] = [
     category: "personal",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/flip.mp4",
+    poster: "/images/portfolio/posters/flip.jpg",
     stats: [
       { label: "Status", value: "Retired" },
       { label: "Focus", value: "E-commerce" },
@@ -385,6 +391,7 @@ export const projects: Project[] = [
     category: "professional",
     placeholderClass: "bg-muted",
     video: "/videos/portfolio/try-galaxy-card.mp4",
+    poster: "/images/portfolio/posters/try-galaxy-card.jpg",
     heroEmbed:
       "https://www.youtube.com/embed/BCgk02jgnPQ?start=14&autoplay=1&mute=1&loop=1&playlist=BCgk02jgnPQ&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1",
     heroCredit: {
