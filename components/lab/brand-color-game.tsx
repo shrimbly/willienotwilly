@@ -40,8 +40,10 @@ const THUMB_TIP_OFFSET_Y = -0.16;
 const PICKER_CENTER_DEG = 225;
 const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
-const RESULT_TOAST_MS = 1100;
+const SCORE_REVEAL_DELAY_MS = 520;
+const NEXT_ROUND_DELAY_MS = 1050;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
+const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 
 const GAME_PICKER_CONFIG: Config = {
   ...DEFAULT_CONFIG,
@@ -233,9 +235,98 @@ function medalFor(errorPoints: number): MedalKind | null {
   return null;
 }
 
+function rewardMotion(medal: MedalKind | null) {
+  if (medal === "platinum") {
+    return {
+      initial: { opacity: 0, y: -22, scale: 0.72, rotate: -8 },
+      animate: { opacity: 1, y: 0, scale: [1, 1.18, 1], rotate: 0 },
+      transition: { duration: 0.62, ease: REWARD_EASE },
+      className:
+        "border-white/70 bg-white/95 shadow-[0_0_0_7px_rgba(255,255,255,0.22),0_18px_44px_rgba(255,255,255,0.28)]",
+    };
+  }
+  if (medal === "gold") {
+    return {
+      initial: { opacity: 0, y: -18, scale: 0.78 },
+      animate: { opacity: 1, y: 0, scale: [1, 1.1, 1] },
+      transition: { duration: 0.48, ease: REWARD_EASE },
+      className:
+        "border-amber-200/80 bg-white/95 shadow-[0_0_0_5px_rgba(246,198,74,0.16),0_16px_38px_rgba(0,0,0,0.14)]",
+    };
+  }
+  if (medal === "silver") {
+    return {
+      initial: { opacity: 0, y: -14, scale: 0.86 },
+      animate: { opacity: 1, y: 0, scale: [1, 1.05, 1] },
+      transition: { duration: 0.36, ease: REWARD_EASE },
+      className:
+        "border-zinc-200 bg-white/94 shadow-[0_14px_34px_rgba(0,0,0,0.12)]",
+    };
+  }
+  if (medal === "bronze") {
+    return {
+      initial: { opacity: 0, y: -10, scale: 0.92 },
+      animate: { opacity: 1, y: 0, scale: 1 },
+      transition: { duration: 0.28, ease: REWARD_EASE },
+      className:
+        "border-orange-200/70 bg-white/92 shadow-[0_10px_28px_rgba(0,0,0,0.10)]",
+    };
+  }
+  return {
+    initial: { opacity: 0, y: -8, scale: 0.94 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.24, ease: REWARD_EASE },
+    className: "border-zinc-200 bg-white/90 shadow-[0_10px_24px_rgba(0,0,0,0.10)]",
+  };
+}
+
+function RewardToast({ result }: { result: Guess }) {
+  const medal = result.medal ? MEDALS[result.medal] : null;
+  const motionConfig = rewardMotion(result.medal);
+
+  return (
+    <motion.div
+      key="reward-toast"
+      initial={motionConfig.initial}
+      animate={motionConfig.animate}
+      exit={{ opacity: 0, y: -10, scale: 0.96 }}
+      transition={motionConfig.transition}
+      className={`absolute left-1/2 top-[72px] z-30 flex w-fit max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-3 rounded-full border px-4 py-2.5 ${motionConfig.className}`}
+    >
+      <div
+        className="grid size-8 shrink-0 place-items-center rounded-full"
+        style={{ background: medal ? `${medal.color}38` : "#f1f1f1" }}
+      >
+        <Medal
+          className="size-4"
+          style={{ color: medal ? medal.color : "#a1a1aa" }}
+        />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-zinc-950">
+          {medal ? medal.label : "No medal"}
+        </p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+          {result.errorPoints} points off
+        </p>
+      </div>
+      {result.medal === "platinum" && (
+        <motion.span
+          aria-hidden
+          className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/70 to-transparent"
+          initial={{ x: "-120%", opacity: 0 }}
+          animate={{ x: "120%", opacity: [0, 0.8, 0] }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.08 }}
+        />
+      )}
+    </motion.div>
+  );
+}
+
 function PhoneScreen({
   brand,
   result,
+  isResolving,
   waves,
   roundIndex,
   totalRounds,
@@ -244,14 +335,13 @@ function PhoneScreen({
 }: {
   brand: BrandColorGameBrand;
   result: Guess | null;
+  isResolving: boolean;
   waves: PickWave[];
   roundIndex: number;
   totalRounds: number;
   onWaveComplete: (id: number) => void;
   onReset: () => void;
 }) {
-  const medal = result?.medal ? MEDALS[result.medal] : null;
-
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
       {waves.map((wave) => (
@@ -261,7 +351,7 @@ function PhoneScreen({
           style={{ background: wave.color }}
           initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})` }}
           animate={{ clipPath: `circle(150vmax at ${WAVE_ORIGIN})` }}
-          transition={{ duration: 0.9, ease: "easeOut" }}
+          transition={{ duration: 0.88, ease: [0.16, 1, 0.3, 1] }}
           onAnimationComplete={() => onWaveComplete(wave.id)}
         />
       ))}
@@ -294,10 +384,17 @@ function PhoneScreen({
             <motion.div
               key={brand.id}
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                boxShadow: isResolving
+                  ? "0 4px 14px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,0.12)"
+                  : "0 18px 48px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.16)",
+              }}
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="grid h-44 w-56 place-items-center rounded-[36px] shadow-[0_18px_48px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.16)]"
+              transition={{ duration: isResolving ? 0.22 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="grid h-44 w-56 place-items-center rounded-[36px]"
               style={{ backgroundColor: brand.targetHex }}
             >
               <div className={`relative ${brand.logoSizeClassName}`}>
@@ -325,34 +422,7 @@ function PhoneScreen({
 
         <div className="mt-auto pb-20">
           <AnimatePresence mode="wait">
-            {result ? (
-              <motion.div
-                key={`${brand.id}-result`}
-                initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                transition={{ duration: 0.18 }}
-                className="mx-auto flex w-fit max-w-full items-center gap-3 rounded-full border border-zinc-950/10 bg-white/90 px-4 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.12)]"
-              >
-                <div
-                  className="grid size-8 place-items-center rounded-full"
-                  style={{ background: medal ? `${medal.color}33` : "#f1f1f1" }}
-                >
-                  <Medal
-                    className="size-4"
-                    style={{ color: medal ? medal.color : "#a1a1aa" }}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-zinc-950">
-                    {medal ? medal.label : "No medal"}
-                  </p>
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
-                    {result.errorPoints} points off
-                  </p>
-                </div>
-              </motion.div>
-            ) : (
+            {!result && (
               <motion.div
                 key={`${brand.id}-prompt`}
                 initial={{ opacity: 0 }}
@@ -363,6 +433,8 @@ function PhoneScreen({
             )}
           </AnimatePresence>
         </div>
+
+        <AnimatePresence>{result && <RewardToast result={result} />}</AnimatePresence>
 
         <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
       </div>
@@ -376,11 +448,13 @@ export function BrandColorGame() {
   );
   const [roundIndex, setRoundIndex] = useState(0);
   const [result, setResult] = useState<Guess | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
+  const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
   const waveId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
@@ -414,6 +488,10 @@ export function BrandColorGame() {
   const actualFabRight = isMobile ? GAME_PICKER_CONFIG.fabInset : fabRightDesktop;
 
   const handlePick = (raw: string) => {
+    if (revealTimer.current) {
+      clearTimeout(revealTimer.current);
+      revealTimer.current = null;
+    }
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
@@ -421,6 +499,8 @@ export function BrandColorGame() {
     const hex = resolveCssColor(raw);
     const errorPoints = errorPointsFor(hex, brand.targetHex);
     setHasPicked(true);
+    setResult(null);
+    setIsResolving(true);
     setWaves((current) => [
       ...current,
       {
@@ -428,34 +508,47 @@ export function BrandColorGame() {
         color: raw,
       },
     ]);
-    setResult({
-      errorPoints,
-      medal: medalFor(errorPoints),
-    });
-    autoAdvanceTimer.current = window.setTimeout(() => {
-      setResult(null);
-      setRoundIndex((current) => (current + 1) % brandOrder.length);
-    }, RESULT_TOAST_MS);
+
+    revealTimer.current = window.setTimeout(() => {
+      revealTimer.current = null;
+      setResult({
+        errorPoints,
+        medal: medalFor(errorPoints),
+      });
+      autoAdvanceTimer.current = window.setTimeout(() => {
+        autoAdvanceTimer.current = null;
+        setResult(null);
+        setIsResolving(false);
+        setWaves([]);
+        setRoundIndex((current) => (current + 1) % brandOrder.length);
+      }, NEXT_ROUND_DELAY_MS);
+    }, SCORE_REVEAL_DELAY_MS);
   };
 
   const resetGame = () => {
+    if (revealTimer.current) {
+      clearTimeout(revealTimer.current);
+      revealTimer.current = null;
+    }
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
     setResult(null);
+    setIsResolving(false);
     setWaves([]);
     setHasPicked(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
   };
 
-  const handleWaveComplete = (id: number) => {
-    setWaves((current) => current.filter((wave) => wave.id !== id));
+  const handleWaveComplete = (_id: number) => {
+    // Keep the expanded color in place until the next brand appears.
   };
 
   useEffect(() => {
     return () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
     };
   }, []);
@@ -490,6 +583,7 @@ export function BrandColorGame() {
         <PhoneScreen
           brand={brand}
           result={result}
+          isResolving={isResolving}
           waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
@@ -518,6 +612,7 @@ export function BrandColorGame() {
         <PhoneScreen
           brand={brand}
           result={result}
+          isResolving={isResolving}
           waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
