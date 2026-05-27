@@ -399,6 +399,7 @@ function PhoneScreen({
   brand,
   result,
   isResolving,
+  showDeviceChrome,
   waves,
   roundIndex,
   totalRounds,
@@ -408,6 +409,7 @@ function PhoneScreen({
   brand: BrandColorGameBrand;
   result: Guess | null;
   isResolving: boolean;
+  showDeviceChrome: boolean;
   waves: PickWave[];
   roundIndex: number;
   totalRounds: number;
@@ -427,16 +429,24 @@ function PhoneScreen({
           onAnimationComplete={() => onWaveComplete(wave.id)}
         />
       ))}
-      <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
-        9:41
-      </div>
-      <div className="absolute left-1/2 top-3 size-2.5 -translate-x-1/2 rounded-full bg-zinc-950/85" />
-      <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500">
-        <span>5G</span>
-        <span>100%</span>
-      </div>
+      {showDeviceChrome && (
+        <>
+          <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
+            9:41
+          </div>
+          <div className="absolute left-1/2 top-3 size-2.5 -translate-x-1/2 rounded-full bg-zinc-950/85" />
+          <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500">
+            <span>5G</span>
+            <span>100%</span>
+          </div>
+        </>
+      )}
 
-      <div className="relative z-10 flex h-full flex-col px-7 pb-8 pt-16">
+      <div
+        className={`relative z-10 flex h-full flex-col px-7 pb-8 ${
+          showDeviceChrome ? "pt-16" : "pt-8"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
             {roundIndex + 1}/{totalRounds}
@@ -508,7 +518,9 @@ function PhoneScreen({
 
         <AnimatePresence>{result && <RewardToast result={result} />}</AnimatePresence>
 
-        <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
+        {showDeviceChrome && (
+          <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
+        )}
       </div>
     </div>
   );
@@ -656,6 +668,7 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          showDeviceChrome
           waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
@@ -685,6 +698,7 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          showDeviceChrome={false}
           waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
