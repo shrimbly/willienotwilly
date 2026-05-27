@@ -50,10 +50,10 @@ const GAME_PICKER_CONFIG: Config = {
   fabInset: FAB_INSET_FROM_SCREEN,
   swatchSize: 32,
   arcRadius: 132,
-  ribbonInner: 162,
-  ribbonOuter: 196,
-  toneInner: 204,
-  toneOuter: 262,
+  ribbonInner: 184,
+  ribbonOuter: 218,
+  toneInner: 226,
+  toneOuter: 286,
   toneSpanDeg: 44,
   arcSpanDeg: 106,
   ribbonL: 0.7,
@@ -261,7 +261,7 @@ function PhoneScreen({
           style={{ background: wave.color }}
           initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})` }}
           animate={{ clipPath: `circle(150vmax at ${WAVE_ORIGIN})` }}
-          transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
           onAnimationComplete={() => onWaveComplete(wave.id)}
         />
       ))}
