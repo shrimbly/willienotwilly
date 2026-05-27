@@ -19,6 +19,11 @@ type Guess = {
   medal: MedalKind | null;
 };
 
+type PickWave = {
+  id: number;
+  color: string;
+};
+
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
 
 const DEVICE_SCREEN_W = 360;
@@ -36,18 +41,19 @@ const PICKER_CENTER_DEG = 225;
 const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
 const RESULT_TOAST_MS = 1100;
+const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 
 const GAME_PICKER_CONFIG: Config = {
   ...DEFAULT_CONFIG,
   holdMs: 120,
-  fabSize: 56,
+  fabSize: 64,
   fabInset: FAB_INSET_FROM_SCREEN,
-  swatchSize: 30,
-  arcRadius: 124,
-  ribbonInner: 154,
-  ribbonOuter: 184,
-  toneInner: 192,
-  toneOuter: 248,
+  swatchSize: 32,
+  arcRadius: 132,
+  ribbonInner: 162,
+  ribbonOuter: 196,
+  toneInner: 204,
+  toneOuter: 262,
   toneSpanDeg: 44,
   arcSpanDeg: 106,
   ribbonL: 0.7,
@@ -230,20 +236,35 @@ function medalFor(errorPoints: number): MedalKind | null {
 function PhoneScreen({
   brand,
   result,
+  waves,
   roundIndex,
   totalRounds,
+  onWaveComplete,
   onReset,
 }: {
   brand: BrandColorGameBrand;
   result: Guess | null;
+  waves: PickWave[];
   roundIndex: number;
   totalRounds: number;
+  onWaveComplete: (id: number) => void;
   onReset: () => void;
 }) {
   const medal = result?.medal ? MEDALS[result.medal] : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
+      {waves.map((wave) => (
+        <motion.div
+          key={wave.id}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ background: wave.color }}
+          initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})` }}
+          animate={{ clipPath: `circle(150vmax at ${WAVE_ORIGIN})` }}
+          transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }}
+          onAnimationComplete={() => onWaveComplete(wave.id)}
+        />
+      ))}
       <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
         9:41
       </div>
@@ -253,7 +274,7 @@ function PhoneScreen({
         <span>100%</span>
       </div>
 
-      <div className="flex h-full flex-col px-7 pb-8 pt-16">
+      <div className="relative z-10 flex h-full flex-col px-7 pb-8 pt-16">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
             {roundIndex + 1}/{totalRounds}
@@ -332,15 +353,13 @@ function PhoneScreen({
                 </div>
               </motion.div>
             ) : (
-              <motion.p
+              <motion.div
                 key={`${brand.id}-prompt`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-center text-sm text-zinc-500"
-              >
-                Hold the picker, drag to the color, release to guess.
-              </motion.p>
+                className="h-10"
+              />
             )}
           </AnimatePresence>
         </div>
@@ -357,10 +376,13 @@ export function BrandColorGame() {
   );
   const [roundIndex, setRoundIndex] = useState(0);
   const [result, setResult] = useState<Guess | null>(null);
+  const [waves, setWaves] = useState<PickWave[]>([]);
+  const [hasPicked, setHasPicked] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
   const autoAdvanceTimer = useRef<number | null>(null);
+  const waveId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
 
   useEffect(() => {
@@ -398,6 +420,14 @@ export function BrandColorGame() {
     }
     const hex = resolveCssColor(raw);
     const errorPoints = errorPointsFor(hex, brand.targetHex);
+    setHasPicked(true);
+    setWaves((current) => [
+      ...current,
+      {
+        id: ++waveId.current,
+        color: raw,
+      },
+    ]);
     setResult({
       errorPoints,
       medal: medalFor(errorPoints),
@@ -414,8 +444,14 @@ export function BrandColorGame() {
       autoAdvanceTimer.current = null;
     }
     setResult(null);
+    setWaves([]);
+    setHasPicked(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
+  };
+
+  const handleWaveComplete = (id: number) => {
+    setWaves((current) => current.filter((wave) => wave.id !== id));
   };
 
   useEffect(() => {
@@ -454,8 +490,10 @@ export function BrandColorGame() {
         <PhoneScreen
           brand={brand}
           result={result}
+          waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
+          onWaveComplete={handleWaveComplete}
           onReset={resetGame}
         />
       </div>
@@ -480,11 +518,33 @@ export function BrandColorGame() {
         <PhoneScreen
           brand={brand}
           result={result}
+          waves={waves}
           roundIndex={roundIndex}
           totalRounds={brandOrder.length}
+          onWaveComplete={handleWaveComplete}
           onReset={resetGame}
         />
       </div>
+
+      <AnimatePresence>
+        {!hasPicked && (
+          <motion.div
+            key="picker-helper"
+            className="pointer-events-none fixed z-[55] rounded-full border border-zinc-950/10 bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-lg shadow-black/10 backdrop-blur-sm"
+            style={{
+              bottom: actualFabBottom + GAME_PICKER_CONFIG.fabSize + 16,
+              right: actualFabRight + GAME_PICKER_CONFIG.fabSize / 2,
+              translate: "50% 0",
+            }}
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Drag to select color
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ColorPickerFabV9
         config={GAME_PICKER_CONFIG}
