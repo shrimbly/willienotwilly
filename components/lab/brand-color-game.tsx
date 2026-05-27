@@ -44,6 +44,7 @@ const SCORE_REVEAL_DELAY_MS = 520;
 const NEXT_ROUND_DELAY_MS = 1050;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
+const OKLAB_REFERENCE_DISTANCE = 0.45;
 
 const GAME_PICKER_CONFIG: Config = {
   ...DEFAULT_CONFIG,
@@ -220,19 +221,51 @@ function resolveCssColor(color: string) {
 }
 
 function errorPointsFor(a: string, b: string) {
-  const ar = hexToRgb(a);
-  const br = hexToRgb(b);
-  const delta = Math.hypot(ar.r - br.r, ar.g - br.g, ar.b - br.b);
-  const maxDelta = Math.sqrt(255 * 255 * 3);
-  return Math.round((delta / maxDelta) * 100);
+  const delta = oklabDistance(hexToOklab(a), hexToOklab(b));
+  return Math.round(Math.min(100, (delta / OKLAB_REFERENCE_DISTANCE) * 100));
 }
 
 function medalFor(errorPoints: number): MedalKind | null {
-  if (errorPoints === 0) return "platinum";
+  if (errorPoints <= 1) return "platinum";
   if (errorPoints <= 5) return "gold";
   if (errorPoints <= 10) return "silver";
   if (errorPoints <= 15) return "bronze";
   return null;
+}
+
+function srgbToLinear(value: number) {
+  const channel = value / 255;
+  return channel <= 0.04045
+    ? channel / 12.92
+    : Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+
+function hexToOklab(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const lr = srgbToLinear(r);
+  const lg = srgbToLinear(g);
+  const lb = srgbToLinear(b);
+
+  const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
+  const m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
+  const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
+
+  const lRoot = Math.cbrt(l);
+  const mRoot = Math.cbrt(m);
+  const sRoot = Math.cbrt(s);
+
+  return {
+    l: 0.2104542553 * lRoot + 0.793617785 * mRoot - 0.0040720468 * sRoot,
+    a: 1.9779984951 * lRoot - 2.428592205 * mRoot + 0.4505937099 * sRoot,
+    b: 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.808675766 * sRoot,
+  };
+}
+
+function oklabDistance(
+  a: { l: number; a: number; b: number },
+  b: { l: number; a: number; b: number },
+) {
+  return Math.hypot(a.l - b.l, a.a - b.a, a.b - b.b);
 }
 
 function rewardMotion(medal: MedalKind | null) {
@@ -242,7 +275,8 @@ function rewardMotion(medal: MedalKind | null) {
       animate: { opacity: 1, y: 0, scale: [1, 1.18, 1], rotate: 0 },
       transition: { duration: 0.62, ease: REWARD_EASE },
       className:
-        "border-white/70 bg-white/95 shadow-[0_0_0_7px_rgba(255,255,255,0.22),0_18px_44px_rgba(255,255,255,0.28)]",
+        "border-white/80 bg-white/95 shadow-[0_0_0_10px_rgba(255,255,255,0.22),0_0_48px_rgba(255,255,255,0.48),0_20px_54px_rgba(0,0,0,0.16)]",
+      burstCount: 12,
     };
   }
   if (medal === "gold") {
@@ -251,7 +285,8 @@ function rewardMotion(medal: MedalKind | null) {
       animate: { opacity: 1, y: 0, scale: [1, 1.1, 1] },
       transition: { duration: 0.48, ease: REWARD_EASE },
       className:
-        "border-amber-200/80 bg-white/95 shadow-[0_0_0_5px_rgba(246,198,74,0.16),0_16px_38px_rgba(0,0,0,0.14)]",
+        "border-amber-200/90 bg-white/95 shadow-[0_0_0_7px_rgba(246,198,74,0.18),0_0_34px_rgba(246,198,74,0.36),0_18px_44px_rgba(0,0,0,0.16)]",
+      burstCount: 8,
     };
   }
   if (medal === "silver") {
@@ -261,6 +296,7 @@ function rewardMotion(medal: MedalKind | null) {
       transition: { duration: 0.36, ease: REWARD_EASE },
       className:
         "border-zinc-200 bg-white/94 shadow-[0_14px_34px_rgba(0,0,0,0.12)]",
+      burstCount: 5,
     };
   }
   if (medal === "bronze") {
@@ -270,6 +306,7 @@ function rewardMotion(medal: MedalKind | null) {
       transition: { duration: 0.28, ease: REWARD_EASE },
       className:
         "border-orange-200/70 bg-white/92 shadow-[0_10px_28px_rgba(0,0,0,0.10)]",
+      burstCount: 0,
     };
   }
   return {
@@ -277,6 +314,7 @@ function rewardMotion(medal: MedalKind | null) {
     animate: { opacity: 1, y: 0, scale: 1 },
     transition: { duration: 0.24, ease: REWARD_EASE },
     className: "border-zinc-200 bg-white/90 shadow-[0_10px_24px_rgba(0,0,0,0.10)]",
+    burstCount: 0,
   };
 }
 
@@ -291,8 +329,42 @@ function RewardToast({ result }: { result: Guess }) {
       animate={motionConfig.animate}
       exit={{ opacity: 0, y: -10, scale: 0.96 }}
       transition={motionConfig.transition}
-      className={`absolute left-1/2 top-[72px] z-30 flex w-fit max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-3 rounded-full border px-4 py-2.5 ${motionConfig.className}`}
+      className={`absolute left-1/2 top-[72px] z-30 flex w-fit max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-3 overflow-visible rounded-full border px-4 py-2.5 ${motionConfig.className}`}
     >
+      {Array.from({ length: motionConfig.burstCount }).map((_, index) => {
+        const angle = (index / Math.max(1, motionConfig.burstCount)) * Math.PI * 2;
+        const distance = result.medal === "platinum" ? 52 : result.medal === "gold" ? 42 : 32;
+        return (
+          <motion.span
+            key={index}
+            aria-hidden
+            className="absolute left-1/2 top-1/2 size-1.5 rounded-full"
+            style={{ background: medal?.color ?? "#fff" }}
+            initial={{ x: "-50%", y: "-50%", opacity: 0, scale: 0.4 }}
+            animate={{
+              x: `calc(-50% + ${Math.cos(angle) * distance}px)`,
+              y: `calc(-50% + ${Math.sin(angle) * distance}px)`,
+              opacity: [0, 1, 0],
+              scale: [0.4, 1, 0.2],
+            }}
+            transition={{
+              duration: result.medal === "platinum" ? 0.72 : 0.56,
+              ease: "easeOut",
+              delay: 0.04 + index * 0.012,
+            }}
+          />
+        );
+      })}
+      {result.medal && (
+        <motion.span
+          aria-hidden
+          className="absolute inset-[-6px] rounded-full"
+          style={{ border: `1px solid ${medal?.color ?? "#fff"}` }}
+          initial={{ opacity: 0.45, scale: 0.88 }}
+          animate={{ opacity: 0, scale: result.medal === "platinum" ? 1.38 : 1.24 }}
+          transition={{ duration: result.medal === "bronze" ? 0.4 : 0.62, ease: "easeOut" }}
+        />
+      )}
       <div
         className="grid size-8 shrink-0 place-items-center rounded-full"
         style={{ background: medal ? `${medal.color}38` : "#f1f1f1" }}
