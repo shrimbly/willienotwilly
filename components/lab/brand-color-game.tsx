@@ -59,8 +59,8 @@ const GAME_PICKER_CONFIG: Config = {
   toneOuter: 286,
   toneSpanDeg: 44,
   arcSpanDeg: 106,
-  ribbonL: 0.7,
-  ribbonC: 0.18,
+  ribbonL: 0.62,
+  ribbonC: 0.26,
   openDurationMs: 340,
 };
 
