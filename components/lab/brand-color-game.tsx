@@ -47,9 +47,9 @@ const THUMB_MAX_ROTATION_DEG = 30;
 const SCORE_REVEAL_DELAY_MS = 520;
 const NEXT_ROUND_DELAY_MS = 1050;
 const CHALLENGE_START_AFTER_PICKS = 2;
-const CHALLENGE_BASE_ROUND_MS = 6200;
-const CHALLENGE_MIN_ROUND_MS = 4200;
-const CHALLENGE_STEP_MS = 550;
+const CHALLENGE_BASE_ROUND_MS = 9000;
+const CHALLENGE_MIN_ROUND_MS = 4500;
+const CHALLENGE_STEP_MS = 650;
 const CHALLENGE_URGENT_AT_MS = 1800;
 const STARTING_LIVES = 3;
 const CLUTCH_RATIO = 0.15;
@@ -427,7 +427,7 @@ function RewardToast({ result }: { result: Guess }) {
         <p className="truncate text-sm font-semibold text-zinc-950">
           {result.label ?? (medal ? medal.label : "No medal")}
         </p>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
           {result.points ? `+${result.points}` : `${result.errorPoints} points off`}
           {result.clutch ? " / clutch" : ""}
           {result.multiplier && result.multiplier > 1
@@ -553,11 +553,11 @@ function PhoneScreen({
       ))}
       {showDeviceChrome && (
         <>
-          <div className="absolute left-6 top-2.5 text-[10px] font-medium tracking-wide text-zinc-500">
+          <div className="absolute left-6 top-2.5 text-[11px] font-medium tracking-wide text-zinc-500">
             9:41
           </div>
           <div className="absolute left-1/2 top-3 size-2.5 -translate-x-1/2 rounded-full bg-zinc-950/85" />
-          <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[10px] font-medium tracking-wide text-zinc-500">
+          <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[11px] font-medium tracking-wide text-zinc-500">
             <span>5G</span>
             <span>100%</span>
           </div>
@@ -571,7 +571,7 @@ function PhoneScreen({
       >
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
               Score
             </p>
             <p className="font-mono text-sm font-semibold tabular-nums">
@@ -579,7 +579,7 @@ function PhoneScreen({
             </p>
           </div>
           <div className="text-center">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
               {roundIndex + 1}/{totalRounds}
             </p>
             <p className="font-mono text-xs text-zinc-500">
@@ -644,7 +644,7 @@ function PhoneScreen({
         </section>
 
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
             Match the primary brand color
           </p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">
@@ -671,7 +671,7 @@ function PhoneScreen({
         <AnimatePresence>
           {streak >= 2 && !gameOver && (
             <motion.div
-              className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/80 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-white"
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/80 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-white"
               initial={{ opacity: 0, y: 8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.98 }}
@@ -697,7 +697,7 @@ function PhoneScreen({
                 exit={{ opacity: 0, y: 10, scale: 0.99 }}
                 transition={{ duration: 0.38, ease: REWARD_EASE, delay: 0.04 }}
               >
-                <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
                   Game over
                 </p>
                 <p className="mt-3 text-6xl font-semibold tabular-nums tracking-tight">
@@ -705,7 +705,7 @@ function PhoneScreen({
                 </p>
                 <div className="mt-5 grid grid-cols-2 divide-x divide-zinc-950/10 rounded-[8px] border border-zinc-950/10 bg-zinc-50/80 py-3">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
                       Best
                     </p>
                     <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
@@ -713,7 +713,7 @@ function PhoneScreen({
                     </p>
                   </div>
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
                       Matched
                     </p>
                     <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
