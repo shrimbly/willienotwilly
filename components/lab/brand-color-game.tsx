@@ -17,6 +17,7 @@ import {
 type Guess = {
   errorPoints: number;
   medal: MedalKind | null;
+  label?: string;
 };
 
 type PickWave = {
@@ -42,6 +43,9 @@ const PICKER_HALF_SPAN_DEG = 53;
 const THUMB_MAX_ROTATION_DEG = 30;
 const SCORE_REVEAL_DELAY_MS = 520;
 const NEXT_ROUND_DELAY_MS = 1050;
+const CHALLENGE_START_AFTER_PICKS = 2;
+const CHALLENGE_ROUND_MS = 6200;
+const CHALLENGE_URGENT_AT_MS = 1800;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
@@ -201,6 +205,11 @@ function rgbToHex(r: number, g: number, b: number) {
       .join("")
       .toUpperCase()
   );
+}
+
+function hexToRgbString(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  return `${r}, ${g}, ${b}`;
 }
 
 function resolveCssColor(color: string) {
@@ -376,7 +385,7 @@ function RewardToast({ result }: { result: Guess }) {
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-zinc-950">
-          {medal ? medal.label : "No medal"}
+          {result.label ?? (medal ? medal.label : "No medal")}
         </p>
         <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
           {result.errorPoints} points off
@@ -399,6 +408,9 @@ function PhoneScreen({
   brand,
   result,
   isResolving,
+  challengeActive,
+  challengePaused,
+  challengeKey,
   showDeviceChrome,
   waves,
   roundIndex,
@@ -409,6 +421,9 @@ function PhoneScreen({
   brand: BrandColorGameBrand;
   result: Guess | null;
   isResolving: boolean;
+  challengeActive: boolean;
+  challengePaused: boolean;
+  challengeKey: number;
   showDeviceChrome: boolean;
   waves: PickWave[];
   roundIndex: number;
@@ -416,8 +431,55 @@ function PhoneScreen({
   onWaveComplete: (id: number) => void;
   onReset: () => void;
 }) {
+  const brandRgb = hexToRgbString(brand.targetHex);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
+      <AnimatePresence>
+        {challengeActive && (
+          <motion.div
+            key={`challenge-${challengeKey}`}
+            className="pointer-events-none absolute left-0 top-0 z-0 w-full"
+            style={{
+              background: `linear-gradient(180deg, rgba(${brandRgb}, 0.13), rgba(${brandRgb}, 0.28))`,
+              boxShadow: `0 16px 48px rgba(${brandRgb}, 0.16)`,
+            }}
+            initial={{ height: "0%", opacity: 0.72 }}
+            animate={
+              challengePaused
+                ? {
+                    opacity: 0.24,
+                  }
+                : {
+                    height: "100%",
+                    opacity: [0.72, 0.72, 0.95, 0.66, 0.95, 0.72],
+                  }
+            }
+            exit={{ opacity: 0 }}
+            transition={
+              challengePaused
+                ? { duration: 0.18 }
+                : {
+                    height: {
+                      duration: CHALLENGE_ROUND_MS / 1000,
+                      ease: "linear",
+                    },
+                    opacity: {
+                      duration: CHALLENGE_ROUND_MS / 1000,
+                      times: [
+                        0,
+                        1 - CHALLENGE_URGENT_AT_MS / CHALLENGE_ROUND_MS,
+                        0.82,
+                        0.9,
+                        0.96,
+                        1,
+                      ],
+                    },
+                  }
+            }
+          />
+        )}
+      </AnimatePresence>
       {waves.map((wave) => (
         <motion.div
           key={wave.id}
@@ -533,6 +595,7 @@ export function BrandColorGame() {
   const [roundIndex, setRoundIndex] = useState(0);
   const [result, setResult] = useState<Guess | null>(null);
   const [isResolving, setIsResolving] = useState(false);
+  const [completedPicks, setCompletedPicks] = useState(0);
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -540,8 +603,10 @@ export function BrandColorGame() {
   const [vp, setVp] = useState({ w: 0, h: 0 });
   const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
+  const challengeTimer = useRef<number | null>(null);
   const waveId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
+  const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
 
   useEffect(() => {
     setBrandOrder(shuffledBrands());
@@ -580,11 +645,17 @@ export function BrandColorGame() {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
+    if (challengeTimer.current) {
+      clearTimeout(challengeTimer.current);
+      challengeTimer.current = null;
+    }
     const hex = resolveCssColor(raw);
     const errorPoints = errorPointsFor(hex, brand.targetHex);
+    const nextCompletedPicks = completedPicks + 1;
     setHasPicked(true);
     setResult(null);
     setIsResolving(true);
+    setCompletedPicks(nextCompletedPicks);
     setWaves((current) => [
       ...current,
       {
@@ -609,6 +680,24 @@ export function BrandColorGame() {
     }, SCORE_REVEAL_DELAY_MS);
   };
 
+  const handleChallengeTimeout = () => {
+    if (revealTimer.current || autoAdvanceTimer.current || isResolving) return;
+    setHasPicked(true);
+    setIsResolving(true);
+    setResult({
+      errorPoints: 100,
+      medal: null,
+      label: "Time",
+    });
+    autoAdvanceTimer.current = window.setTimeout(() => {
+      autoAdvanceTimer.current = null;
+      setResult(null);
+      setIsResolving(false);
+      setWaves([]);
+      setRoundIndex((current) => (current + 1) % brandOrder.length);
+    }, NEXT_ROUND_DELAY_MS);
+  };
+
   const resetGame = () => {
     if (revealTimer.current) {
       clearTimeout(revealTimer.current);
@@ -618,8 +707,13 @@ export function BrandColorGame() {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
+    if (challengeTimer.current) {
+      clearTimeout(challengeTimer.current);
+      challengeTimer.current = null;
+    }
     setResult(null);
     setIsResolving(false);
+    setCompletedPicks(0);
     setWaves([]);
     setHasPicked(false);
     setBrandOrder(shuffledBrands());
@@ -634,8 +728,31 @@ export function BrandColorGame() {
     return () => {
       if (revealTimer.current) clearTimeout(revealTimer.current);
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      if (challengeTimer.current) clearTimeout(challengeTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (challengeTimer.current) {
+      clearTimeout(challengeTimer.current);
+      challengeTimer.current = null;
+    }
+    if (!challengeActive || isResolving || result) return;
+
+    challengeTimer.current = window.setTimeout(() => {
+      challengeTimer.current = null;
+      handleChallengeTimeout();
+    }, CHALLENGE_ROUND_MS);
+
+    return () => {
+      if (challengeTimer.current) {
+        clearTimeout(challengeTimer.current);
+        challengeTimer.current = null;
+      }
+    };
+    // `brand.id` restarts the timeout for each randomized round.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brand.id, challengeActive, isResolving, result]);
 
   return (
     <main className="min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 text-zinc-950 dark:from-zinc-900 dark:to-zinc-950 dark:text-white">
@@ -668,6 +785,9 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          challengeActive={challengeActive}
+          challengePaused={isResolving || result !== null}
+          challengeKey={roundIndex}
           showDeviceChrome
           waves={waves}
           roundIndex={roundIndex}
@@ -698,6 +818,9 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          challengeActive={challengeActive}
+          challengePaused={isResolving || result !== null}
+          challengeKey={roundIndex}
           showDeviceChrome={false}
           waves={waves}
           roundIndex={roundIndex}
