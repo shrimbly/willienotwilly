@@ -290,6 +290,10 @@ function pointsFor({
   };
 }
 
+function formatScore(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
 function multiplierForStreak(streak: number) {
   return Math.min(5, 1 + Math.floor(streak / 3));
 }
@@ -425,7 +429,7 @@ function AnimatedScore({ value }: { value: number }) {
       transition={{ duration: 0.34, ease: REWARD_EASE }}
       className="inline-block"
     >
-      {displayValue}
+      {formatScore(displayValue)}
     </motion.span>
   );
 }
@@ -510,7 +514,7 @@ function RewardToast({ result }: { result: Guess }) {
           {result.label ?? (medal ? medal.label : "No medal")}
         </p>
         <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
-          {result.points ? `+${result.points}` : `${result.errorPoints} points off`}
+          {result.points ? `+${formatScore(result.points)}` : `${result.errorPoints} points off`}
           {result.clutch ? " / clutch" : ""}
           {result.multiplier && result.multiplier > 1
             ? ` / x${result.multiplier}`
@@ -922,7 +926,7 @@ function PhoneScreen({
                       Best
                     </p>
                     <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
-                      {bestScore}
+                      {formatScore(bestScore)}
                     </p>
                   </motion.div>
                   <motion.div
