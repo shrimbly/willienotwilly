@@ -18,6 +18,9 @@ type Guess = {
   errorPoints: number;
   medal: MedalKind | null;
   label?: string;
+  points?: number;
+  clutch?: boolean;
+  multiplier?: number;
 };
 
 type PickWave = {
@@ -44,8 +47,12 @@ const THUMB_MAX_ROTATION_DEG = 30;
 const SCORE_REVEAL_DELAY_MS = 520;
 const NEXT_ROUND_DELAY_MS = 1050;
 const CHALLENGE_START_AFTER_PICKS = 2;
-const CHALLENGE_ROUND_MS = 6200;
+const CHALLENGE_BASE_ROUND_MS = 6200;
+const CHALLENGE_MIN_ROUND_MS = 4200;
+const CHALLENGE_STEP_MS = 550;
 const CHALLENGE_URGENT_AT_MS = 1800;
+const STARTING_LIVES = 3;
+const CLUTCH_RATIO = 0.15;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
@@ -73,6 +80,13 @@ const MEDALS: Record<MedalKind, { label: string; color: string }> = {
   gold: { label: "Gold", color: "#F6C64A" },
   silver: { label: "Silver", color: "#C9CED6" },
   bronze: { label: "Bronze", color: "#C8844A" },
+};
+
+const MEDAL_POINTS: Record<MedalKind, number> = {
+  platinum: 1000,
+  gold: 600,
+  silver: 350,
+  bronze: 150,
 };
 
 function shuffledBrands() {
@@ -242,6 +256,32 @@ function medalFor(errorPoints: number): MedalKind | null {
   return null;
 }
 
+function challengeDurationFor(completedPicks: number) {
+  const challengeRounds = Math.max(0, completedPicks - CHALLENGE_START_AFTER_PICKS);
+  const level = Math.floor(challengeRounds / 5);
+  return Math.max(
+    CHALLENGE_MIN_ROUND_MS,
+    CHALLENGE_BASE_ROUND_MS - level * CHALLENGE_STEP_MS,
+  );
+}
+
+function pointsFor({
+  medal,
+  streak,
+  clutch,
+}: {
+  medal: MedalKind | null;
+  streak: number;
+  clutch: boolean;
+}) {
+  if (!medal) return 0;
+  const multiplier = Math.min(5, 1 + Math.floor(streak / 3));
+  return {
+    points: MEDAL_POINTS[medal] * multiplier + (clutch ? 250 : 0),
+    multiplier,
+  };
+}
+
 function srgbToLinear(value: number) {
   const channel = value / 255;
   return channel <= 0.04045
@@ -388,7 +428,11 @@ function RewardToast({ result }: { result: Guess }) {
           {result.label ?? (medal ? medal.label : "No medal")}
         </p>
         <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          {result.errorPoints} points off
+          {result.points ? `+${result.points}` : `${result.errorPoints} points off`}
+          {result.clutch ? " / clutch" : ""}
+          {result.multiplier && result.multiplier > 1
+            ? ` / x${result.multiplier}`
+            : ""}
         </p>
       </div>
       {result.medal === "platinum" && (
@@ -408,9 +452,16 @@ function PhoneScreen({
   brand,
   result,
   isResolving,
+  score,
+  lives,
+  streak,
+  gameOver,
+  bestScore,
+  challengeIntro,
   challengeActive,
   challengePaused,
   challengeKey,
+  challengeDurationMs,
   showDeviceChrome,
   waves,
   roundIndex,
@@ -421,9 +472,16 @@ function PhoneScreen({
   brand: BrandColorGameBrand;
   result: Guess | null;
   isResolving: boolean;
+  score: number;
+  lives: number;
+  streak: number;
+  gameOver: boolean;
+  bestScore: number;
+  challengeIntro: boolean;
   challengeActive: boolean;
   challengePaused: boolean;
   challengeKey: number;
+  challengeDurationMs: number;
   showDeviceChrome: boolean;
   waves: PickWave[];
   roundIndex: number;
@@ -461,14 +519,14 @@ function PhoneScreen({
                 ? { duration: 0.18 }
                 : {
                     height: {
-                      duration: CHALLENGE_ROUND_MS / 1000,
+                      duration: challengeDurationMs / 1000,
                       ease: "linear",
                     },
                     opacity: {
-                      duration: CHALLENGE_ROUND_MS / 1000,
+                      duration: challengeDurationMs / 1000,
                       times: [
                         0,
-                        1 - CHALLENGE_URGENT_AT_MS / CHALLENGE_ROUND_MS,
+                        1 - CHALLENGE_URGENT_AT_MS / challengeDurationMs,
                         0.82,
                         0.9,
                         0.96,
@@ -509,19 +567,47 @@ function PhoneScreen({
           showDeviceChrome ? "pt-16" : "pt-8"
         }`}
       >
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
-            {roundIndex + 1}/{totalRounds}
-          </span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+              Score
+            </p>
+            <p className="font-mono text-sm font-semibold tabular-nums">
+              {score}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+              {roundIndex + 1}/{totalRounds}
+            </p>
+            <p className="font-mono text-xs text-zinc-500">
+              {"●".repeat(lives)}
+              <span className="text-zinc-300">{"●".repeat(STARTING_LIVES - lives)}</span>
+            </p>
+          </div>
           <button
             type="button"
             onClick={onReset}
             aria-label="Reset game"
-            className="grid size-8 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-950"
+            className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-950"
           >
             <RotateCcw className="size-3.5" />
           </button>
         </div>
+
+        <AnimatePresence>
+          {challengeIntro && (
+            <motion.div
+              className="absolute left-1/2 top-[112px] z-30 -translate-x-1/2 rounded-full border border-zinc-950/10 bg-zinc-950 px-4 py-2 text-center text-xs font-semibold uppercase tracking-widest text-white shadow-[0_14px_38px_rgba(0,0,0,0.22)]"
+              initial={{ opacity: 0, y: 8, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: [1, 1.06, 1] }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.36, ease: REWARD_EASE }}
+            >
+              Challenge mode
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <section className="flex min-h-[260px] flex-col items-center justify-center pt-8">
           <AnimatePresence mode="wait">
@@ -580,6 +666,44 @@ function PhoneScreen({
 
         <AnimatePresence>{result && <RewardToast result={result} />}</AnimatePresence>
 
+        <AnimatePresence>
+          {streak >= 2 && !gameOver && (
+            <motion.div
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/80 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-white"
+              initial={{ opacity: 0, y: 8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            >
+              Streak {streak}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {gameOver && (
+            <motion.div
+              className="absolute inset-x-6 top-1/2 z-40 -translate-y-1/2 rounded-[8px] border border-zinc-950/10 bg-white/95 p-5 text-center shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.34, ease: REWARD_EASE }}
+            >
+              <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                Game over
+              </p>
+              <p className="mt-2 text-5xl font-semibold tabular-nums">{score}</p>
+              <p className="mt-2 text-sm text-zinc-500">Best {bestScore}</p>
+              <button
+                type="button"
+                onClick={onReset}
+                className="mt-5 rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white"
+              >
+                Play again
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {showDeviceChrome && (
           <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
         )}
@@ -596,6 +720,12 @@ export function BrandColorGame() {
   const [result, setResult] = useState<Guess | null>(null);
   const [isResolving, setIsResolving] = useState(false);
   const [completedPicks, setCompletedPicks] = useState(0);
+  const [score, setScore] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [lives, setLives] = useState(STARTING_LIVES);
+  const [streak, setStreak] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [challengeIntro, setChallengeIntro] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -604,11 +734,16 @@ export function BrandColorGame() {
   const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
   const challengeTimer = useRef<number | null>(null);
+  const challengeStartedAt = useRef<number | null>(null);
+  const challengeIntroTimer = useRef<number | null>(null);
   const waveId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
+  const challengeDurationMs = challengeDurationFor(completedPicks);
 
   useEffect(() => {
+    const storedBest = window.localStorage.getItem("brand-color-game-best");
+    if (storedBest) setBestScore(parseInt(storedBest, 10) || 0);
     setBrandOrder(shuffledBrands());
     const mq = window.matchMedia("(max-width: 767px)");
     setIsMobile(mq.matches);
@@ -649,13 +784,37 @@ export function BrandColorGame() {
       clearTimeout(challengeTimer.current);
       challengeTimer.current = null;
     }
+    if (gameOver) return;
     const hex = resolveCssColor(raw);
     const errorPoints = errorPointsFor(hex, brand.targetHex);
+    const medal = medalFor(errorPoints);
+    const clutch =
+      challengeActive &&
+      challengeStartedAt.current !== null &&
+      Math.max(
+        0,
+        1 - (Date.now() - challengeStartedAt.current) / challengeDurationMs,
+      ) <= CLUTCH_RATIO;
+    const nextStreak = medal ? streak + 1 : 0;
+    const pointsResult = pointsFor({ medal, streak: nextStreak, clutch });
     const nextCompletedPicks = completedPicks + 1;
     setHasPicked(true);
     setResult(null);
     setIsResolving(true);
     setCompletedPicks(nextCompletedPicks);
+    setStreak(nextStreak);
+    if (!medal) setLives((current) => Math.max(0, current - 1));
+    if (pointsResult) {
+      setScore((current) => {
+        const next = current + pointsResult.points;
+        setBestScore((currentBest) => {
+          if (next <= currentBest) return currentBest;
+          window.localStorage.setItem("brand-color-game-best", String(next));
+          return next;
+        });
+        return next;
+      });
+    }
     setWaves((current) => [
       ...current,
       {
@@ -668,22 +827,41 @@ export function BrandColorGame() {
       revealTimer.current = null;
       setResult({
         errorPoints,
-        medal: medalFor(errorPoints),
+        medal,
+        points: pointsResult ? pointsResult.points : 0,
+        multiplier: pointsResult ? pointsResult.multiplier : 1,
+        clutch,
       });
       autoAdvanceTimer.current = window.setTimeout(() => {
         autoAdvanceTimer.current = null;
+        const outOfLives = !medal && lives <= 1;
         setResult(null);
         setIsResolving(false);
         setWaves([]);
-        setRoundIndex((current) => (current + 1) % brandOrder.length);
+        if (outOfLives) {
+          setGameOver(true);
+        } else {
+          if (nextCompletedPicks === CHALLENGE_START_AFTER_PICKS) {
+            setChallengeIntro(true);
+            if (challengeIntroTimer.current) clearTimeout(challengeIntroTimer.current);
+            challengeIntroTimer.current = window.setTimeout(() => {
+              setChallengeIntro(false);
+              challengeIntroTimer.current = null;
+            }, 1100);
+          }
+          setRoundIndex((current) => (current + 1) % brandOrder.length);
+        }
       }, NEXT_ROUND_DELAY_MS);
     }, SCORE_REVEAL_DELAY_MS);
   };
 
   const handleChallengeTimeout = () => {
     if (revealTimer.current || autoAdvanceTimer.current || isResolving) return;
+    const outOfLives = lives <= 1;
     setHasPicked(true);
     setIsResolving(true);
+    setStreak(0);
+    setLives((current) => Math.max(0, current - 1));
     setResult({
       errorPoints: 100,
       medal: null,
@@ -694,7 +872,11 @@ export function BrandColorGame() {
       setResult(null);
       setIsResolving(false);
       setWaves([]);
-      setRoundIndex((current) => (current + 1) % brandOrder.length);
+      if (outOfLives) {
+        setGameOver(true);
+      } else {
+        setRoundIndex((current) => (current + 1) % brandOrder.length);
+      }
     }, NEXT_ROUND_DELAY_MS);
   };
 
@@ -711,16 +893,25 @@ export function BrandColorGame() {
       clearTimeout(challengeTimer.current);
       challengeTimer.current = null;
     }
+    if (challengeIntroTimer.current) {
+      clearTimeout(challengeIntroTimer.current);
+      challengeIntroTimer.current = null;
+    }
     setResult(null);
     setIsResolving(false);
     setCompletedPicks(0);
+    setScore(0);
+    setLives(STARTING_LIVES);
+    setStreak(0);
+    setGameOver(false);
+    setChallengeIntro(false);
     setWaves([]);
     setHasPicked(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
   };
 
-  const handleWaveComplete = (_id: number) => {
+  const handleWaveComplete = () => {
     // Keep the expanded color in place until the next brand appears.
   };
 
@@ -729,6 +920,7 @@ export function BrandColorGame() {
       if (revealTimer.current) clearTimeout(revealTimer.current);
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
       if (challengeTimer.current) clearTimeout(challengeTimer.current);
+      if (challengeIntroTimer.current) clearTimeout(challengeIntroTimer.current);
     };
   }, []);
 
@@ -737,12 +929,13 @@ export function BrandColorGame() {
       clearTimeout(challengeTimer.current);
       challengeTimer.current = null;
     }
-    if (!challengeActive || isResolving || result) return;
+    if (!challengeActive || challengeIntro || gameOver || isResolving || result) return;
 
+    challengeStartedAt.current = Date.now();
     challengeTimer.current = window.setTimeout(() => {
       challengeTimer.current = null;
       handleChallengeTimeout();
-    }, CHALLENGE_ROUND_MS);
+    }, challengeDurationMs);
 
     return () => {
       if (challengeTimer.current) {
@@ -752,7 +945,7 @@ export function BrandColorGame() {
     };
     // `brand.id` restarts the timeout for each randomized round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brand.id, challengeActive, isResolving, result]);
+  }, [brand.id, challengeActive, challengeDurationMs, challengeIntro, gameOver, isResolving, result]);
 
   return (
     <main className="min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 text-zinc-950 dark:from-zinc-900 dark:to-zinc-950 dark:text-white">
@@ -766,7 +959,7 @@ export function BrandColorGame() {
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             A game layer for the radial picker. Real brand marks, one primary
-            color, and a small medal for close matches.
+            color, escalating pressure, streaks, and medals for close matches.
           </p>
         </div>
       </section>
@@ -785,9 +978,16 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          score={score}
+          lives={lives}
+          streak={streak}
+          gameOver={gameOver}
+          bestScore={bestScore}
+          challengeIntro={challengeIntro}
           challengeActive={challengeActive}
           challengePaused={isResolving || result !== null}
           challengeKey={roundIndex}
+          challengeDurationMs={challengeDurationMs}
           showDeviceChrome
           waves={waves}
           roundIndex={roundIndex}
@@ -818,9 +1018,16 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          score={score}
+          lives={lives}
+          streak={streak}
+          gameOver={gameOver}
+          bestScore={bestScore}
+          challengeIntro={challengeIntro}
           challengeActive={challengeActive}
           challengePaused={isResolving || result !== null}
           challengeKey={roundIndex}
+          challengeDurationMs={challengeDurationMs}
           showDeviceChrome={false}
           waves={waves}
           roundIndex={roundIndex}
@@ -852,7 +1059,7 @@ export function BrandColorGame() {
 
       <ColorPickerFabV9
         config={GAME_PICKER_CONFIG}
-        onPick={handlePick}
+        onPick={gameOver ? undefined : handlePick}
         onPressedChange={setPressed}
         disableBackdropBlur
         screenEdgeInset={FAB_INSET_FROM_SCREEN}
