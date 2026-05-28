@@ -758,6 +758,7 @@ export function BrandColorGame() {
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const [pickerCloseSignal, setPickerCloseSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
   const revealTimer = useRef<number | null>(null);
@@ -799,6 +800,11 @@ export function BrandColorGame() {
     desktopRightInset + DEVICE_BEZEL + FAB_INSET_FROM_SCREEN;
   const actualFabBottom = isMobile ? GAME_PICKER_CONFIG.fabInset : fabBottomDesktop;
   const actualFabRight = isMobile ? GAME_PICKER_CONFIG.fabInset : fabRightDesktop;
+
+  const closePicker = () => {
+    setPressed(false);
+    setPickerCloseSignal((current) => current + 1);
+  };
 
   const handlePick = (raw: string) => {
     if (revealTimer.current) {
@@ -886,6 +892,7 @@ export function BrandColorGame() {
 
   const handleChallengeTimeout = () => {
     if (revealTimer.current || autoAdvanceTimer.current || isResolving) return;
+    closePicker();
     const outOfLives = lives <= 1;
     setHasPicked(true);
     setIsResolving(true);
@@ -935,6 +942,7 @@ export function BrandColorGame() {
     setGameOver(false);
     setChallengeIntro(false);
     setWaves([]);
+    closePicker();
     setHasPicked(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
@@ -1088,18 +1096,21 @@ export function BrandColorGame() {
         )}
       </AnimatePresence>
 
-      <ColorPickerFabV9
-        config={GAME_PICKER_CONFIG}
-        onPick={gameOver ? undefined : handlePick}
-        onPressedChange={setPressed}
-        disableBackdropBlur
-        screenEdgeInset={FAB_INSET_FROM_SCREEN}
-        fabBottomInset={isMobile ? undefined : fabBottomDesktop}
-        fabRightInset={isMobile ? undefined : fabRightDesktop}
-      />
+      {!gameOver && (
+        <ColorPickerFabV9
+          config={GAME_PICKER_CONFIG}
+          onPick={handlePick}
+          closeSignal={pickerCloseSignal}
+          onPressedChange={setPressed}
+          disableBackdropBlur
+          screenEdgeInset={FAB_INSET_FROM_SCREEN}
+          fabBottomInset={isMobile ? undefined : fabBottomDesktop}
+          fabRightInset={isMobile ? undefined : fabRightDesktop}
+        />
+      )}
 
       <ThumbCursor
-        visible={!isMobile && pressed}
+        visible={!isMobile && pressed && !gameOver}
         fabSize={GAME_PICKER_CONFIG.fabSize}
         fabBottom={actualFabBottom}
         fabRight={actualFabRight}
