@@ -35,6 +35,16 @@ type MultiplierBurst = {
   multiplier: number;
 };
 
+type ScoreTrail = {
+  id: number;
+  points: number;
+};
+
+type TimeoutCollapse = {
+  id: number;
+  color: string;
+};
+
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
 
 const DEVICE_SCREEN_W = 360;
@@ -58,6 +68,7 @@ const CHALLENGE_BASE_ROUND_MS = 9000;
 const CHALLENGE_MIN_ROUND_MS = 4500;
 const CHALLENGE_STEP_MS = 650;
 const CHALLENGE_URGENT_AT_MS = 1800;
+const CHALLENGE_HEARTBEAT_AT_MS = 1000;
 const STARTING_LIVES = 3;
 const CLUTCH_RATIO = 0.15;
 const NEAR_MISS_POINTS = 22;
@@ -544,7 +555,10 @@ function PhoneScreen({
   lives,
   streak,
   multiplierBurst,
+  scoreTrail,
+  bestPulse,
   lifePulse,
+  timeoutCollapse,
   completedPicks,
   gameOver,
   bestScore,
@@ -570,7 +584,10 @@ function PhoneScreen({
   lives: number;
   streak: number;
   multiplierBurst: MultiplierBurst | null;
+  scoreTrail: ScoreTrail | null;
+  bestPulse: number;
   lifePulse: number;
+  timeoutCollapse: TimeoutCollapse | null;
   completedPicks: number;
   gameOver: boolean;
   bestScore: number;
@@ -591,6 +608,10 @@ function PhoneScreen({
   const dangerDelay = Math.max(
     0,
     (challengeDurationMs - CHALLENGE_URGENT_AT_MS) / 1000,
+  );
+  const heartbeatDelay = Math.max(
+    0,
+    (challengeDurationMs - CHALLENGE_HEARTBEAT_AT_MS) / 1000,
   );
 
   return (
@@ -658,7 +679,47 @@ function PhoneScreen({
                 }}
               />
             )}
+            {!challengePaused && (
+              <motion.div
+                key={`heartbeat-${challengeKey}`}
+                className="pointer-events-none absolute inset-0 z-0"
+                style={{
+                  boxShadow: `inset 0 0 0 0 rgba(${brandRgb}, 0)`,
+                }}
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: [0, 0.28, 0, 0.38, 0, 0.5, 0],
+                  boxShadow: [
+                    `inset 0 0 0 0 rgba(${brandRgb}, 0)`,
+                    `inset 0 0 0 3px rgba(${brandRgb}, 0.24)`,
+                    `inset 0 0 0 0 rgba(${brandRgb}, 0)`,
+                    `inset 0 0 0 4px rgba(${brandRgb}, 0.30)`,
+                    `inset 0 0 0 0 rgba(${brandRgb}, 0)`,
+                    `inset 0 0 0 5px rgba(${brandRgb}, 0.36)`,
+                    `inset 0 0 0 0 rgba(${brandRgb}, 0)`,
+                  ],
+                }}
+                transition={{
+                  delay: heartbeatDelay,
+                  duration: 0.92,
+                  ease: "easeInOut",
+                }}
+              />
+            )}
           </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {timeoutCollapse && (
+          <motion.div
+            key={timeoutCollapse.id}
+            className="pointer-events-none absolute inset-0 z-[2]"
+            style={{ background: timeoutCollapse.color, transformOrigin: "bottom" }}
+            initial={{ opacity: 0.18, scaleY: 1 }}
+            animate={{ opacity: [0.18, 0.34, 0], scaleY: [1, 0.12, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+          />
         )}
       </AnimatePresence>
       {waves.map((wave) => (
@@ -711,9 +772,18 @@ function PhoneScreen({
             <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
               Score
             </p>
-            <p className="font-mono text-sm font-semibold tabular-nums">
+            <motion.p
+              className="font-mono text-sm font-semibold tabular-nums"
+              key={`score-${bestPulse}`}
+              animate={
+                bestPulse
+                  ? { color: ["#18181b", "#f59e0b", "#18181b"], scale: [1, 1.18, 1] }
+                  : { color: "#18181b", scale: 1 }
+              }
+              transition={{ duration: 0.5, ease: REWARD_EASE }}
+            >
               <AnimatedScore value={score} />
-            </p>
+            </motion.p>
           </div>
           <div className="text-center">
             <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
@@ -788,6 +858,28 @@ function PhoneScreen({
               className="grid h-44 w-56 place-items-center rounded-[36px]"
               style={{ backgroundColor: brand.targetHex }}
             >
+              {isResolving && resolvingMedal === "platinum" && (
+                <motion.div
+                  aria-hidden
+                  className="absolute inset-[-8px] rounded-[42px] border border-white/80"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1.12, 1.22] }}
+                  transition={{ duration: 0.7, ease: REWARD_EASE }}
+                />
+              )}
+              {isResolving && resolvingMedal && (
+                <motion.div
+                  aria-hidden
+                  className="absolute inset-0 rounded-[36px] bg-gradient-to-r from-transparent via-white/35 to-transparent"
+                  initial={{ x: "-120%", opacity: 0 }}
+                  animate={{ x: "120%", opacity: [0, 0.85, 0] }}
+                  transition={{
+                    duration: resolvingMedal === "platinum" ? 0.78 : 0.52,
+                    ease: "easeOut",
+                    delay: resolvingMedal === "platinum" ? 0.06 : 0,
+                  }}
+                />
+              )}
               <div className={`relative ${brand.logoSizeClassName}`}>
                 <Image
                   src={brand.logoSrc}
@@ -826,6 +918,21 @@ function PhoneScreen({
         </div>
 
         <AnimatePresence>{result && <RewardToast result={result} />}</AnimatePresence>
+
+        <AnimatePresence>
+          {scoreTrail && !gameOver && (
+            <motion.div
+              key={scoreTrail.id}
+              className="pointer-events-none absolute left-1/2 top-[84px] z-40 rounded-full bg-zinc-950 px-2.5 py-1 font-mono text-[11px] font-semibold text-white shadow-[0_10px_26px_rgba(0,0,0,0.22)]"
+              initial={{ opacity: 0, x: "-50%", y: 8, scale: 0.82 }}
+              animate={{ opacity: [0, 1, 1, 0], x: "-142px", y: [-2, -24, -56, -72], scale: [0.82, 1.08, 1, 0.9] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.74, ease: REWARD_EASE }}
+            >
+              +{formatScore(scoreTrail.points)}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {streak >= 2 && !gameOver && (
@@ -979,7 +1086,10 @@ export function BrandColorGame() {
   const [lives, setLives] = useState(STARTING_LIVES);
   const [streak, setStreak] = useState(0);
   const [multiplierBurst, setMultiplierBurst] = useState<MultiplierBurst | null>(null);
+  const [scoreTrail, setScoreTrail] = useState<ScoreTrail | null>(null);
+  const [bestPulse, setBestPulse] = useState(0);
   const [lifePulse, setLifePulse] = useState(0);
+  const [timeoutCollapse, setTimeoutCollapse] = useState<TimeoutCollapse | null>(null);
   const [resolvingMedal, setResolvingMedal] = useState<MedalKind | null>(null);
   const [resolvingNearMiss, setResolvingNearMiss] = useState(false);
   const [newBestThisRun, setNewBestThisRun] = useState(false);
@@ -997,8 +1107,12 @@ export function BrandColorGame() {
   const challengeStartedAt = useRef<number | null>(null);
   const challengeIntroTimer = useRef<number | null>(null);
   const multiplierBurstTimer = useRef<number | null>(null);
+  const scoreTrailTimer = useRef<number | null>(null);
+  const timeoutCollapseTimer = useRef<number | null>(null);
   const waveId = useRef(0);
   const multiplierBurstId = useRef(0);
+  const scoreTrailId = useRef(0);
+  const timeoutCollapseId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
   const challengeDurationMs = challengeDurationFor(completedPicks);
@@ -1048,6 +1162,33 @@ export function BrandColorGame() {
       setMultiplierBurst(null);
       multiplierBurstTimer.current = null;
     }, 760);
+  };
+
+  const showScoreTrail = (points: number) => {
+    if (scoreTrailTimer.current) {
+      clearTimeout(scoreTrailTimer.current);
+      scoreTrailTimer.current = null;
+    }
+    setScoreTrail({ id: ++scoreTrailId.current, points });
+    scoreTrailTimer.current = window.setTimeout(() => {
+      setScoreTrail(null);
+      scoreTrailTimer.current = null;
+    }, 820);
+  };
+
+  const showTimeoutCollapse = () => {
+    if (timeoutCollapseTimer.current) {
+      clearTimeout(timeoutCollapseTimer.current);
+      timeoutCollapseTimer.current = null;
+    }
+    setTimeoutCollapse({
+      id: ++timeoutCollapseId.current,
+      color: brand.targetHex,
+    });
+    timeoutCollapseTimer.current = window.setTimeout(() => {
+      setTimeoutCollapse(null);
+      timeoutCollapseTimer.current = null;
+    }, 520);
   };
 
   const handlePick = (raw: string) => {
@@ -1105,6 +1246,7 @@ export function BrandColorGame() {
     revealTimer.current = window.setTimeout(() => {
       revealTimer.current = null;
       if (pointsResult) {
+        showScoreTrail(pointsResult.points);
         if (nextMultiplier > previousMultiplier) {
           showMultiplierBurst(nextMultiplier);
           hapticFor("gold");
@@ -1115,6 +1257,7 @@ export function BrandColorGame() {
             if (next <= currentBest) return currentBest;
             window.localStorage.setItem("brand-color-game-best", String(next));
             setNewBestThisRun(true);
+            setBestPulse((currentPulse) => currentPulse + 1);
             return next;
           });
           return next;
@@ -1158,6 +1301,7 @@ export function BrandColorGame() {
     if (revealTimer.current || autoAdvanceTimer.current || isResolving) return;
     closePicker();
     hapticFor(null);
+    showTimeoutCollapse();
     const outOfLives = lives <= 1;
     setHasPicked(true);
     setIsResolving(true);
@@ -1208,6 +1352,14 @@ export function BrandColorGame() {
       clearTimeout(multiplierBurstTimer.current);
       multiplierBurstTimer.current = null;
     }
+    if (scoreTrailTimer.current) {
+      clearTimeout(scoreTrailTimer.current);
+      scoreTrailTimer.current = null;
+    }
+    if (timeoutCollapseTimer.current) {
+      clearTimeout(timeoutCollapseTimer.current);
+      timeoutCollapseTimer.current = null;
+    }
     setResult(null);
     setIsResolving(false);
     setResolvingMedal(null);
@@ -1218,6 +1370,8 @@ export function BrandColorGame() {
     setStreak(0);
     setNewBestThisRun(false);
     setMultiplierBurst(null);
+    setScoreTrail(null);
+    setTimeoutCollapse(null);
     setGameOver(false);
     setChallengeIntro(false);
     setWaves([]);
@@ -1238,6 +1392,8 @@ export function BrandColorGame() {
       if (challengeTimer.current) clearTimeout(challengeTimer.current);
       if (challengeIntroTimer.current) clearTimeout(challengeIntroTimer.current);
       if (multiplierBurstTimer.current) clearTimeout(multiplierBurstTimer.current);
+      if (scoreTrailTimer.current) clearTimeout(scoreTrailTimer.current);
+      if (timeoutCollapseTimer.current) clearTimeout(timeoutCollapseTimer.current);
     };
   }, []);
 
@@ -1301,7 +1457,10 @@ export function BrandColorGame() {
           lives={lives}
           streak={streak}
           multiplierBurst={multiplierBurst}
+          scoreTrail={scoreTrail}
+          bestPulse={bestPulse}
           lifePulse={lifePulse}
+          timeoutCollapse={timeoutCollapse}
           completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
@@ -1347,7 +1506,10 @@ export function BrandColorGame() {
           lives={lives}
           streak={streak}
           multiplierBurst={multiplierBurst}
+          scoreTrail={scoreTrail}
+          bestPulse={bestPulse}
           lifePulse={lifePulse}
+          timeoutCollapse={timeoutCollapse}
           completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
