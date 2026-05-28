@@ -30,6 +30,11 @@ type PickWave = {
   nearMiss: boolean;
 };
 
+type MultiplierBurst = {
+  id: number;
+  multiplier: number;
+};
+
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
 
 const DEVICE_SCREEN_W = 360;
@@ -278,11 +283,15 @@ function pointsFor({
   clutch: boolean;
 }) {
   if (!medal) return 0;
-  const multiplier = Math.min(5, 1 + Math.floor(streak / 3));
+  const multiplier = multiplierForStreak(streak);
   return {
     points: MEDAL_POINTS[medal] * multiplier + (clutch ? 250 : 0),
     multiplier,
   };
+}
+
+function multiplierForStreak(streak: number) {
+  return Math.min(5, 1 + Math.floor(streak / 3));
 }
 
 function srgbToLinear(value: number) {
@@ -530,6 +539,8 @@ function PhoneScreen({
   score,
   lives,
   streak,
+  multiplierBurst,
+  lifePulse,
   completedPicks,
   gameOver,
   bestScore,
@@ -553,6 +564,8 @@ function PhoneScreen({
   score: number;
   lives: number;
   streak: number;
+  multiplierBurst: MultiplierBurst | null;
+  lifePulse: number;
   completedPicks: number;
   gameOver: boolean;
   bestScore: number;
@@ -569,52 +582,77 @@ function PhoneScreen({
   onReset: () => void;
 }) {
   const brandRgb = hexToRgbString(brand.targetHex);
+  const dangerDelay = Math.max(
+    0,
+    (challengeDurationMs - CHALLENGE_URGENT_AT_MS) / 1000,
+  );
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
       <AnimatePresence>
         {challengeActive && !gameOver && (
-          <motion.div
-            key={`challenge-${challengeKey}`}
-            className="pointer-events-none absolute left-0 top-0 z-0 w-full"
-            style={{
-              background: `linear-gradient(180deg, rgba(${brandRgb}, 0.13), rgba(${brandRgb}, 0.28))`,
-              boxShadow: `0 16px 48px rgba(${brandRgb}, 0.16)`,
-            }}
-            initial={{ height: "0%", opacity: 0.72 }}
-            animate={
-              challengePaused
-                ? {
-                    opacity: 0.24,
-                  }
-                : {
-                    height: "100%",
-                    opacity: [0.72, 0.72, 0.95, 0.66, 0.95, 0.72],
-                  }
-            }
-            exit={{ opacity: 0 }}
-            transition={
-              challengePaused
-                ? { duration: 0.18 }
-                : {
-                    height: {
-                      duration: challengeDurationMs / 1000,
-                      ease: "linear",
-                    },
-                    opacity: {
-                      duration: challengeDurationMs / 1000,
-                      times: [
-                        0,
-                        1 - CHALLENGE_URGENT_AT_MS / challengeDurationMs,
-                        0.82,
-                        0.9,
-                        0.96,
-                        1,
-                      ],
-                    },
-                  }
-            }
-          />
+          <>
+            <motion.div
+              key={`challenge-${challengeKey}`}
+              className="pointer-events-none absolute left-0 top-0 z-0 w-full"
+              style={{
+                background: `linear-gradient(180deg, rgba(${brandRgb}, 0.13), rgba(${brandRgb}, 0.28))`,
+                boxShadow: `0 16px 48px rgba(${brandRgb}, 0.16)`,
+              }}
+              initial={{ height: "0%", opacity: 0.72 }}
+              animate={
+                challengePaused
+                  ? {
+                      opacity: 0.24,
+                    }
+                  : {
+                      height: "100%",
+                      opacity: [0.72, 0.72, 0.95, 0.66, 0.95, 0.72],
+                    }
+              }
+              exit={{ opacity: 0 }}
+              transition={
+                challengePaused
+                  ? { duration: 0.18 }
+                  : {
+                      height: {
+                        duration: challengeDurationMs / 1000,
+                        ease: "linear",
+                      },
+                      opacity: {
+                        duration: challengeDurationMs / 1000,
+                        times: [
+                          0,
+                          1 - CHALLENGE_URGENT_AT_MS / challengeDurationMs,
+                          0.82,
+                          0.9,
+                          0.96,
+                          1,
+                        ],
+                      },
+                    }
+              }
+            />
+            {!challengePaused && (
+              <motion.div
+                key={`danger-${challengeKey}`}
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-1/3"
+                style={{
+                  background: `linear-gradient(0deg, rgba(${brandRgb}, 0.28), rgba(${brandRgb}, 0))`,
+                }}
+                initial={{ opacity: 0, scaleY: 0.86, transformOrigin: "bottom" }}
+                animate={{ opacity: [0, 0.34, 0.12, 0.42], scaleY: [0.86, 1.04, 0.96, 1.08] }}
+                exit={{ opacity: 0 }}
+                transition={{
+                  delay: dangerDelay,
+                  duration: 0.68,
+                  repeat: Infinity,
+                  repeatType: "mirror",
+                  ease: "easeInOut",
+                }}
+              />
+            )}
+          </>
         )}
       </AnimatePresence>
       {waves.map((wave) => (
@@ -675,10 +713,20 @@ function PhoneScreen({
             <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
               {roundIndex + 1}/{totalRounds}
             </p>
-            <p className="font-mono text-xs text-zinc-500">
+            <motion.p
+              key={`${lives}-${lifePulse}`}
+              className="font-mono text-xs text-zinc-500"
+              initial={lifePulse ? { x: 0, scale: 1 } : false}
+              animate={
+                lifePulse
+                  ? { x: [0, -3, 3, -2, 2, 0], scale: [1, 1.12, 1] }
+                  : { x: 0, scale: 1 }
+              }
+              transition={{ duration: 0.34, ease: REWARD_EASE }}
+            >
               {"●".repeat(lives)}
               <span className="text-zinc-300">{"●".repeat(STARTING_LIVES - lives)}</span>
-            </p>
+            </motion.p>
           </div>
           <button
             type="button"
@@ -787,6 +835,21 @@ function PhoneScreen({
         </AnimatePresence>
 
         <AnimatePresence>
+          {multiplierBurst && !gameOver && (
+            <motion.div
+              key={multiplierBurst.id}
+              className="absolute left-7 top-[104px] z-30 rounded-full border border-zinc-950/10 bg-zinc-950 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)]"
+              initial={{ opacity: 0, y: 10, scale: 0.82 }}
+              animate={{ opacity: 1, y: 0, scale: [1, 1.16, 1] }}
+              exit={{ opacity: 0, y: -8, scale: 0.96 }}
+              transition={{ duration: 0.42, ease: REWARD_EASE }}
+            >
+              x{multiplierBurst.multiplier}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
           {gameOver && (
             <motion.div
               className="absolute inset-0 z-40 flex items-center justify-center bg-[#f8f6ee]/96 px-7 backdrop-blur-[2px]"
@@ -858,6 +921,8 @@ export function BrandColorGame() {
   const [bestScore, setBestScore] = useState(0);
   const [lives, setLives] = useState(STARTING_LIVES);
   const [streak, setStreak] = useState(0);
+  const [multiplierBurst, setMultiplierBurst] = useState<MultiplierBurst | null>(null);
+  const [lifePulse, setLifePulse] = useState(0);
   const [resolvingMedal, setResolvingMedal] = useState<MedalKind | null>(null);
   const [resolvingNearMiss, setResolvingNearMiss] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -873,7 +938,9 @@ export function BrandColorGame() {
   const challengeTimer = useRef<number | null>(null);
   const challengeStartedAt = useRef<number | null>(null);
   const challengeIntroTimer = useRef<number | null>(null);
+  const multiplierBurstTimer = useRef<number | null>(null);
   const waveId = useRef(0);
+  const multiplierBurstId = useRef(0);
   const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
   const challengeDurationMs = challengeDurationFor(completedPicks);
@@ -913,6 +980,18 @@ export function BrandColorGame() {
     setPickerCloseSignal((current) => current + 1);
   };
 
+  const showMultiplierBurst = (multiplier: number) => {
+    if (multiplierBurstTimer.current) {
+      clearTimeout(multiplierBurstTimer.current);
+      multiplierBurstTimer.current = null;
+    }
+    setMultiplierBurst({ id: ++multiplierBurstId.current, multiplier });
+    multiplierBurstTimer.current = window.setTimeout(() => {
+      setMultiplierBurst(null);
+      multiplierBurstTimer.current = null;
+    }, 760);
+  };
+
   const handlePick = (raw: string) => {
     if (revealTimer.current) {
       clearTimeout(revealTimer.current);
@@ -939,6 +1018,8 @@ export function BrandColorGame() {
         1 - (Date.now() - challengeStartedAt.current) / challengeDurationMs,
       ) <= CLUTCH_RATIO;
     const nextStreak = medal ? streak + 1 : 0;
+    const previousMultiplier = multiplierForStreak(streak);
+    const nextMultiplier = multiplierForStreak(nextStreak);
     const pointsResult = pointsFor({ medal, streak: nextStreak, clutch });
     const nextCompletedPicks = completedPicks + 1;
     setHasPicked(true);
@@ -948,7 +1029,10 @@ export function BrandColorGame() {
     setResolvingNearMiss(nearMiss);
     setCompletedPicks(nextCompletedPicks);
     setStreak(nextStreak);
-    if (!medal) setLives((current) => Math.max(0, current - 1));
+    if (!medal) {
+      setLives((current) => Math.max(0, current - 1));
+      setLifePulse((current) => current + 1);
+    }
     hapticFor(medal, nearMiss);
     setWaves((current) => [
       ...current,
@@ -963,6 +1047,10 @@ export function BrandColorGame() {
     revealTimer.current = window.setTimeout(() => {
       revealTimer.current = null;
       if (pointsResult) {
+        if (nextMultiplier > previousMultiplier) {
+          showMultiplierBurst(nextMultiplier);
+          hapticFor("gold");
+        }
         setScore((current) => {
           const next = current + pointsResult.points;
           setBestScore((currentBest) => {
@@ -1016,6 +1104,7 @@ export function BrandColorGame() {
     setResolvingMedal(null);
     setResolvingNearMiss(false);
     setStreak(0);
+    setLifePulse((current) => current + 1);
     setLives((current) => Math.max(0, current - 1));
     setResult({
       errorPoints: 100,
@@ -1054,6 +1143,10 @@ export function BrandColorGame() {
       clearTimeout(challengeIntroTimer.current);
       challengeIntroTimer.current = null;
     }
+    if (multiplierBurstTimer.current) {
+      clearTimeout(multiplierBurstTimer.current);
+      multiplierBurstTimer.current = null;
+    }
     setResult(null);
     setIsResolving(false);
     setResolvingMedal(null);
@@ -1062,6 +1155,7 @@ export function BrandColorGame() {
     setScore(0);
     setLives(STARTING_LIVES);
     setStreak(0);
+    setMultiplierBurst(null);
     setGameOver(false);
     setChallengeIntro(false);
     setWaves([]);
@@ -1081,6 +1175,7 @@ export function BrandColorGame() {
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
       if (challengeTimer.current) clearTimeout(challengeTimer.current);
       if (challengeIntroTimer.current) clearTimeout(challengeIntroTimer.current);
+      if (multiplierBurstTimer.current) clearTimeout(multiplierBurstTimer.current);
     };
   }, []);
 
@@ -1143,6 +1238,8 @@ export function BrandColorGame() {
           score={score}
           lives={lives}
           streak={streak}
+          multiplierBurst={multiplierBurst}
+          lifePulse={lifePulse}
           completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
@@ -1186,6 +1283,8 @@ export function BrandColorGame() {
           score={score}
           lives={lives}
           streak={streak}
+          multiplierBurst={multiplierBurst}
+          lifePulse={lifePulse}
           completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
