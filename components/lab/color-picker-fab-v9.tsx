@@ -322,8 +322,10 @@ export function ColorPickerFabV9({
   const [open, setOpen] = useState(false);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
+  const [commitPulse, setCommitPulse] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [fabCenter, setFabCenter] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const commitPulseTimer = useRef<number | null>(null);
 
   useEffect(() => {
     onPressedChange?.(pressed);
@@ -335,9 +337,14 @@ export function ColorPickerFabV9({
       clearTimeout(holdTimer.current);
       holdTimer.current = null;
     }
+    if (commitPulseTimer.current) {
+      clearTimeout(commitPulseTimer.current);
+      commitPulseTimer.current = null;
+    }
     setOpen(false);
     setPointer(null);
     setPicked(null);
+    setCommitPulse(false);
     setPressed(false);
   }, [closeSignal]);
 
@@ -867,18 +874,24 @@ export function ColorPickerFabV9({
   // reverts to its base rainbow gradient as soon as the gesture
   // commits. We still fire onPick so the page can record the colour.
   const commitPick = () => {
+    let committedColor: string | null = null;
     if (inToneArc) {
-      onPick?.(toneColor);
-      return;
+      committedColor = toneColor;
+    } else if (expanded) {
+      committedColor = ribbonColor;
+    } else if (activeIdx >= 0) {
+      committedColor = swatchData[activeIdx].color;
     }
-    if (expanded) {
-      onPick?.(ribbonColor);
-      return;
-    }
-    if (activeIdx >= 0) {
-      const c = swatchData[activeIdx].color;
-      onPick?.(c);
-    }
+    if (!committedColor) return;
+    setPicked(committedColor);
+    setCommitPulse(true);
+    if (commitPulseTimer.current) clearTimeout(commitPulseTimer.current);
+    commitPulseTimer.current = window.setTimeout(() => {
+      setPicked(null);
+      setCommitPulse(false);
+      commitPulseTimer.current = null;
+    }, 260);
+    onPick?.(committedColor);
   };
 
   const handlePointerUp = () => {
@@ -916,6 +929,7 @@ export function ColorPickerFabV9({
   useEffect(() => {
     return () => {
       if (holdTimer.current) clearTimeout(holdTimer.current);
+      if (commitPulseTimer.current) clearTimeout(commitPulseTimer.current);
     };
   }, []);
 
@@ -1461,7 +1475,7 @@ export function ColorPickerFabV9({
           right: fabRightInset ?? fabInset,
         }}
         animate={{
-          scale: previewColor ? 1.06 : pressed ? 0.92 : 1,
+          scale: commitPulse ? [1.06, 0.9, 1.12, 1] : previewColor ? 1.06 : pressed ? 0.92 : 1,
         }}
         transition={{ type: "spring", stiffness: 420, damping: 26 }}
         aria-label="Open colour picker"

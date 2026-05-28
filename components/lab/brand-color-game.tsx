@@ -26,6 +26,8 @@ type Guess = {
 type PickWave = {
   id: number;
   color: string;
+  medal: MedalKind | null;
+  nearMiss: boolean;
 };
 
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
@@ -53,6 +55,7 @@ const CHALLENGE_STEP_MS = 650;
 const CHALLENGE_URGENT_AT_MS = 1800;
 const STARTING_LIVES = 3;
 const CLUTCH_RATIO = 0.15;
+const NEAR_MISS_POINTS = 22;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
@@ -367,15 +370,76 @@ function rewardMotion(medal: MedalKind | null) {
   };
 }
 
+function hapticFor(medal: MedalKind | null, nearMiss = false) {
+  if (typeof navigator === "undefined" || !navigator.vibrate) return;
+  if (medal === "platinum") navigator.vibrate([14, 24, 26, 32, 36]);
+  else if (medal === "gold") navigator.vibrate([12, 22, 28]);
+  else if (medal === "silver") navigator.vibrate([10, 18, 18]);
+  else if (medal === "bronze") navigator.vibrate(18);
+  else if (nearMiss) navigator.vibrate([10, 24, 10]);
+  else navigator.vibrate(26);
+}
+
+function AnimatedScore({ value }: { value: number }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const previousValue = useRef(value);
+
+  useEffect(() => {
+    const from = previousValue.current;
+    const to = value;
+    previousValue.current = value;
+
+    if (from === to) {
+      return;
+    }
+
+    let frame = 0;
+    const start = performance.now();
+    const duration = Math.min(520, Math.max(260, Math.abs(to - from) * 0.18));
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplayValue(Math.round(from + (to - from) * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return (
+    <motion.span
+      key={value}
+      initial={{ scale: 1 }}
+      animate={{ scale: value > 0 ? [1, 1.18, 1] : 1 }}
+      transition={{ duration: 0.34, ease: REWARD_EASE }}
+      className="inline-block"
+    >
+      {displayValue}
+    </motion.span>
+  );
+}
+
 function RewardToast({ result }: { result: Guess }) {
   const medal = result.medal ? MEDALS[result.medal] : null;
   const motionConfig = rewardMotion(result.medal);
+  const nearMiss = !result.medal && result.errorPoints <= NEAR_MISS_POINTS;
 
   return (
     <motion.div
       key="reward-toast"
       initial={motionConfig.initial}
-      animate={motionConfig.animate}
+      animate={
+        nearMiss
+          ? {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              x: [0, -4, 4, -2, 2, 0],
+            }
+          : motionConfig.animate
+      }
       exit={{ opacity: 0, y: -10, scale: 0.96 }}
       transition={motionConfig.transition}
       className={`absolute left-1/2 top-[72px] z-30 flex w-fit max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-3 overflow-visible rounded-full border px-4 py-2.5 ${motionConfig.className}`}
@@ -414,13 +478,22 @@ function RewardToast({ result }: { result: Guess }) {
           transition={{ duration: result.medal === "bronze" ? 0.4 : 0.62, ease: "easeOut" }}
         />
       )}
+      {nearMiss && (
+        <motion.span
+          aria-hidden
+          className="absolute inset-[-4px] rounded-full border border-zinc-950/12"
+          initial={{ opacity: 0.45, scale: 0.95 }}
+          animate={{ opacity: 0, scale: 1.18 }}
+          transition={{ duration: 0.42, ease: "easeOut" }}
+        />
+      )}
       <div
         className="grid size-8 shrink-0 place-items-center rounded-full"
-        style={{ background: medal ? `${medal.color}38` : "#f1f1f1" }}
+        style={{ background: medal ? `${medal.color}38` : nearMiss ? "#fef3c7" : "#f1f1f1" }}
       >
         <Medal
           className="size-4"
-          style={{ color: medal ? medal.color : "#a1a1aa" }}
+          style={{ color: medal ? medal.color : nearMiss ? "#d97706" : "#a1a1aa" }}
         />
       </div>
       <div className="min-w-0">
@@ -452,6 +525,8 @@ function PhoneScreen({
   brand,
   result,
   isResolving,
+  resolvingMedal,
+  resolvingNearMiss,
   score,
   lives,
   streak,
@@ -473,6 +548,8 @@ function PhoneScreen({
   brand: BrandColorGameBrand;
   result: Guess | null;
   isResolving: boolean;
+  resolvingMedal: MedalKind | null;
+  resolvingNearMiss: boolean;
   score: number;
   lives: number;
   streak: number;
@@ -541,15 +618,31 @@ function PhoneScreen({
         )}
       </AnimatePresence>
       {waves.map((wave) => (
-        <motion.div
-          key={wave.id}
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{ background: wave.color }}
-          initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})` }}
-          animate={{ clipPath: `circle(150vmax at ${WAVE_ORIGIN})` }}
-          transition={{ duration: 0.88, ease: [0.16, 1, 0.3, 1] }}
-          onAnimationComplete={() => onWaveComplete(wave.id)}
-        />
+        <div key={wave.id} className="pointer-events-none absolute inset-0 z-0">
+          <motion.div
+            className="absolute inset-0"
+            style={{ background: wave.color }}
+            initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})` }}
+            animate={{ clipPath: `circle(150vmax at ${WAVE_ORIGIN})` }}
+            transition={{ duration: 0.86, ease: [0.16, 1, 0.3, 1] }}
+            onAnimationComplete={() => onWaveComplete(wave.id)}
+          />
+          <motion.div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(circle at ${WAVE_ORIGIN}, rgba(255,255,255,0.68) 0 14%, ${wave.color}00 32%)`,
+            }}
+            initial={{ clipPath: `circle(0px at ${WAVE_ORIGIN})`, opacity: 0.95 }}
+            animate={{
+              clipPath: `circle(${wave.medal ? "115vmax" : wave.nearMiss ? "88vmax" : "68vmax"} at ${WAVE_ORIGIN})`,
+              opacity: 0,
+            }}
+            transition={{
+              duration: wave.medal ? 0.58 : 0.42,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+          />
+        </div>
       ))}
       {showDeviceChrome && (
         <>
@@ -575,7 +668,7 @@ function PhoneScreen({
               Score
             </p>
             <p className="font-mono text-sm font-semibold tabular-nums">
-              {score}
+              <AnimatedScore value={score} />
             </p>
           </div>
           <div className="text-center">
@@ -618,14 +711,26 @@ function PhoneScreen({
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{
                 opacity: 1,
-                y: 0,
-                scale: 1,
+                y: isResolving && !resolvingMedal && !resolvingNearMiss ? [0, 6, 0] : 0,
+                scale: isResolving
+                  ? resolvingMedal === "platinum"
+                    ? [1, 0.98, 1.08, 1]
+                    : resolvingMedal === "gold"
+                      ? [1, 0.985, 1.055, 1]
+                      : resolvingMedal === "silver"
+                        ? [1, 0.99, 1.035, 1]
+                        : resolvingMedal === "bronze"
+                          ? [1, 0.995, 1.02, 1]
+                          : resolvingNearMiss
+                            ? [1, 0.99, 1.012, 1]
+                            : [1, 0.985, 0.995, 1]
+                  : 1,
                 boxShadow: isResolving
                   ? "0 4px 14px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,0.12)"
                   : "0 18px 48px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.16)",
               }}
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              transition={{ duration: isResolving ? 0.22 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: isResolving ? 0.36 : 0.28, ease: [0.22, 1, 0.36, 1] }}
               className="grid h-44 w-56 place-items-center rounded-[36px]"
               style={{ backgroundColor: brand.targetHex }}
             >
@@ -753,6 +858,8 @@ export function BrandColorGame() {
   const [bestScore, setBestScore] = useState(0);
   const [lives, setLives] = useState(STARTING_LIVES);
   const [streak, setStreak] = useState(0);
+  const [resolvingMedal, setResolvingMedal] = useState<MedalKind | null>(null);
+  const [resolvingNearMiss, setResolvingNearMiss] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [challengeIntro, setChallengeIntro] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
@@ -823,6 +930,7 @@ export function BrandColorGame() {
     const hex = resolveCssColor(raw);
     const errorPoints = errorPointsFor(hex, brand.targetHex);
     const medal = medalFor(errorPoints);
+    const nearMiss = !medal && errorPoints <= NEAR_MISS_POINTS;
     const clutch =
       challengeActive &&
       challengeStartedAt.current !== null &&
@@ -836,33 +944,39 @@ export function BrandColorGame() {
     setHasPicked(true);
     setResult(null);
     setIsResolving(true);
+    setResolvingMedal(medal);
+    setResolvingNearMiss(nearMiss);
     setCompletedPicks(nextCompletedPicks);
     setStreak(nextStreak);
     if (!medal) setLives((current) => Math.max(0, current - 1));
-    if (pointsResult) {
-      setScore((current) => {
-        const next = current + pointsResult.points;
-        setBestScore((currentBest) => {
-          if (next <= currentBest) return currentBest;
-          window.localStorage.setItem("brand-color-game-best", String(next));
-          return next;
-        });
-        return next;
-      });
-    }
+    hapticFor(medal, nearMiss);
     setWaves((current) => [
       ...current,
       {
         id: ++waveId.current,
         color: raw,
+        medal,
+        nearMiss,
       },
     ]);
 
     revealTimer.current = window.setTimeout(() => {
       revealTimer.current = null;
+      if (pointsResult) {
+        setScore((current) => {
+          const next = current + pointsResult.points;
+          setBestScore((currentBest) => {
+            if (next <= currentBest) return currentBest;
+            window.localStorage.setItem("brand-color-game-best", String(next));
+            return next;
+          });
+          return next;
+        });
+      }
       setResult({
         errorPoints,
         medal,
+        label: nearMiss ? "Close" : undefined,
         points: pointsResult ? pointsResult.points : 0,
         multiplier: pointsResult ? pointsResult.multiplier : 1,
         clutch,
@@ -872,6 +986,8 @@ export function BrandColorGame() {
         const outOfLives = !medal && lives <= 1;
         setResult(null);
         setIsResolving(false);
+        setResolvingMedal(null);
+        setResolvingNearMiss(false);
         setWaves([]);
         if (outOfLives) {
           setGameOver(true);
@@ -893,9 +1009,12 @@ export function BrandColorGame() {
   const handleChallengeTimeout = () => {
     if (revealTimer.current || autoAdvanceTimer.current || isResolving) return;
     closePicker();
+    hapticFor(null);
     const outOfLives = lives <= 1;
     setHasPicked(true);
     setIsResolving(true);
+    setResolvingMedal(null);
+    setResolvingNearMiss(false);
     setStreak(0);
     setLives((current) => Math.max(0, current - 1));
     setResult({
@@ -907,6 +1026,8 @@ export function BrandColorGame() {
       autoAdvanceTimer.current = null;
       setResult(null);
       setIsResolving(false);
+      setResolvingMedal(null);
+      setResolvingNearMiss(false);
       setWaves([]);
       if (outOfLives) {
         setGameOver(true);
@@ -935,6 +1056,8 @@ export function BrandColorGame() {
     }
     setResult(null);
     setIsResolving(false);
+    setResolvingMedal(null);
+    setResolvingNearMiss(false);
     setCompletedPicks(0);
     setScore(0);
     setLives(STARTING_LIVES);
@@ -1015,6 +1138,8 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          resolvingMedal={resolvingMedal}
+          resolvingNearMiss={resolvingNearMiss}
           score={score}
           lives={lives}
           streak={streak}
@@ -1056,6 +1181,8 @@ export function BrandColorGame() {
           brand={brand}
           result={result}
           isResolving={isResolving}
+          resolvingMedal={resolvingMedal}
+          resolvingNearMiss={resolvingNearMiss}
           score={score}
           lives={lives}
           streak={streak}
