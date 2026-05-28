@@ -28,6 +28,8 @@ type PickWave = {
   color: string;
   medal: MedalKind | null;
   nearMiss: boolean;
+  foreground: string;
+  mutedForeground: string;
 };
 
 type MultiplierBurst = {
@@ -243,6 +245,17 @@ function rgbToHex(r: number, g: number, b: number) {
 function hexToRgbString(hex: string) {
   const { r, g, b } = hexToRgb(hex);
   return `${r}, ${g}, ${b}`;
+}
+
+function foregroundForBackground(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const luminance =
+    0.2126 * srgbToLinear(r) +
+    0.7152 * srgbToLinear(g) +
+    0.0722 * srgbToLinear(b);
+  return luminance > 0.52
+    ? { foreground: "#18181b", mutedForeground: "rgba(24,24,27,0.56)" }
+    : { foreground: "#ffffff", mutedForeground: "rgba(255,255,255,0.68)" };
 }
 
 function resolveCssColor(color: string) {
@@ -605,6 +618,9 @@ function PhoneScreen({
   onReset: () => void;
 }) {
   const brandRgb = hexToRgbString(brand.targetHex);
+  const activeWave = waves.at(-1);
+  const screenForeground = activeWave?.foreground ?? "#18181b";
+  const screenMuted = activeWave?.mutedForeground ?? undefined;
   const dangerDelay = Math.max(
     0,
     (challengeDurationMs - CHALLENGE_URGENT_AT_MS) / 1000,
@@ -769,7 +785,10 @@ function PhoneScreen({
       >
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+            <p
+              className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
+              style={screenMuted ? { color: screenMuted } : undefined}
+            >
               Score
             </p>
             <motion.p
@@ -777,8 +796,8 @@ function PhoneScreen({
               key={`score-${bestPulse}`}
               animate={
                 bestPulse
-                  ? { color: ["#18181b", "#f59e0b", "#18181b"], scale: [1, 1.18, 1] }
-                  : { color: "#18181b", scale: 1 }
+                  ? { color: [screenForeground, "#f59e0b", screenForeground], scale: [1, 1.18, 1] }
+                  : { color: screenForeground, scale: 1 }
               }
               transition={{ duration: 0.5, ease: REWARD_EASE }}
             >
@@ -786,12 +805,16 @@ function PhoneScreen({
             </motion.p>
           </div>
           <div className="text-center">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+            <p
+              className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
+              style={screenMuted ? { color: screenMuted } : undefined}
+            >
               {roundIndex + 1}/{totalRounds}
             </p>
             <motion.p
               key={`${lives}-${lifePulse}`}
               className="font-mono text-xs text-zinc-500"
+              style={screenMuted ? { color: screenMuted } : undefined}
               initial={lifePulse ? { x: 0, scale: 1 } : false}
               animate={
                 lifePulse
@@ -801,7 +824,9 @@ function PhoneScreen({
               transition={{ duration: 0.34, ease: REWARD_EASE }}
             >
               {"●".repeat(lives)}
-              <span className="text-zinc-300">{"●".repeat(STARTING_LIVES - lives)}</span>
+              <span style={activeWave ? { color: screenMuted } : undefined} className="text-zinc-300">
+                {"●".repeat(STARTING_LIVES - lives)}
+              </span>
             </motion.p>
           </div>
           <button
@@ -809,6 +834,7 @@ function PhoneScreen({
             onClick={onReset}
             aria-label="Reset game"
             className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-950"
+            style={activeWave ? { color: screenMuted } : undefined}
           >
             <RotateCcw className="size-3.5" />
           </button>
@@ -867,20 +893,7 @@ function PhoneScreen({
                   transition={{ duration: 0.7, ease: REWARD_EASE }}
                 />
               )}
-              {isResolving && resolvingMedal && (
-                <motion.div
-                  aria-hidden
-                  className="absolute inset-0 rounded-[36px] bg-gradient-to-r from-transparent via-white/35 to-transparent"
-                  initial={{ x: "-120%", opacity: 0 }}
-                  animate={{ x: "120%", opacity: [0, 0.85, 0] }}
-                  transition={{
-                    duration: resolvingMedal === "platinum" ? 0.78 : 0.52,
-                    ease: "easeOut",
-                    delay: resolvingMedal === "platinum" ? 0.06 : 0,
-                  }}
-                />
-              )}
-              <div className={`relative ${brand.logoSizeClassName}`}>
+              <div className={`relative overflow-hidden ${brand.logoSizeClassName}`}>
                 <Image
                   src={brand.logoSrc}
                   alt={`${brand.name} logo`}
@@ -889,16 +902,35 @@ function PhoneScreen({
                   sizes="208px"
                   className="object-contain"
                 />
+                {isResolving && resolvingMedal && (
+                  <motion.div
+                    aria-hidden
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/45 to-transparent mix-blend-screen"
+                    initial={{ x: "-130%", opacity: 0 }}
+                    animate={{ x: "130%", opacity: [0, 0.9, 0] }}
+                    transition={{
+                      duration: resolvingMedal === "platinum" ? 0.78 : 0.52,
+                      ease: "easeOut",
+                      delay: resolvingMedal === "platinum" ? 0.06 : 0,
+                    }}
+                  />
+                )}
               </div>
             </motion.div>
           </AnimatePresence>
         </section>
 
         <div className="text-center">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+          <p
+            className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
+            style={screenMuted ? { color: screenMuted } : undefined}
+          >
             Match the primary brand color
           </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">
+          <h1
+            className="mt-2 text-4xl font-semibold tracking-tight"
+            style={activeWave ? { color: screenForeground } : undefined}
+          >
             {brand.name}
           </h1>
         </div>
@@ -923,11 +955,11 @@ function PhoneScreen({
           {scoreTrail && !gameOver && (
             <motion.div
               key={scoreTrail.id}
-              className="pointer-events-none absolute left-1/2 top-[84px] z-40 rounded-full bg-zinc-950 px-2.5 py-1 font-mono text-[11px] font-semibold text-white shadow-[0_10px_26px_rgba(0,0,0,0.22)]"
-              initial={{ opacity: 0, x: "-50%", y: 8, scale: 0.82 }}
-              animate={{ opacity: [0, 1, 1, 0], x: "-142px", y: [-2, -24, -56, -72], scale: [0.82, 1.08, 1, 0.9] }}
+              className="pointer-events-none absolute left-8 top-[62px] z-40 rounded-full bg-zinc-950 px-2.5 py-1 font-mono text-[11px] font-semibold text-white shadow-[0_10px_26px_rgba(0,0,0,0.22)]"
+              initial={{ opacity: 0, y: 18, scale: 0.9 }}
+              animate={{ opacity: [0, 1, 0], y: [18, 2, -18], scale: [0.9, 1.04, 0.96] }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.74, ease: REWARD_EASE }}
+              transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
             >
               +{formatScore(scoreTrail.points)}
             </motion.div>
@@ -1209,6 +1241,7 @@ export function BrandColorGame() {
     const errorPoints = errorPointsFor(hex, brand.targetHex);
     const medal = medalFor(errorPoints);
     const nearMiss = !medal && errorPoints <= NEAR_MISS_POINTS;
+    const waveContrast = foregroundForBackground(hex);
     const clutch =
       challengeActive &&
       challengeStartedAt.current !== null &&
@@ -1240,6 +1273,7 @@ export function BrandColorGame() {
         color: raw,
         medal,
         nearMiss,
+        ...waveContrast,
       },
     ]);
 
