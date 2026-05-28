@@ -455,6 +455,7 @@ function PhoneScreen({
   score,
   lives,
   streak,
+  completedPicks,
   gameOver,
   bestScore,
   challengeIntro,
@@ -475,6 +476,7 @@ function PhoneScreen({
   score: number;
   lives: number;
   streak: number;
+  completedPicks: number;
   gameOver: boolean;
   bestScore: number;
   challengeIntro: boolean;
@@ -494,7 +496,7 @@ function PhoneScreen({
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
       <AnimatePresence>
-        {challengeActive && (
+        {challengeActive && !gameOver && (
           <motion.div
             key={`challenge-${challengeKey}`}
             className="pointer-events-none absolute left-0 top-0 z-0 w-full"
@@ -682,24 +684,51 @@ function PhoneScreen({
         <AnimatePresence>
           {gameOver && (
             <motion.div
-              className="absolute inset-x-6 top-1/2 z-40 -translate-y-1/2 rounded-[8px] border border-zinc-950/10 bg-white/95 p-5 text-center shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
-              initial={{ opacity: 0, y: 24, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ duration: 0.34, ease: REWARD_EASE }}
+              className="absolute inset-0 z-40 flex items-center justify-center bg-[#f8f6ee]/96 px-7 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
             >
-              <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
-                Game over
-              </p>
-              <p className="mt-2 text-5xl font-semibold tabular-nums">{score}</p>
-              <p className="mt-2 text-sm text-zinc-500">Best {bestScore}</p>
-              <button
-                type="button"
-                onClick={onReset}
-                className="mt-5 rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white"
+              <motion.div
+                className="w-full rounded-[8px] border border-zinc-950/10 bg-white/88 p-6 text-center shadow-[0_18px_52px_rgba(0,0,0,0.14)]"
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ duration: 0.38, ease: REWARD_EASE, delay: 0.04 }}
               >
-                Play again
-              </button>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                  Game over
+                </p>
+                <p className="mt-3 text-6xl font-semibold tabular-nums tracking-tight">
+                  {score}
+                </p>
+                <div className="mt-5 grid grid-cols-2 divide-x divide-zinc-950/10 rounded-[8px] border border-zinc-950/10 bg-zinc-50/80 py-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                      Best
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
+                      {bestScore}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                      Matched
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
+                      {completedPicks}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="mt-5 rounded-full bg-zinc-950 px-6 py-2.5 text-sm font-medium text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition hover:bg-zinc-800"
+                >
+                  Play again
+                </button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -981,6 +1010,7 @@ export function BrandColorGame() {
           score={score}
           lives={lives}
           streak={streak}
+          completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
           challengeIntro={challengeIntro}
@@ -1021,6 +1051,7 @@ export function BrandColorGame() {
           score={score}
           lives={lives}
           streak={streak}
+          completedPicks={completedPicks}
           gameOver={gameOver}
           bestScore={bestScore}
           challengeIntro={challengeIntro}
