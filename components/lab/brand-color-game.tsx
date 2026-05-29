@@ -8,7 +8,6 @@ import {
   ColorPickerFabV9,
   DEFAULT_CONFIG,
   type Config,
-  type PickerControl,
 } from "@/components/lab/color-picker-fab-v9";
 import {
   BRAND_COLOR_GAME_BRANDS,
@@ -49,7 +48,7 @@ type TimeoutCollapse = {
 };
 
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
-type IntroPhase = "title" | "demo" | "ready";
+type IntroPhase = "hud" | "fab" | "ripple" | "color" | "logo" | "name" | "ready";
 
 const DEVICE_SCREEN_W = 360;
 const DEVICE_SCREEN_H = 720;
@@ -79,15 +78,23 @@ const NEAR_MISS_POINTS = 22;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
-const INTRO_TITLE_MS = 720;
-const INTRO_DEMO_STEP_MS = 440;
-const INTRO_DEMO_STEPS = [
-  { angleDeg: 225, distance: 108 },
-  { angleDeg: 225, distance: 150 },
-  { angleDeg: 212, distance: 206 },
-  { angleDeg: 212, distance: 258 },
-  { angleDeg: 238, distance: 268 },
-] as const;
+const INTRO_PHASE_ORDER: IntroPhase[] = [
+  "hud",
+  "fab",
+  "ripple",
+  "color",
+  "logo",
+  "name",
+  "ready",
+];
+const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
+  { phase: "fab", at: 520 },
+  { phase: "ripple", at: 960 },
+  { phase: "color", at: 1660 },
+  { phase: "logo", at: 1900 },
+  { phase: "name", at: 2220 },
+  { phase: "ready", at: 2740 },
+];
 
 const GAME_PICKER_CONFIG: Config = {
   ...DEFAULT_CONFIG,
@@ -596,11 +603,20 @@ function RewardToast({ result }: { result: Guess }) {
 
 function IntroPhoneScreen({
   phase,
+  brand,
+  totalRounds,
   showDeviceChrome,
 }: {
   phase: IntroPhase;
+  brand?: BrandColorGameBrand;
+  totalRounds: number;
   showDeviceChrome: boolean;
 }) {
+  const phaseIndex = INTRO_PHASE_ORDER.indexOf(phase);
+  const showColor = phaseIndex >= INTRO_PHASE_ORDER.indexOf("color");
+  const showLogo = phaseIndex >= INTRO_PHASE_ORDER.indexOf("logo");
+  const showName = phaseIndex >= INTRO_PHASE_ORDER.indexOf("name");
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
       {showDeviceChrome && (
@@ -617,52 +633,181 @@ function IntroPhoneScreen({
       )}
 
       <div
-        className={`relative flex h-full flex-col items-center justify-center px-8 text-center ${
-          showDeviceChrome ? "pt-8" : ""
+        className={`relative z-10 flex h-full flex-col px-7 pb-8 ${
+          showDeviceChrome ? "pt-16" : "pt-8"
         }`}
       >
-        <AnimatePresence mode="wait">
-          {phase === "title" && (
-            <motion.div
-              key="intro-title"
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.985 }}
-              transition={{ duration: 0.34, ease: REWARD_EASE }}
-            >
-              <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-                Lab / game
-              </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
-                Brand Color Match
-              </h1>
-            </motion.div>
-          )}
+        <motion.div
+          className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.34, ease: REWARD_EASE }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut", delay: 0.02 }}
+          >
+            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+              Score
+            </p>
+            <p className="font-mono text-sm font-semibold tabular-nums">0</p>
+          </motion.div>
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
+          >
+            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+              1/{totalRounds || BRAND_COLOR_GAME_BRANDS.length}
+            </p>
+            <p className="font-mono text-xs text-zinc-500">
+              {"●".repeat(STARTING_LIVES)}
+            </p>
+          </motion.div>
+          <motion.div
+            className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400"
+            initial={{ opacity: 0, y: -6, rotate: -18 }}
+            animate={{ opacity: 1, y: 0, rotate: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut", delay: 0.18 }}
+          >
+            <RotateCcw className="size-3.5" />
+          </motion.div>
+        </motion.div>
 
-          {phase === "demo" && (
+        {brand && (
+          <>
+            <motion.section className="flex min-h-[260px] flex-col items-center justify-center pt-8">
+              <motion.div
+                className="relative grid h-44 w-56 place-items-center overflow-hidden rounded-[36px]"
+                initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                animate={
+                  showColor
+                    ? { opacity: 1, y: 0, scale: 1 }
+                    : { opacity: 0, y: 14, scale: 0.96 }
+                }
+                transition={{ duration: 0.42, ease: REWARD_EASE }}
+                style={{ backgroundColor: brand.targetHex }}
+              >
+                <motion.div
+                  aria-hidden
+                  className="absolute inset-0 bg-white"
+                  initial={{ x: "0%" }}
+                  animate={showColor ? { x: "112%" } : { x: "0%" }}
+                  transition={{ duration: 0.54, ease: REWARD_EASE }}
+                />
+                <motion.div
+                  className={`relative overflow-hidden ${brand.logoSizeClassName}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.92 }}
+                  animate={
+                    showLogo
+                      ? { opacity: 1, y: 0, scale: [0.96, 1.04, 1] }
+                      : { opacity: 0, y: 8, scale: 0.92 }
+                  }
+                  transition={{ duration: 0.42, ease: REWARD_EASE }}
+                >
+                  <Image
+                    src={brand.logoSrc}
+                    alt={`${brand.name} logo`}
+                    fill
+                    priority
+                    sizes="208px"
+                    className="object-contain"
+                  />
+                </motion.div>
+              </motion.div>
+            </motion.section>
+
             <motion.div
-              key="intro-demo"
-              className="mb-24"
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.99 }}
-              transition={{ duration: 0.26, ease: "easeOut" }}
+              className="text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={showName ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             >
               <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-                Pick from the full depth
+                Match the primary brand color
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
-                Brand Color Match
+              <h1 className="mt-2 text-4xl font-semibold tracking-tight">
+                {brand.name}
               </h1>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </>
+        )}
       </div>
 
       {showDeviceChrome && (
         <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
       )}
     </div>
+  );
+}
+
+function IntroPickerRipple({
+  color,
+  fabSize,
+  fabBottom,
+  fabRight,
+}: {
+  color: string;
+  fabSize: number;
+  fabBottom: number;
+  fabRight: number;
+}) {
+  const rgb = hexToRgbString(color);
+
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none fixed z-[45] translate-x-1/2 translate-y-1/2"
+      style={{
+        right: fabRight + fabSize / 2,
+        bottom: fabBottom + fabSize / 2,
+      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {[150, 330, 560].map((size, index) => (
+        <motion.div
+          key={size}
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: size,
+            height: size,
+            marginLeft: -size / 2,
+            marginTop: -size / 2,
+            background:
+              index === 0
+                ? `radial-gradient(circle, rgba(${rgb}, 0.86), rgba(${rgb}, 0.26) 52%, rgba(${rgb}, 0) 72%)`
+                : index === 1
+                  ? `conic-gradient(from 210deg, rgba(${rgb}, 0), rgba(${rgb}, 0.92), rgba(255,255,255,0.72), rgba(${rgb}, 0.32), rgba(${rgb}, 0))`
+                  : `radial-gradient(circle, rgba(${rgb}, 0.30), rgba(${rgb}, 0.14) 48%, rgba(${rgb}, 0) 72%)`,
+            maskImage:
+              index === 1
+                ? "radial-gradient(circle, transparent 42%, black 45%, black 58%, transparent 61%)"
+                : undefined,
+            WebkitMaskImage:
+              index === 1
+                ? "radial-gradient(circle, transparent 42%, black 45%, black 58%, transparent 61%)"
+                : undefined,
+            filter: index === 0 ? "blur(0px)" : "blur(0.2px)",
+          }}
+          initial={{ opacity: 0, scale: 0.18 }}
+          animate={{
+            opacity: index === 0 ? [0, 0.95, 0] : index === 1 ? [0, 0.82, 0] : [0, 0.66, 0],
+            scale: index === 0 ? [0.18, 1.12] : [0.12, 1.04],
+            rotate: index === 1 ? [0, 10] : 0,
+          }}
+          transition={{
+            duration: index === 2 ? 0.86 : 0.72,
+            ease: [0.16, 1, 0.3, 1],
+            delay: index * 0.11,
+          }}
+        />
+      ))}
+    </motion.div>
   );
 }
 
@@ -695,6 +840,7 @@ function PhoneScreen({
   totalRounds,
   onWaveComplete,
   onReset,
+  suppressInitialReveal = false,
 }: {
   brand: BrandColorGameBrand;
   result: Guess | null;
@@ -724,6 +870,7 @@ function PhoneScreen({
   totalRounds: number;
   onWaveComplete: (id: number) => void;
   onReset: () => void;
+  suppressInitialReveal?: boolean;
 }) {
   const brandRgb = hexToRgbString(brand.targetHex);
   const activeWave = waves.at(-1);
@@ -982,7 +1129,11 @@ function PhoneScreen({
           <AnimatePresence mode="wait">
             <motion.div
               key={brand.id}
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              initial={
+                suppressInitialReveal
+                  ? false
+                  : { opacity: 0, y: 12, scale: 0.98 }
+              }
               animate={{
                 opacity: 1,
                 y: isResolving && !resolvingMedal && !resolvingNearMiss ? [0, 6, 0] : 0,
@@ -1291,8 +1442,7 @@ export function BrandColorGame() {
   const [pickerCloseSignal, setPickerCloseSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
-  const [introPhase, setIntroPhase] = useState<IntroPhase>("title");
-  const [introDemoStep, setIntroDemoStep] = useState(0);
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("hud");
   const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
   const challengeTimer = useRef<number | null>(null);
@@ -1307,14 +1457,7 @@ export function BrandColorGame() {
   const timeoutCollapseId = useRef(0);
   const brand = brandOrder[roundIndex];
   const introComplete = introPhase === "ready";
-  const introPickerControl: PickerControl | null =
-    introPhase === "demo"
-      ? {
-          open: true,
-          forcePointerAt:
-            INTRO_DEMO_STEPS[Math.min(introDemoStep, INTRO_DEMO_STEPS.length - 1)],
-        }
-      : null;
+  const introPhaseIndex = INTRO_PHASE_ORDER.indexOf(introPhase);
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
   const challengeDurationMs = challengeDurationFor(completedPicks);
 
@@ -1337,23 +1480,9 @@ export function BrandColorGame() {
 
   useEffect(() => {
     const timers: number[] = [];
-    timers.push(
-      window.setTimeout(() => {
-        setIntroPhase("demo");
-      }, INTRO_TITLE_MS),
-    );
-    INTRO_DEMO_STEPS.forEach((_, index) => {
-      timers.push(
-        window.setTimeout(() => {
-          setIntroDemoStep(index);
-        }, INTRO_TITLE_MS + index * INTRO_DEMO_STEP_MS),
-      );
+    INTRO_PHASE_TIMINGS.forEach(({ phase, at }) => {
+      timers.push(window.setTimeout(() => setIntroPhase(phase), at));
     });
-    timers.push(
-      window.setTimeout(() => {
-        setIntroPhase("ready");
-      }, INTRO_TITLE_MS + INTRO_DEMO_STEPS.length * INTRO_DEMO_STEP_MS + 180),
-    );
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
@@ -1710,9 +1839,15 @@ export function BrandColorGame() {
             totalRounds={brandOrder.length}
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
+            suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
         ) : (
-          <IntroPhoneScreen phase={introPhase} showDeviceChrome />
+          <IntroPhoneScreen
+            phase={introPhase}
+            brand={brand}
+            totalRounds={brandOrder.length}
+            showDeviceChrome
+          />
         )}
       </div>
 
@@ -1763,9 +1898,15 @@ export function BrandColorGame() {
             totalRounds={brandOrder.length}
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
+            suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
         ) : (
-          <IntroPhoneScreen phase={introPhase} showDeviceChrome={false} />
+          <IntroPhoneScreen
+            phase={introPhase}
+            brand={brand}
+            totalRounds={brandOrder.length}
+            showDeviceChrome={false}
+          />
         )}
       </div>
 
@@ -1789,11 +1930,23 @@ export function BrandColorGame() {
         )}
       </AnimatePresence>
 
-      {((introPhase === "demo") || (brand && introComplete && !gameOver)) && (
+      <AnimatePresence>
+        {brand && introPhase === "ripple" && (
+          <IntroPickerRipple
+            key="intro-picker-ripple"
+            color={brand.targetHex}
+            fabSize={GAME_PICKER_CONFIG.fabSize}
+            fabBottom={actualFabBottom}
+            fabRight={actualFabRight}
+          />
+        )}
+      </AnimatePresence>
+
+      {(introPhaseIndex >= INTRO_PHASE_ORDER.indexOf("fab") &&
+        (introComplete ? brand && !gameOver : true)) && (
         <ColorPickerFabV9
           config={GAME_PICKER_CONFIG}
           onPick={introComplete ? handlePick : undefined}
-          control={introPickerControl}
           closeSignal={pickerCloseSignal}
           onPressedChange={handlePressedChange}
           disableBackdropBlur
