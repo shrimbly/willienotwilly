@@ -1472,6 +1472,7 @@ export function BrandColorGame() {
   const [isResolving, setIsResolving] = useState(false);
   const [completedPicks, setCompletedPicks] = useState(0);
   const [score, setScore] = useState(0);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
   const [bestScore, setBestScore] = useState(0);
   const [lives, setLives] = useState(STARTING_LIVES);
   const [streak, setStreak] = useState(0);
@@ -1499,6 +1500,7 @@ export function BrandColorGame() {
   const challengeTimer = useRef<number | null>(null);
   const challengeStartedAt = useRef<number | null>(null);
   const roundStartedAt = useRef<number | null>(null);
+  const scoreRef = useRef(0);
   const challengeIntroTimer = useRef<number | null>(null);
   const multiplierBurstTimer = useRef<number | null>(null);
   const scoreTrailTimer = useRef<number | null>(null);
@@ -1596,6 +1598,11 @@ export function BrandColorGame() {
   const closePicker = () => {
     setPressed(false);
     setPickerCloseSignal((current) => current + 1);
+  };
+
+  const endGame = () => {
+    setFinalScore(scoreRef.current);
+    setGameOver(true);
   };
 
   const handlePressedChange = (nextPressed: boolean) => {
@@ -1753,6 +1760,7 @@ export function BrandColorGame() {
         }
         setScore((current) => {
           const next = current + pointsResult.points;
+          scoreRef.current = next;
           setBestScore((currentBest) => {
             if (next <= currentBest) return currentBest;
             window.localStorage.setItem("brand-color-game-best", String(next));
@@ -1782,7 +1790,7 @@ export function BrandColorGame() {
         setWaves([]);
         if (outOfLives) {
           hapticFor("bronze");
-          setGameOver(true);
+          endGame();
         } else {
           if (nextCompletedPicks === CHALLENGE_START_AFTER_PICKS) {
             setChallengeIntro(true);
@@ -1826,7 +1834,7 @@ export function BrandColorGame() {
       setWaves([]);
       if (outOfLives) {
         hapticFor("bronze");
-        setGameOver(true);
+        endGame();
       } else {
         setRoundIndex((current) => (current + 1) % brandOrder.length);
       }
@@ -1867,7 +1875,9 @@ export function BrandColorGame() {
     setResolvingMedal(null);
     setResolvingNearMiss(false);
     setCompletedPicks(0);
+    scoreRef.current = 0;
     setScore(0);
+    setFinalScore(null);
     setLives(STARTING_LIVES);
     setStreak(0);
     setNewBestThisRun(false);
@@ -1959,7 +1969,7 @@ export function BrandColorGame() {
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
             resolvingNearMiss={resolvingNearMiss}
-            score={score}
+            score={gameOver ? (finalScore ?? score) : score}
             lives={lives}
             streak={streak}
             multiplierBurst={multiplierBurst}
@@ -2018,7 +2028,7 @@ export function BrandColorGame() {
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
             resolvingNearMiss={resolvingNearMiss}
-            score={score}
+            score={gameOver ? (finalScore ?? score) : score}
             lives={lives}
             streak={streak}
             multiplierBurst={multiplierBurst}
