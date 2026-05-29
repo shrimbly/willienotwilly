@@ -1620,10 +1620,16 @@ export function BrandColorGame() {
   };
 
   const endGame = () => {
+    const endScore = Math.max(scoreRef.current, score);
+    const endBestScore = Math.max(bestScoreRef.current, bestScore, endScore);
+    const endCompletedPicks = Math.max(
+      completedPicksRef.current,
+      completedPicks,
+    );
     setFinalStats({
-      score: scoreRef.current,
-      bestScore: bestScoreRef.current,
-      completedPicks: completedPicksRef.current,
+      score: endScore,
+      bestScore: endBestScore,
+      completedPicks: endCompletedPicks,
       newBest: newBestThisRunRef.current,
     });
     setGameOver(true);
@@ -1669,6 +1675,21 @@ export function BrandColorGame() {
     result,
     roundIndex,
   ]);
+
+  useEffect(() => {
+    if (gameOver) return;
+    scoreRef.current = score;
+  }, [gameOver, score]);
+
+  useEffect(() => {
+    if (gameOver) return;
+    bestScoreRef.current = bestScore;
+  }, [bestScore, gameOver]);
+
+  useEffect(() => {
+    if (gameOver) return;
+    completedPicksRef.current = completedPicks;
+  }, [completedPicks, gameOver]);
 
   const showMultiplierBurst = (multiplier: number) => {
     if (multiplierBurstTimer.current) {
@@ -1987,7 +2008,7 @@ export function BrandColorGame() {
           borderRadius: 38,
         }}
       >
-        {introComplete && brand ? (
+        {!isMobile && introComplete && brand ? (
           <PhoneScreen
             brand={brand}
             result={result}
@@ -2019,14 +2040,14 @@ export function BrandColorGame() {
             onReset={resetGame}
             suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
-        ) : (
+        ) : !isMobile ? (
           <IntroPhoneScreen
             phase={introPhase}
             brand={brand}
             totalRounds={brandOrder.length}
             showDeviceChrome
           />
-        )}
+        ) : null}
       </div>
 
       <div
@@ -2045,8 +2066,9 @@ export function BrandColorGame() {
         }}
       />
 
-      <div className="fixed inset-0 z-0 md:hidden">
-        {introComplete && brand ? (
+      {isMobile && (
+        <div className="fixed inset-0 z-0 md:hidden">
+          {introComplete && brand ? (
           <PhoneScreen
             brand={brand}
             result={result}
@@ -2078,15 +2100,16 @@ export function BrandColorGame() {
             onReset={resetGame}
             suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
-        ) : (
+          ) : (
           <IntroPhoneScreen
             phase={introPhase}
             brand={brand}
             totalRounds={brandOrder.length}
             showDeviceChrome={false}
           />
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {showPickerHelper && (
