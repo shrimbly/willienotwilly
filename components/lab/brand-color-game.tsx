@@ -104,16 +104,16 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "ready",
 ];
 const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
-  { phase: "hud", at: 1380 },
-  { phase: "fab", at: 1760 },
-  { phase: "swatches", at: 2000 },
-  { phase: "ribbon", at: 2140 },
-  { phase: "tone", at: 2320 },
-  { phase: "settle", at: 3060 },
-  { phase: "color", at: 3480 },
-  { phase: "logo", at: 3720 },
-  { phase: "name", at: 4040 },
-  { phase: "ready", at: 4560 },
+  { phase: "hud", at: 1560 },
+  { phase: "fab", at: 2080 },
+  { phase: "swatches", at: 2320 },
+  { phase: "ribbon", at: 2460 },
+  { phase: "tone", at: 2640 },
+  { phase: "settle", at: 3380 },
+  { phase: "color", at: 4180 },
+  { phase: "logo", at: 4660 },
+  { phase: "name", at: 5200 },
+  { phase: "ready", at: 5880 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
@@ -627,11 +627,11 @@ function IntroTitle() {
   return (
     <motion.div
       key="intro-title"
-      className="relative flex flex-1 items-center justify-center overflow-hidden text-center"
+      className="absolute inset-0 flex items-center justify-center overflow-hidden px-7 text-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, y: -12, scale: 0.99 }}
-      transition={{ duration: 0.24, ease: "easeOut" }}
+      exit={{ opacity: 0, scale: 0.985 }}
+      transition={{ duration: 0.34, ease: "easeOut" }}
     >
       <motion.div
         aria-hidden
