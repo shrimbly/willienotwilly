@@ -70,7 +70,6 @@ const DEVICE_SCREEN_W = 360;
 const DEVICE_SCREEN_H = 720;
 const DEVICE_BEZEL = 6;
 const DEVICE_FRAME_W = DEVICE_SCREEN_W + DEVICE_BEZEL * 2;
-const DEVICE_FRAME_H = DEVICE_SCREEN_H + DEVICE_BEZEL * 2;
 const DEVICE_PADDING = 24;
 const FAB_INSET_FROM_SCREEN = 41;
 const THUMB_ASPECT = 354 / 360;
@@ -1377,7 +1376,7 @@ function PhoneScreen({
                 transition={{ duration: 0.5, ease: "easeOut" }}
               />
               <motion.div
-                className="relative w-full rounded-[8px] border border-zinc-950/10 bg-white/90 p-6 text-center shadow-[0_20px_62px_rgba(0,0,0,0.16)]"
+                className="relative z-10 max-h-[calc(100%-3rem)] w-full overflow-y-auto rounded-[8px] border border-zinc-950/10 bg-white/90 p-6 text-center text-zinc-950 shadow-[0_20px_62px_rgba(0,0,0,0.16)]"
                 initial={{ opacity: 0, y: 34, scale: 0.86, rotate: -1.5 }}
                 animate={{ opacity: 1, y: 0, scale: [0.98, 1.045, 1], rotate: 0 }}
                 exit={{ opacity: 0, y: 10, scale: 0.99 }}
@@ -1402,7 +1401,7 @@ function PhoneScreen({
                   Game over
                 </motion.p>
                 <motion.p
-                  className="mt-3 text-6xl font-semibold tabular-nums tracking-tight"
+                  className="mt-3 text-6xl font-semibold leading-none tabular-nums tracking-tight text-zinc-950"
                   initial={{ opacity: 0, y: 10, scale: 0.82 }}
                   animate={{ opacity: 1, y: 0, scale: [0.92, 1.12, 1] }}
                   transition={{ duration: 0.62, ease: REWARD_EASE, delay: 0.22 }}
@@ -1423,7 +1422,7 @@ function PhoneScreen({
                     <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
                       Best
                     </p>
-                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
+                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
                       <AnimatedScore value={bestScore} startFrom={0} durationMs={780} />
                     </p>
                   </motion.div>
@@ -1435,7 +1434,7 @@ function PhoneScreen({
                     <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
                       Matched
                     </p>
-                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
+                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
                       <AnimatedScore value={completedPicks} startFrom={0} durationMs={620} />
                     </p>
                   </motion.div>
@@ -1582,6 +1581,17 @@ export function BrandColorGame() {
     desktopRightInset + DEVICE_BEZEL + FAB_INSET_FROM_SCREEN;
   const actualFabBottom = isMobile ? GAME_PICKER_CONFIG.fabInset : fabBottomDesktop;
   const actualFabRight = isMobile ? GAME_PICKER_CONFIG.fabInset : fabRightDesktop;
+  const desktopScreenHeight = useMemo(() => {
+    if (isMobile || vp.h <= 0) return DEVICE_SCREEN_H;
+    return Math.max(
+      520,
+      Math.min(
+        DEVICE_SCREEN_H,
+        vp.h - (DEVICE_PADDING + DEVICE_BEZEL) * 2,
+      ),
+    );
+  }, [isMobile, vp.h]);
+  const desktopFrameHeight = desktopScreenHeight + DEVICE_BEZEL * 2;
 
   const closePicker = () => {
     setPressed(false);
@@ -1938,7 +1948,7 @@ export function BrandColorGame() {
           bottom: DEVICE_PADDING + DEVICE_BEZEL,
           right: desktopRightInset + DEVICE_BEZEL,
           width: DEVICE_SCREEN_W,
-          height: DEVICE_SCREEN_H,
+          height: desktopScreenHeight,
           borderRadius: 38,
         }}
       >
@@ -1991,7 +2001,7 @@ export function BrandColorGame() {
           bottom: DEVICE_PADDING,
           right: desktopRightInset,
           width: DEVICE_FRAME_W,
-          height: DEVICE_FRAME_H,
+          height: desktopFrameHeight,
           border: `${DEVICE_BEZEL}px solid #0a0a0a`,
           borderRadius: 44,
           boxSizing: "border-box",
