@@ -55,6 +55,7 @@ type IntroPhase =
   | "swatches"
   | "ribbon"
   | "tone"
+  | "settle"
   | "color"
   | "logo"
   | "name"
@@ -94,6 +95,7 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "swatches",
   "ribbon",
   "tone",
+  "settle",
   "color",
   "logo",
   "name",
@@ -104,10 +106,11 @@ const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
   { phase: "swatches", at: 960 },
   { phase: "ribbon", at: 1120 },
   { phase: "tone", at: 1320 },
-  { phase: "color", at: 2560 },
-  { phase: "logo", at: 2800 },
-  { phase: "name", at: 3120 },
-  { phase: "ready", at: 3640 },
+  { phase: "settle", at: 1940 },
+  { phase: "color", at: 2240 },
+  { phase: "logo", at: 2480 },
+  { phase: "name", at: 2800 },
+  { phase: "ready", at: 3320 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
