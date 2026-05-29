@@ -102,15 +102,15 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "ready",
 ];
 const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
-  { phase: "fab", at: 520 },
-  { phase: "swatches", at: 960 },
-  { phase: "ribbon", at: 1120 },
-  { phase: "tone", at: 1320 },
-  { phase: "settle", at: 1940 },
-  { phase: "color", at: 2240 },
-  { phase: "logo", at: 2480 },
-  { phase: "name", at: 2800 },
-  { phase: "ready", at: 3320 },
+  { phase: "fab", at: 420 },
+  { phase: "swatches", at: 660 },
+  { phase: "ribbon", at: 800 },
+  { phase: "tone", at: 980 },
+  { phase: "settle", at: 1720 },
+  { phase: "color", at: 2140 },
+  { phase: "logo", at: 2380 },
+  { phase: "name", at: 2700 },
+  { phase: "ready", at: 3220 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
