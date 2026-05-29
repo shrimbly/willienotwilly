@@ -44,6 +44,13 @@ type ScoreTrail = {
   points: number;
 };
 
+type FinalStats = {
+  score: number;
+  bestScore: number;
+  completedPicks: number;
+  newBest: boolean;
+};
+
 type TimeoutCollapse = {
   id: number;
   color: string;
@@ -878,7 +885,7 @@ function PhoneScreen({
   completedPicks,
   gameOver,
   bestScore,
-  newBestThisRun,
+  finalStats,
   challengeIntro,
   challengeActive,
   challengePaused,
@@ -908,7 +915,7 @@ function PhoneScreen({
   completedPicks: number;
   gameOver: boolean;
   bestScore: number;
-  newBestThisRun: boolean;
+  finalStats: FinalStats | null;
   challengeIntro: boolean;
   challengeActive: boolean;
   challengePaused: boolean;
@@ -934,6 +941,10 @@ function PhoneScreen({
     0,
     (challengeDurationMs - CHALLENGE_HEARTBEAT_AT_MS) / 1000,
   );
+  const endScore = finalStats?.score ?? score;
+  const endBestScore = finalStats?.bestScore ?? bestScore;
+  const endCompletedPicks = finalStats?.completedPicks ?? completedPicks;
+  const endNewBest = finalStats?.newBest ?? false;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
@@ -1376,15 +1387,15 @@ function PhoneScreen({
                 transition={{ duration: 0.5, ease: "easeOut" }}
               />
               <motion.div
-                className="relative z-10 max-h-[calc(100%-3rem)] w-full overflow-y-auto rounded-[8px] border border-zinc-950/10 bg-white/90 p-6 text-center text-zinc-950 shadow-[0_20px_62px_rgba(0,0,0,0.16)]"
+                className="relative z-10 w-full pt-3"
                 initial={{ opacity: 0, y: 34, scale: 0.86, rotate: -1.5 }}
                 animate={{ opacity: 1, y: 0, scale: [0.98, 1.045, 1], rotate: 0 }}
                 exit={{ opacity: 0, y: 10, scale: 0.99 }}
                 transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.06 }}
               >
-                {newBestThisRun && (
+                {endNewBest && (
                   <motion.div
-                    className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-950 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)]"
+                    className="absolute left-1/2 top-3 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-950 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)]"
                     initial={{ opacity: 0, y: 8, scale: 0.8 }}
                     animate={{ opacity: 1, y: 0, scale: [1, 1.12, 1] }}
                     transition={{ duration: 0.42, ease: REWARD_EASE, delay: 0.28 }}
@@ -1392,64 +1403,66 @@ function PhoneScreen({
                     New best
                   </motion.div>
                 )}
-                <motion.p
-                  className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, ease: "easeOut", delay: 0.16 }}
-                >
-                  Game over
-                </motion.p>
-                <motion.p
-                  className="mt-3 text-6xl font-semibold leading-none tabular-nums tracking-tight text-zinc-950"
-                  initial={{ opacity: 0, y: 10, scale: 0.82 }}
-                  animate={{ opacity: 1, y: 0, scale: [0.92, 1.12, 1] }}
-                  transition={{ duration: 0.62, ease: REWARD_EASE, delay: 0.22 }}
-                >
-                  <AnimatedScore value={score} startFrom={0} durationMs={950} />
-                </motion.p>
-                <motion.div
-                  className="mt-5 grid grid-cols-2 divide-x divide-zinc-950/10 rounded-[8px] border border-zinc-950/10 bg-zinc-50/80 py-3"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.34, ease: "easeOut", delay: 0.38 }}
-                >
-                  <motion.div
+                <motion.div className="max-h-[calc(100%-1.5rem)] w-full overflow-y-auto rounded-[8px] border border-zinc-950/10 bg-white/90 p-6 text-center text-zinc-950 shadow-[0_20px_62px_rgba(0,0,0,0.16)]">
+                  <motion.p
+                    className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.26, delay: 0.48 }}
+                    transition={{ duration: 0.28, ease: "easeOut", delay: 0.16 }}
                   >
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-                      Best
-                    </p>
-                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
-                      <AnimatedScore value={bestScore} startFrom={0} durationMs={780} />
-                    </p>
-                  </motion.div>
+                    Game over
+                  </motion.p>
+                  <motion.p
+                    className="mt-3 text-6xl font-semibold leading-none tabular-nums tracking-tight text-zinc-950"
+                    initial={{ opacity: 0, y: 10, scale: 0.82 }}
+                    animate={{ opacity: 1, y: 0, scale: [0.92, 1.12, 1] }}
+                    transition={{ duration: 0.62, ease: REWARD_EASE, delay: 0.22 }}
+                  >
+                    <AnimatedScore value={endScore} startFrom={0} durationMs={950} />
+                  </motion.p>
                   <motion.div
-                    initial={{ opacity: 0, y: 6 }}
+                    className="mt-5 grid grid-cols-2 divide-x divide-zinc-950/10 rounded-[8px] border border-zinc-950/10 bg-zinc-50/80 py-3"
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.26, delay: 0.56 }}
+                    transition={{ duration: 0.34, ease: "easeOut", delay: 0.38 }}
                   >
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-                      Matched
-                    </p>
-                    <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
-                      <AnimatedScore value={completedPicks} startFrom={0} durationMs={620} />
-                    </p>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.26, delay: 0.48 }}
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                        Best
+                      </p>
+                      <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
+                        <AnimatedScore value={endBestScore} startFrom={0} durationMs={780} />
+                      </p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.26, delay: 0.56 }}
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                        Matched
+                      </p>
+                      <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-950">
+                        <AnimatedScore value={endCompletedPicks} startFrom={0} durationMs={620} />
+                      </p>
+                    </motion.div>
                   </motion.div>
+                  <motion.button
+                    type="button"
+                    onClick={onReset}
+                    className="mt-5 rounded-full bg-zinc-950 px-6 py-2.5 text-sm font-medium text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition hover:bg-zinc-800"
+                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ duration: 0.32, ease: REWARD_EASE, delay: 0.64 }}
+                  >
+                    Play again
+                  </motion.button>
                 </motion.div>
-                <motion.button
-                  type="button"
-                  onClick={onReset}
-                  className="mt-5 rounded-full bg-zinc-950 px-6 py-2.5 text-sm font-medium text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition hover:bg-zinc-800"
-                  initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={{ duration: 0.32, ease: REWARD_EASE, delay: 0.64 }}
-                >
-                  Play again
-                </motion.button>
               </motion.div>
             </motion.div>
           )}
@@ -1472,7 +1485,7 @@ export function BrandColorGame() {
   const [isResolving, setIsResolving] = useState(false);
   const [completedPicks, setCompletedPicks] = useState(0);
   const [score, setScore] = useState(0);
-  const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [finalStats, setFinalStats] = useState<FinalStats | null>(null);
   const [bestScore, setBestScore] = useState(0);
   const [lives, setLives] = useState(STARTING_LIVES);
   const [streak, setStreak] = useState(0);
@@ -1483,7 +1496,6 @@ export function BrandColorGame() {
   const [timeoutCollapse, setTimeoutCollapse] = useState<TimeoutCollapse | null>(null);
   const [resolvingMedal, setResolvingMedal] = useState<MedalKind | null>(null);
   const [resolvingNearMiss, setResolvingNearMiss] = useState(false);
-  const [newBestThisRun, setNewBestThisRun] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [challengeIntro, setChallengeIntro] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
@@ -1501,6 +1513,9 @@ export function BrandColorGame() {
   const challengeStartedAt = useRef<number | null>(null);
   const roundStartedAt = useRef<number | null>(null);
   const scoreRef = useRef(0);
+  const bestScoreRef = useRef(0);
+  const completedPicksRef = useRef(0);
+  const newBestThisRunRef = useRef(false);
   const challengeIntroTimer = useRef<number | null>(null);
   const multiplierBurstTimer = useRef<number | null>(null);
   const scoreTrailTimer = useRef<number | null>(null);
@@ -1548,7 +1563,11 @@ export function BrandColorGame() {
 
   useEffect(() => {
     const storedBest = window.localStorage.getItem("brand-color-game-best");
-    if (storedBest) setBestScore(parseInt(storedBest, 10) || 0);
+    if (storedBest) {
+      const parsedBest = parseInt(storedBest, 10) || 0;
+      bestScoreRef.current = parsedBest;
+      setBestScore(parsedBest);
+    }
     setBrandOrder(shuffledBrands());
     const mq = window.matchMedia("(max-width: 767px)");
     setIsMobile(mq.matches);
@@ -1601,7 +1620,12 @@ export function BrandColorGame() {
   };
 
   const endGame = () => {
-    setFinalScore(scoreRef.current);
+    setFinalStats({
+      score: scoreRef.current,
+      bestScore: bestScoreRef.current,
+      completedPicks: completedPicksRef.current,
+      newBest: newBestThisRunRef.current,
+    });
     setGameOver(true);
   };
 
@@ -1726,7 +1750,8 @@ export function BrandColorGame() {
       clutch,
       speedBonus,
     });
-    const nextCompletedPicks = completedPicks + 1;
+    const nextCompletedPicks = completedPicksRef.current + 1;
+    completedPicksRef.current = nextCompletedPicks;
     setHasPicked(true);
     setResult(null);
     setIsResolving(true);
@@ -1758,18 +1783,16 @@ export function BrandColorGame() {
           showMultiplierBurst(nextMultiplier);
           hapticFor("gold");
         }
-        setScore((current) => {
-          const next = current + pointsResult.points;
-          scoreRef.current = next;
-          setBestScore((currentBest) => {
-            if (next <= currentBest) return currentBest;
-            window.localStorage.setItem("brand-color-game-best", String(next));
-            setNewBestThisRun(true);
-            setBestPulse((currentPulse) => currentPulse + 1);
-            return next;
-          });
-          return next;
-        });
+        const nextScore = scoreRef.current + pointsResult.points;
+        scoreRef.current = nextScore;
+        setScore(nextScore);
+        if (nextScore > bestScoreRef.current) {
+          bestScoreRef.current = nextScore;
+          window.localStorage.setItem("brand-color-game-best", String(nextScore));
+          newBestThisRunRef.current = true;
+          setBestScore(nextScore);
+          setBestPulse((currentPulse) => currentPulse + 1);
+        }
       }
       setResult({
         errorPoints,
@@ -1876,11 +1899,13 @@ export function BrandColorGame() {
     setResolvingNearMiss(false);
     setCompletedPicks(0);
     scoreRef.current = 0;
+    bestScoreRef.current = bestScore;
+    completedPicksRef.current = 0;
+    newBestThisRunRef.current = false;
     setScore(0);
-    setFinalScore(null);
+    setFinalStats(null);
     setLives(STARTING_LIVES);
     setStreak(0);
-    setNewBestThisRun(false);
     setMultiplierBurst(null);
     setScoreTrail(null);
     setTimeoutCollapse(null);
@@ -1969,7 +1994,7 @@ export function BrandColorGame() {
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
             resolvingNearMiss={resolvingNearMiss}
-            score={gameOver ? (finalScore ?? score) : score}
+            score={score}
             lives={lives}
             streak={streak}
             multiplierBurst={multiplierBurst}
@@ -1980,7 +2005,7 @@ export function BrandColorGame() {
             completedPicks={completedPicks}
             gameOver={gameOver}
             bestScore={bestScore}
-            newBestThisRun={newBestThisRun}
+            finalStats={finalStats}
             challengeIntro={challengeIntro}
             challengeActive={challengeActive}
             challengePaused={isResolving || result !== null}
@@ -2028,7 +2053,7 @@ export function BrandColorGame() {
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
             resolvingNearMiss={resolvingNearMiss}
-            score={gameOver ? (finalScore ?? score) : score}
+            score={score}
             lives={lives}
             streak={streak}
             multiplierBurst={multiplierBurst}
@@ -2039,7 +2064,7 @@ export function BrandColorGame() {
             completedPicks={completedPicks}
             gameOver={gameOver}
             bestScore={bestScore}
-            newBestThisRun={newBestThisRun}
+            finalStats={finalStats}
             challengeIntro={challengeIntro}
             challengeActive={challengeActive}
             challengePaused={isResolving || result !== null}
