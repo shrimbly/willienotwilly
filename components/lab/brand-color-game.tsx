@@ -360,22 +360,22 @@ function oklabDistance(
 function rewardMotion(medal: MedalKind | null) {
   if (medal === "platinum") {
     return {
-      initial: { opacity: 0, y: -22, scale: 0.72, rotate: -8 },
-      animate: { opacity: 1, y: 0, scale: [1, 1.18, 1], rotate: 0 },
-      transition: { duration: 0.62, ease: REWARD_EASE },
+      initial: { opacity: 0, y: -28, scale: 0.58, rotate: -10 },
+      animate: { opacity: 1, y: 0, scale: [0.96, 1.26, 1], rotate: [0, 2, 0] },
+      transition: { duration: 0.78, ease: REWARD_EASE },
       className:
-        "border-white/80 bg-white/95 shadow-[0_0_0_10px_rgba(255,255,255,0.22),0_0_48px_rgba(255,255,255,0.48),0_20px_54px_rgba(0,0,0,0.16)]",
-      burstCount: 12,
+        "border-white/90 bg-white/96 shadow-[0_0_0_13px_rgba(255,255,255,0.24),0_0_72px_rgba(255,255,255,0.66),0_24px_64px_rgba(0,0,0,0.20)]",
+      burstCount: 20,
     };
   }
   if (medal === "gold") {
     return {
-      initial: { opacity: 0, y: -18, scale: 0.78 },
-      animate: { opacity: 1, y: 0, scale: [1, 1.1, 1] },
-      transition: { duration: 0.48, ease: REWARD_EASE },
+      initial: { opacity: 0, y: -22, scale: 0.68, rotate: -4 },
+      animate: { opacity: 1, y: 0, scale: [0.98, 1.18, 1], rotate: 0 },
+      transition: { duration: 0.62, ease: REWARD_EASE },
       className:
-        "border-amber-200/90 bg-white/95 shadow-[0_0_0_7px_rgba(246,198,74,0.18),0_0_34px_rgba(246,198,74,0.36),0_18px_44px_rgba(0,0,0,0.16)]",
-      burstCount: 8,
+        "border-amber-200/95 bg-white/96 shadow-[0_0_0_10px_rgba(246,198,74,0.22),0_0_54px_rgba(246,198,74,0.50),0_22px_58px_rgba(0,0,0,0.18)]",
+      burstCount: 14,
     };
   }
   if (medal === "silver") {
@@ -492,12 +492,14 @@ function RewardToast({ result }: { result: Guess }) {
     >
       {Array.from({ length: motionConfig.burstCount }).map((_, index) => {
         const angle = (index / Math.max(1, motionConfig.burstCount)) * Math.PI * 2;
-        const distance = result.medal === "platinum" ? 52 : result.medal === "gold" ? 42 : 32;
+        const distance = result.medal === "platinum" ? 72 : result.medal === "gold" ? 58 : 32;
         return (
           <motion.span
             key={index}
             aria-hidden
-            className="absolute left-1/2 top-1/2 size-1.5 rounded-full"
+            className={`absolute left-1/2 top-1/2 rounded-full ${
+              result.medal === "platinum" ? "size-2" : "size-1.5"
+            }`}
             style={{ background: medal?.color ?? "#fff" }}
             initial={{ x: "-50%", y: "-50%", opacity: 0, scale: 0.4 }}
             animate={{
@@ -507,7 +509,7 @@ function RewardToast({ result }: { result: Guess }) {
               scale: [0.4, 1, 0.2],
             }}
             transition={{
-              duration: result.medal === "platinum" ? 0.72 : 0.56,
+              duration: result.medal === "platinum" ? 0.92 : result.medal === "gold" ? 0.72 : 0.56,
               ease: "easeOut",
               delay: 0.04 + index * 0.012,
             }}
@@ -515,14 +517,26 @@ function RewardToast({ result }: { result: Guess }) {
         );
       })}
       {result.medal && (
-        <motion.span
-          aria-hidden
-          className="absolute inset-[-6px] rounded-full"
-          style={{ border: `1px solid ${medal?.color ?? "#fff"}` }}
-          initial={{ opacity: 0.45, scale: 0.88 }}
-          animate={{ opacity: 0, scale: result.medal === "platinum" ? 1.38 : 1.24 }}
-          transition={{ duration: result.medal === "bronze" ? 0.4 : 0.62, ease: "easeOut" }}
-        />
+        <>
+          <motion.span
+            aria-hidden
+            className="absolute inset-[-6px] rounded-full"
+            style={{ border: `1px solid ${medal?.color ?? "#fff"}` }}
+            initial={{ opacity: 0.55, scale: 0.84 }}
+            animate={{ opacity: 0, scale: result.medal === "platinum" ? 1.56 : result.medal === "gold" ? 1.42 : 1.24 }}
+            transition={{ duration: result.medal === "bronze" ? 0.4 : 0.72, ease: "easeOut" }}
+          />
+          {(result.medal === "platinum" || result.medal === "gold") && (
+            <motion.span
+              aria-hidden
+              className="absolute inset-[-14px] rounded-full"
+              style={{ border: `1px solid ${medal?.color ?? "#fff"}` }}
+              initial={{ opacity: 0.34, scale: 0.78 }}
+              animate={{ opacity: 0, scale: result.medal === "platinum" ? 1.9 : 1.68 }}
+              transition={{ duration: 0.94, ease: "easeOut", delay: 0.08 }}
+            />
+          )}
+        </>
       )}
       {nearMiss && (
         <motion.span
@@ -554,13 +568,15 @@ function RewardToast({ result }: { result: Guess }) {
             : ""}
         </p>
       </div>
-      {result.medal === "platinum" && (
+      {(result.medal === "platinum" || result.medal === "gold") && (
         <motion.span
           aria-hidden
-          className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/70 to-transparent"
+          className={`absolute inset-0 rounded-full bg-gradient-to-r from-transparent to-transparent ${
+            result.medal === "platinum" ? "via-white/80" : "via-amber-100/80"
+          }`}
           initial={{ x: "-120%", opacity: 0 }}
-          animate={{ x: "120%", opacity: [0, 0.8, 0] }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.08 }}
+          animate={{ x: "120%", opacity: [0, 0.9, 0] }}
+          transition={{ duration: result.medal === "platinum" ? 0.92 : 0.76, ease: "easeOut", delay: 0.08 }}
         />
       )}
     </motion.div>
@@ -889,9 +905,9 @@ function PhoneScreen({
                 y: isResolving && !resolvingMedal && !resolvingNearMiss ? [0, 6, 0] : 0,
                 scale: isResolving
                   ? resolvingMedal === "platinum"
-                    ? [1, 0.98, 1.08, 1]
+                    ? [1, 0.96, 1.12, 1]
                     : resolvingMedal === "gold"
-                      ? [1, 0.985, 1.055, 1]
+                      ? [1, 0.975, 1.075, 1]
                       : resolvingMedal === "silver"
                         ? [1, 0.99, 1.035, 1]
                         : resolvingMedal === "bronze"
@@ -909,13 +925,20 @@ function PhoneScreen({
               className="grid h-44 w-56 place-items-center rounded-[36px]"
               style={{ backgroundColor: brand.targetHex }}
             >
-              {isResolving && resolvingMedal === "platinum" && (
+              {isResolving && (resolvingMedal === "platinum" || resolvingMedal === "gold") && (
                 <motion.div
                   aria-hidden
-                  className="absolute inset-[-8px] rounded-[42px] border border-white/80"
+                  className={`absolute rounded-[42px] border ${
+                    resolvingMedal === "platinum"
+                      ? "inset-[-10px] border-white/85"
+                      : "inset-[-8px] border-amber-200/85"
+                  }`}
                   initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1.12, 1.22] }}
-                  transition={{ duration: 0.7, ease: REWARD_EASE }}
+                  animate={{
+                    opacity: [0, resolvingMedal === "platinum" ? 0.95 : 0.78, 0],
+                    scale: resolvingMedal === "platinum" ? [0.9, 1.16, 1.32] : [0.92, 1.12, 1.24],
+                  }}
+                  transition={{ duration: resolvingMedal === "platinum" ? 0.84 : 0.68, ease: REWARD_EASE }}
                 />
               )}
               <div className={`relative overflow-hidden ${brand.logoSizeClassName}`}>
@@ -934,7 +957,7 @@ function PhoneScreen({
                     initial={{ x: "-130%", opacity: 0 }}
                     animate={{ x: "130%", opacity: [0, 0.9, 0] }}
                     transition={{
-                      duration: resolvingMedal === "platinum" ? 0.78 : 0.52,
+                      duration: resolvingMedal === "platinum" ? 0.92 : resolvingMedal === "gold" ? 0.68 : 0.52,
                       ease: "easeOut",
                       delay: resolvingMedal === "platinum" ? 0.06 : 0,
                     }}
