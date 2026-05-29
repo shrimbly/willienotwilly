@@ -36,6 +36,7 @@ type Props = {
   fabBottomInset?: number;
   fabRightInset?: number;
   disableBackdropBlur?: boolean;
+  disabled?: boolean;
 };
 
 export type Config = {
@@ -140,6 +141,7 @@ export function ColorPickerFabV9({
   fabBottomInset,
   fabRightInset,
   disableBackdropBlur = false,
+  disabled = false,
 }: Props) {
   const config = { ...DEFAULT_CONFIG, ...configOverride };
   const {
@@ -851,7 +853,7 @@ export function ColorPickerFabV9({
         : null;
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (control) return;
+    if (control || disabled) return;
     e.preventDefault();
     captureCenter();
     setPicked(null);
@@ -864,7 +866,7 @@ export function ColorPickerFabV9({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (control) return;
+    if (control || disabled) return;
     if (!open) return;
     setPointer({ x: e.clientX, y: e.clientY });
   };
@@ -895,7 +897,7 @@ export function ColorPickerFabV9({
   };
 
   const handlePointerUp = () => {
-    if (control) return;
+    if (control || disabled) return;
     if (holdTimer.current) {
       clearTimeout(holdTimer.current);
       holdTimer.current = null;
@@ -1467,6 +1469,7 @@ export function ColorPickerFabV9({
         onPointerCancel={handlePointerUp}
         onContextMenu={(e) => e.preventDefault()}
         className="fixed z-50 rounded-full shadow-xl ring-1 ring-foreground/10 touch-none select-none"
+        disabled={disabled}
         style={{
           width: fabSize,
           height: fabSize,

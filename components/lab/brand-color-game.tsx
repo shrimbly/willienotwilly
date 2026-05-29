@@ -8,6 +8,7 @@ import {
   ColorPickerFabV9,
   DEFAULT_CONFIG,
   type Config,
+  type PickerControl,
 } from "@/components/lab/color-picker-fab-v9";
 import {
   BRAND_COLOR_GAME_BRANDS,
@@ -48,6 +49,7 @@ type TimeoutCollapse = {
 };
 
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
+type IntroPhase = "title" | "demo" | "ready";
 
 const DEVICE_SCREEN_W = 360;
 const DEVICE_SCREEN_H = 720;
@@ -77,6 +79,15 @@ const NEAR_MISS_POINTS = 22;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
+const INTRO_TITLE_MS = 720;
+const INTRO_DEMO_STEP_MS = 440;
+const INTRO_DEMO_STEPS = [
+  { angleDeg: 225, distance: 108 },
+  { angleDeg: 225, distance: 150 },
+  { angleDeg: 212, distance: 206 },
+  { angleDeg: 212, distance: 258 },
+  { angleDeg: 238, distance: 268 },
+] as const;
 
 const GAME_PICKER_CONFIG: Config = {
   ...DEFAULT_CONFIG,
@@ -580,6 +591,78 @@ function RewardToast({ result }: { result: Guess }) {
         />
       )}
     </motion.div>
+  );
+}
+
+function IntroPhoneScreen({
+  phase,
+  showDeviceChrome,
+}: {
+  phase: IntroPhase;
+  showDeviceChrome: boolean;
+}) {
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-[#f8f6ee] text-zinc-950">
+      {showDeviceChrome && (
+        <>
+          <div className="absolute left-6 top-2.5 text-[11px] font-medium tracking-wide text-zinc-500">
+            9:41
+          </div>
+          <div className="absolute left-1/2 top-3 size-2.5 -translate-x-1/2 rounded-full bg-zinc-950/85" />
+          <div className="absolute right-6 top-2.5 flex items-center gap-1 text-[11px] font-medium tracking-wide text-zinc-500">
+            <span>5G</span>
+            <span>100%</span>
+          </div>
+        </>
+      )}
+
+      <div
+        className={`relative flex h-full flex-col items-center justify-center px-8 text-center ${
+          showDeviceChrome ? "pt-8" : ""
+        }`}
+      >
+        <AnimatePresence mode="wait">
+          {phase === "title" && (
+            <motion.div
+              key="intro-title"
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.34, ease: REWARD_EASE }}
+            >
+              <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                Lab / game
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+                Brand Color Match
+              </h1>
+            </motion.div>
+          )}
+
+          {phase === "demo" && (
+            <motion.div
+              key="intro-demo"
+              className="mb-24"
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.99 }}
+              transition={{ duration: 0.26, ease: "easeOut" }}
+            >
+              <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                Pick from the full depth
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+                Brand Color Match
+              </h1>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {showDeviceChrome && (
+        <div className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-zinc-950/24" />
+      )}
+    </div>
   );
 }
 
@@ -1203,10 +1286,13 @@ export function BrandColorGame() {
   const [challengeIntro, setChallengeIntro] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
+  const [hasInteractedWithPicker, setHasInteractedWithPicker] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [pickerCloseSignal, setPickerCloseSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("title");
+  const [introDemoStep, setIntroDemoStep] = useState(0);
   const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
   const challengeTimer = useRef<number | null>(null);
@@ -1220,6 +1306,15 @@ export function BrandColorGame() {
   const scoreTrailId = useRef(0);
   const timeoutCollapseId = useRef(0);
   const brand = brandOrder[roundIndex];
+  const introComplete = introPhase === "ready";
+  const introPickerControl: PickerControl | null =
+    introPhase === "demo"
+      ? {
+          open: true,
+          forcePointerAt:
+            INTRO_DEMO_STEPS[Math.min(introDemoStep, INTRO_DEMO_STEPS.length - 1)],
+        }
+      : null;
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
   const challengeDurationMs = challengeDurationFor(completedPicks);
 
@@ -1240,6 +1335,28 @@ export function BrandColorGame() {
     };
   }, []);
 
+  useEffect(() => {
+    const timers: number[] = [];
+    timers.push(
+      window.setTimeout(() => {
+        setIntroPhase("demo");
+      }, INTRO_TITLE_MS),
+    );
+    INTRO_DEMO_STEPS.forEach((_, index) => {
+      timers.push(
+        window.setTimeout(() => {
+          setIntroDemoStep(index);
+        }, INTRO_TITLE_MS + index * INTRO_DEMO_STEP_MS),
+      );
+    });
+    timers.push(
+      window.setTimeout(() => {
+        setIntroPhase("ready");
+      }, INTRO_TITLE_MS + INTRO_DEMO_STEPS.length * INTRO_DEMO_STEP_MS + 180),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
   const desktopRightInset = useMemo(() => {
     if (isMobile) return DEVICE_PADDING;
     const containerInnerW = 1024 - 24 * 2;
@@ -1256,6 +1373,11 @@ export function BrandColorGame() {
   const closePicker = () => {
     setPressed(false);
     setPickerCloseSignal((current) => current + 1);
+  };
+
+  const handlePressedChange = (nextPressed: boolean) => {
+    setPressed(nextPressed);
+    if (nextPressed) setHasInteractedWithPicker(true);
   };
 
   const showMultiplierBurst = (multiplier: number) => {
@@ -1487,6 +1609,7 @@ export function BrandColorGame() {
     setWaves([]);
     closePicker();
     setHasPicked(false);
+    setHasInteractedWithPicker(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
   };
@@ -1557,7 +1680,7 @@ export function BrandColorGame() {
           borderRadius: 38,
         }}
       >
-        {brand && (
+        {introComplete && brand ? (
           <PhoneScreen
             brand={brand}
             result={result}
@@ -1588,6 +1711,8 @@ export function BrandColorGame() {
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
           />
+        ) : (
+          <IntroPhoneScreen phase={introPhase} showDeviceChrome />
         )}
       </div>
 
@@ -1608,7 +1733,7 @@ export function BrandColorGame() {
       />
 
       <div className="fixed inset-0 z-0 md:hidden">
-        {brand && (
+        {introComplete && brand ? (
           <PhoneScreen
             brand={brand}
             result={result}
@@ -1639,11 +1764,13 @@ export function BrandColorGame() {
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
           />
+        ) : (
+          <IntroPhoneScreen phase={introPhase} showDeviceChrome={false} />
         )}
       </div>
 
       <AnimatePresence>
-        {brand && !hasPicked && (
+        {brand && introComplete && !hasPicked && !hasInteractedWithPicker && (
           <motion.div
             key="picker-helper"
             className="pointer-events-none fixed z-[55] rounded-full border border-zinc-950/10 bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-lg shadow-black/10 backdrop-blur-sm"
@@ -1654,21 +1781,23 @@ export function BrandColorGame() {
             }}
             initial={{ opacity: 0, y: 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, y: 2, scale: 0.99 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           >
             Drag to select color
           </motion.div>
         )}
       </AnimatePresence>
 
-      {brand && !gameOver && (
+      {((introPhase === "demo") || (brand && introComplete && !gameOver)) && (
         <ColorPickerFabV9
           config={GAME_PICKER_CONFIG}
-          onPick={handlePick}
+          onPick={introComplete ? handlePick : undefined}
+          control={introPickerControl}
           closeSignal={pickerCloseSignal}
-          onPressedChange={setPressed}
+          onPressedChange={handlePressedChange}
           disableBackdropBlur
+          disabled={!introComplete}
           screenEdgeInset={FAB_INSET_FROM_SCREEN}
           fabBottomInset={isMobile ? undefined : fabBottomDesktop}
           fabRightInset={isMobile ? undefined : fabRightDesktop}
