@@ -1136,7 +1136,7 @@ export function ColorPickerFabV9({
                       willChange: "transform, opacity",
                     }}
                     initial={{
-                      scale: ribbonScaleFromPct / 100,
+                      scale: Math.min(ribbonScaleFromPct / 100, 0.84),
                       opacity: 0,
                     }}
                     animate={{ scale: ribbonScale, opacity: 1 }}
@@ -1176,7 +1176,7 @@ export function ColorPickerFabV9({
                       filter: "drop-shadow(0 6px 22px rgba(0,0,0,0.22))",
                       willChange: "transform, opacity",
                     }}
-                    initial={{ scale: 0.94, opacity: 0 }}
+                    initial={{ scale: 0.86, opacity: 0 }}
                     animate={{ scale: toneScale, opacity: 1 }}
                     exit={{ scale: 0.94, opacity: 0 }}
                     transition={{
@@ -1216,7 +1216,7 @@ export function ColorPickerFabV9({
                       left: cx - ribbonOuter,
                       top: cy - ribbonOuter,
                     }}
-                    initial={{ scale: ribbonScaleFromPct / 100, opacity: 0 }}
+                    initial={{ scale: Math.min(ribbonScaleFromPct / 100, 0.84), opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.94, opacity: 0 }}
                     transition={{ duration: openSec * 0.9, ease: SOFT_EASE }}
@@ -1275,7 +1275,7 @@ export function ColorPickerFabV9({
                       left: cx - toneOuter,
                       top: cy - toneOuter,
                     }}
-                    initial={{ scale: 0.94, opacity: 0 }}
+                    initial={{ scale: 0.86, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.94, opacity: 0 }}
                     transition={{ duration: openSec * 0.9, ease: SOFT_EASE }}
@@ -1343,7 +1343,7 @@ export function ColorPickerFabV9({
                         ? "0 0 0 2.5px rgba(255,255,255,0.95), 0 0 0 3.5px rgba(0,0,0,0.20), 0 4px 14px rgba(0,0,0,0.18)"
                         : "0 0 0 1px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.12)",
                     }}
-                    initial={{ scale: 0.7, opacity: 0, x: 0, y: 0 }}
+                    initial={{ scale: 0.56, opacity: 0, x: 0, y: 0 }}
                     animate={{
                       scale: isActive ? 1.2 : 1,
                       opacity: expanded ? 0.5 : 1,
@@ -1358,7 +1358,7 @@ export function ColorPickerFabV9({
                       },
                     }}
                     exit={{
-                      scale: 0.7,
+                      scale: 0.62,
                       opacity: 0,
                       transition: { duration: 0.16, ease: SOFT_EASE },
                     }}
