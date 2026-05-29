@@ -50,6 +50,7 @@ type TimeoutCollapse = {
 
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
 type IntroPhase =
+  | "title"
   | "hud"
   | "fab"
   | "swatches"
@@ -90,6 +91,7 @@ const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_I
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
 const INTRO_PHASE_ORDER: IntroPhase[] = [
+  "title",
   "hud",
   "fab",
   "swatches",
@@ -102,15 +104,16 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "ready",
 ];
 const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
-  { phase: "fab", at: 420 },
-  { phase: "swatches", at: 660 },
-  { phase: "ribbon", at: 800 },
-  { phase: "tone", at: 980 },
-  { phase: "settle", at: 1720 },
-  { phase: "color", at: 2140 },
-  { phase: "logo", at: 2380 },
-  { phase: "name", at: 2700 },
-  { phase: "ready", at: 3220 },
+  { phase: "hud", at: 920 },
+  { phase: "fab", at: 1340 },
+  { phase: "swatches", at: 1580 },
+  { phase: "ribbon", at: 1720 },
+  { phase: "tone", at: 1900 },
+  { phase: "settle", at: 2640 },
+  { phase: "color", at: 3060 },
+  { phase: "logo", at: 3300 },
+  { phase: "name", at: 3620 },
+  { phase: "ready", at: 4140 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
@@ -630,6 +633,7 @@ function IntroPhoneScreen({
   showDeviceChrome: boolean;
 }) {
   const phaseIndex = INTRO_PHASE_ORDER.indexOf(phase);
+  const showHud = phaseIndex >= INTRO_PHASE_ORDER.indexOf("hud");
   const showColor = phaseIndex >= INTRO_PHASE_ORDER.indexOf("color");
   const showLogo = phaseIndex >= INTRO_PHASE_ORDER.indexOf("logo");
   const showName = phaseIndex >= INTRO_PHASE_ORDER.indexOf("name");
@@ -654,46 +658,65 @@ function IntroPhoneScreen({
           showDeviceChrome ? "pt-16" : "pt-8"
         }`}
       >
-        <motion.div
-          className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.34, ease: REWARD_EASE }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, ease: "easeOut", delay: 0.02 }}
-          >
-            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-              Score
-            </p>
-            <p className="font-mono text-sm font-semibold tabular-nums">0</p>
-          </motion.div>
-          <motion.div
-            className="text-center"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
-          >
-            <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-              1/{totalRounds || BRAND_COLOR_GAME_BRANDS.length}
-            </p>
-            <p className="font-mono text-xs text-zinc-500">
-              {"●".repeat(STARTING_LIVES)}
-            </p>
-          </motion.div>
-          <motion.div
-            className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400"
-            initial={{ opacity: 0, y: -6, rotate: -18 }}
-            animate={{ opacity: 1, y: 0, rotate: 0 }}
-            transition={{ duration: 0.28, ease: "easeOut", delay: 0.18 }}
-          >
-            <RotateCcw className="size-3.5" />
-          </motion.div>
-        </motion.div>
+        <AnimatePresence mode="wait">
+          {phase === "title" && (
+            <motion.div
+              key="intro-title"
+              className="flex flex-1 items-center justify-center text-center"
+              initial={{ opacity: 0, y: 14, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.38, ease: REWARD_EASE }}
+            >
+              <h1 className="text-5xl font-semibold tracking-tight">
+                Pick a color
+              </h1>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {brand && (
+        {showHud && (
+          <motion.div
+            className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.34, ease: REWARD_EASE }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: "easeOut", delay: 0.02 }}
+            >
+              <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                Score
+              </p>
+              <p className="font-mono text-sm font-semibold tabular-nums">0</p>
+            </motion.div>
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
+            >
+              <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
+                1/{totalRounds || BRAND_COLOR_GAME_BRANDS.length}
+              </p>
+              <p className="font-mono text-xs text-zinc-500">
+                {"●".repeat(STARTING_LIVES)}
+              </p>
+            </motion.div>
+            <motion.div
+              className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400"
+              initial={{ opacity: 0, y: -6, rotate: -18 }}
+              animate={{ opacity: 1, y: 0, rotate: 0 }}
+              transition={{ duration: 0.28, ease: "easeOut", delay: 0.18 }}
+            >
+              <RotateCcw className="size-3.5" />
+            </motion.div>
+          </motion.div>
+        )}
+
+        {brand && showHud && (
           <>
             <motion.section className="flex min-h-[260px] flex-col items-center justify-center pt-8">
               <motion.div
@@ -1391,7 +1414,7 @@ export function BrandColorGame() {
   const [pickerCloseSignal, setPickerCloseSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
-  const [introPhase, setIntroPhase] = useState<IntroPhase>("hud");
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("title");
   const revealTimer = useRef<number | null>(null);
   const autoAdvanceTimer = useRef<number | null>(null);
   const challengeTimer = useRef<number | null>(null);
@@ -1770,7 +1793,7 @@ export function BrandColorGame() {
             Lab / unlisted
           </p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">
-            Brand Color Match
+            Pick a color
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             A game layer for the radial picker. Real brand marks, one primary
