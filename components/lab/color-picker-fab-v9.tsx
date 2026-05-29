@@ -1477,14 +1477,19 @@ export function ColorPickerFabV9({
           bottom: fabBottomInset ?? fabInset,
           right: fabRightInset ?? fabInset,
         }}
+        initial={{ opacity: 0, y: 12, scale: 0.72 }}
         animate={{
+          opacity: 1,
+          y: 0,
           scale: commitPulse ? [1.06, 0.9, 1.12, 1] : previewColor ? 1.06 : pressed ? 0.92 : 1,
         }}
-        transition={
-          commitPulse
+        transition={{
+          opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+          y: { type: "spring", stiffness: 420, damping: 30 },
+          scale: commitPulse
             ? { duration: 0.28, ease: [0.16, 1, 0.3, 1] }
-            : { type: "spring", stiffness: 420, damping: 26 }
-        }
+            : { type: "spring", stiffness: 420, damping: 26 },
+        }}
         aria-label="Open colour picker"
       />
     </>
