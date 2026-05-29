@@ -90,10 +90,10 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
 const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
   { phase: "fab", at: 520 },
   { phase: "ripple", at: 960 },
-  { phase: "color", at: 1660 },
-  { phase: "logo", at: 1900 },
-  { phase: "name", at: 2220 },
-  { phase: "ready", at: 2740 },
+  { phase: "color", at: 2040 },
+  { phase: "logo", at: 2280 },
+  { phase: "name", at: 2600 },
+  { phase: "ready", at: 3120 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
@@ -135,6 +135,11 @@ function shuffledBrands() {
     [brands[i], brands[j]] = [brands[j], brands[i]];
   }
   return brands;
+}
+
+function polar(cx: number, cy: number, r: number, deg: number) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
 function ThumbCursor({
@@ -258,6 +263,22 @@ function rgbToHex(r: number, g: number, b: number) {
       .join("")
       .toUpperCase()
   );
+}
+
+function hueFromHex(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  if (delta === 0) return 0;
+  let hue = 0;
+  if (max === rn) hue = ((gn - bn) / delta) % 6;
+  else if (max === gn) hue = (bn - rn) / delta + 2;
+  else hue = (rn - gn) / delta + 4;
+  return Math.round((hue * 60 + 360) % 360);
 }
 
 function hexToRgbString(hex: string) {
@@ -754,56 +775,188 @@ function IntroPickerRipple({
   fabBottom: number;
   fabRight: number;
 }) {
-  const rgb = hexToRgbString(color);
+  const {
+    arcRadius,
+    swatchSize,
+    swatchSpanDeg,
+    arcSpanDeg,
+    ribbonInner,
+    ribbonOuter,
+    toneInner,
+    toneOuter,
+    toneSpanDeg,
+    ribbonL,
+    ribbonC,
+  } = GAME_PICKER_CONFIG;
+  const arcCenterDeg = 225;
+  const swatchStartDeg = arcCenterDeg - swatchSpanDeg / 2;
+  const ribbonStartDeg = arcCenterDeg - arcSpanDeg / 2;
+  const ribbonEndDeg = arcCenterDeg + arcSpanDeg / 2;
+  const ribbonMid = (ribbonInner + ribbonOuter) / 2;
+  const toneCenterDeg = 225;
+  const toneStartDeg = toneCenterDeg - toneSpanDeg / 2;
+  const toneEndDeg = toneCenterDeg + toneSpanDeg / 2;
+  const toneMid = (toneInner + toneOuter) / 2;
+  const swatchColors = [0, 58, 118, 176, 238, 306].map(
+    (hue) => `oklch(${ribbonL} ${ribbonC} ${hue})`,
+  );
+  const targetHue = hueFromHex(color);
+  const arcPath = (
+    radius: number,
+    startDeg: number,
+    endDeg: number,
+  ) => {
+    const start = polar(0, 0, radius, startDeg);
+    const end = polar(0, 0, radius, endDeg);
+    const large = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+    return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+  };
 
   return (
     <motion.div
       aria-hidden
-      className="pointer-events-none fixed z-[45] translate-x-1/2 translate-y-1/2"
+      className="pointer-events-none fixed z-[45]"
       style={{
-        right: fabRight + fabSize / 2,
-        bottom: fabBottom + fabSize / 2,
+        right: fabRight,
+        bottom: fabBottom,
       }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
-      {[150, 330, 560].map((size, index) => (
+      <motion.div
+        className="absolute left-0 top-0 rounded-full"
+        style={{
+          width: fabSize * 1.9,
+          height: fabSize * 1.9,
+          marginLeft: -fabSize * 0.95,
+          marginTop: -fabSize * 0.95,
+          background: `radial-gradient(circle, ${color}55, ${color}1f 42%, transparent 70%)`,
+        }}
+        initial={{ opacity: 0, scale: 0.42 }}
+        animate={{ opacity: [0, 0.82, 0], scale: [0.42, 1.24] }}
+        transition={{ duration: 0.54, ease: REWARD_EASE }}
+      />
+
+      {swatchColors.map((swatchColor, index) => {
+        const deg =
+          swatchStartDeg +
+          (index * swatchSpanDeg) / Math.max(1, swatchColors.length - 1);
+        const pos = polar(0, 0, arcRadius, deg);
+        return (
+          <motion.div
+            key={swatchColor}
+            className="absolute rounded-full"
+            style={{
+              width: swatchSize,
+              height: swatchSize,
+              left: pos.x - swatchSize / 2,
+              top: pos.y - swatchSize / 2,
+              background: swatchColor,
+              boxShadow:
+                "0 0 0 1px rgba(255,255,255,0.58), 0 8px 18px rgba(0,0,0,0.18)",
+            }}
+            initial={{ opacity: 0, scale: 0.2 }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              scale: [0.2, 1.08, 1, 0.92],
+            }}
+            transition={{
+              duration: 0.86,
+              ease: REWARD_EASE,
+              delay: 0.05 + index * 0.035,
+            }}
+          />
+        );
+      })}
+
+      <motion.svg
+        className="absolute left-0 top-0 overflow-visible"
+        initial={{ opacity: 0, scale: 0.88 }}
+        animate={{ opacity: [0, 1, 1, 0], scale: [0.88, 1.02, 1.02, 0.98] }}
+        transition={{ duration: 0.98, ease: REWARD_EASE, delay: 0.28 }}
+      >
+        <defs>
+          <linearGradient id="intro-picker-ribbon" x1="-1" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="oklch(0.62 0.26 0)" />
+            <stop offset="18%" stopColor="oklch(0.62 0.26 42)" />
+            <stop offset="34%" stopColor="oklch(0.62 0.26 95)" />
+            <stop offset="50%" stopColor="oklch(0.62 0.26 155)" />
+            <stop offset="66%" stopColor="oklch(0.62 0.26 215)" />
+            <stop offset="84%" stopColor="oklch(0.62 0.26 285)" />
+            <stop offset="100%" stopColor="oklch(0.62 0.26 340)" />
+          </linearGradient>
+          <linearGradient id="intro-picker-tone" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor={`oklch(0.08 0.04 ${targetHue})`} />
+            <stop offset="52%" stopColor={`oklch(0.58 0.28 ${targetHue})`} />
+            <stop offset="100%" stopColor={`oklch(0.96 0.08 ${targetHue})`} />
+          </linearGradient>
+        </defs>
+        <motion.path
+          d={arcPath(ribbonMid, ribbonStartDeg, ribbonEndDeg)}
+          fill="none"
+          stroke="rgba(255,255,255,0.92)"
+          strokeLinecap="round"
+          strokeWidth={ribbonOuter - ribbonInner + 7}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.28 }}
+          style={{ filter: "drop-shadow(0 10px 24px rgba(0,0,0,0.18))" }}
+        />
+        <motion.path
+          d={arcPath(ribbonMid, ribbonStartDeg, ribbonEndDeg)}
+          fill="none"
+          stroke="url(#intro-picker-ribbon)"
+          strokeLinecap="round"
+          strokeWidth={ribbonOuter - ribbonInner}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.3 }}
+        />
+        <motion.path
+          d={arcPath(toneMid, toneStartDeg, toneEndDeg)}
+          fill="none"
+          stroke="rgba(255,255,255,0.88)"
+          strokeLinecap="round"
+          strokeWidth={toneOuter - toneInner + 8}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.62 }}
+          style={{ filter: "drop-shadow(0 10px 26px rgba(0,0,0,0.20))" }}
+        />
+        <motion.path
+          d={arcPath(toneMid, toneStartDeg, toneEndDeg)}
+          fill="none"
+          stroke="url(#intro-picker-tone)"
+          strokeLinecap="round"
+          strokeWidth={toneOuter - toneInner}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.64 }}
+        />
+      </motion.svg>
+
+      {[ribbonMid, toneMid].map((radius, index) => (
         <motion.div
-          key={size}
+          key={radius}
           className="absolute left-1/2 top-1/2 rounded-full"
           style={{
-            width: size,
-            height: size,
-            marginLeft: -size / 2,
-            marginTop: -size / 2,
-            background:
-              index === 0
-                ? `radial-gradient(circle, rgba(${rgb}, 0.86), rgba(${rgb}, 0.26) 52%, rgba(${rgb}, 0) 72%)`
-                : index === 1
-                  ? `conic-gradient(from 210deg, rgba(${rgb}, 0), rgba(${rgb}, 0.92), rgba(255,255,255,0.72), rgba(${rgb}, 0.32), rgba(${rgb}, 0))`
-                  : `radial-gradient(circle, rgba(${rgb}, 0.30), rgba(${rgb}, 0.14) 48%, rgba(${rgb}, 0) 72%)`,
-            maskImage:
-              index === 1
-                ? "radial-gradient(circle, transparent 42%, black 45%, black 58%, transparent 61%)"
-                : undefined,
-            WebkitMaskImage:
-              index === 1
-                ? "radial-gradient(circle, transparent 42%, black 45%, black 58%, transparent 61%)"
-                : undefined,
-            filter: index === 0 ? "blur(0px)" : "blur(0.2px)",
+            width: radius * 2,
+            height: radius * 2,
+            marginLeft: -radius,
+            marginTop: -radius,
+            border: `1px solid ${color}44`,
           }}
-          initial={{ opacity: 0, scale: 0.18 }}
+          initial={{ opacity: 0, scale: 0.4 }}
           animate={{
-            opacity: index === 0 ? [0, 0.95, 0] : index === 1 ? [0, 0.82, 0] : [0, 0.66, 0],
-            scale: index === 0 ? [0.18, 1.12] : [0.12, 1.04],
-            rotate: index === 1 ? [0, 10] : 0,
+            opacity: [0, index === 0 ? 0.22 : 0.16, 0],
+            scale: [0.4, 1],
           }}
           transition={{
-            duration: index === 2 ? 0.86 : 0.72,
-            ease: [0.16, 1, 0.3, 1],
-            delay: index * 0.11,
+            duration: 0.78,
+            ease: REWARD_EASE,
+            delay: index === 0 ? 0.28 : 0.62,
           }}
         />
       ))}
