@@ -1181,7 +1181,7 @@ function PhoneScreen({
 
 export function BrandColorGame() {
   const [brandOrder, setBrandOrder] = useState<readonly BrandColorGameBrand[]>(
-    BRAND_COLOR_GAME_BRANDS,
+    [],
   );
   const [roundIndex, setRoundIndex] = useState(0);
   const [result, setResult] = useState<Guess | null>(null);
@@ -1219,7 +1219,7 @@ export function BrandColorGame() {
   const multiplierBurstId = useRef(0);
   const scoreTrailId = useRef(0);
   const timeoutCollapseId = useRef(0);
-  const brand = brandOrder[roundIndex] ?? BRAND_COLOR_GAME_BRANDS[0];
+  const brand = brandOrder[roundIndex];
   const challengeActive = completedPicks >= CHALLENGE_START_AFTER_PICKS;
   const challengeDurationMs = challengeDurationFor(completedPicks);
 
@@ -1283,6 +1283,7 @@ export function BrandColorGame() {
   };
 
   const showTimeoutCollapse = () => {
+    if (!brand) return;
     if (timeoutCollapseTimer.current) {
       clearTimeout(timeoutCollapseTimer.current);
       timeoutCollapseTimer.current = null;
@@ -1298,6 +1299,7 @@ export function BrandColorGame() {
   };
 
   const handlePick = (raw: string) => {
+    if (!brand) return;
     if (revealTimer.current) {
       clearTimeout(revealTimer.current);
       revealTimer.current = null;
@@ -1510,7 +1512,7 @@ export function BrandColorGame() {
       clearTimeout(challengeTimer.current);
       challengeTimer.current = null;
     }
-    if (!challengeActive || challengeIntro || gameOver || isResolving || result) return;
+    if (!brand || !challengeActive || challengeIntro || gameOver || isResolving || result) return;
 
     challengeStartedAt.current = Date.now();
     challengeTimer.current = window.setTimeout(() => {
@@ -1526,7 +1528,7 @@ export function BrandColorGame() {
     };
     // `brand.id` restarts the timeout for each randomized round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brand.id, challengeActive, challengeDurationMs, challengeIntro, gameOver, isResolving, result]);
+  }, [brand?.id, challengeActive, challengeDurationMs, challengeIntro, gameOver, isResolving, result]);
 
   return (
     <main className="min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 text-zinc-950 dark:from-zinc-900 dark:to-zinc-950 dark:text-white">
@@ -1555,36 +1557,38 @@ export function BrandColorGame() {
           borderRadius: 38,
         }}
       >
-        <PhoneScreen
-          brand={brand}
-          result={result}
-          isResolving={isResolving}
-          resolvingMedal={resolvingMedal}
-          resolvingNearMiss={resolvingNearMiss}
-          score={score}
-          lives={lives}
-          streak={streak}
-          multiplierBurst={multiplierBurst}
-          scoreTrail={scoreTrail}
-          bestPulse={bestPulse}
-          lifePulse={lifePulse}
-          timeoutCollapse={timeoutCollapse}
-          completedPicks={completedPicks}
-          gameOver={gameOver}
-          bestScore={bestScore}
-          newBestThisRun={newBestThisRun}
-          challengeIntro={challengeIntro}
-          challengeActive={challengeActive}
-          challengePaused={isResolving || result !== null}
-          challengeKey={roundIndex}
-          challengeDurationMs={challengeDurationMs}
-          showDeviceChrome
-          waves={waves}
-          roundIndex={roundIndex}
-          totalRounds={brandOrder.length}
-          onWaveComplete={handleWaveComplete}
-          onReset={resetGame}
-        />
+        {brand && (
+          <PhoneScreen
+            brand={brand}
+            result={result}
+            isResolving={isResolving}
+            resolvingMedal={resolvingMedal}
+            resolvingNearMiss={resolvingNearMiss}
+            score={score}
+            lives={lives}
+            streak={streak}
+            multiplierBurst={multiplierBurst}
+            scoreTrail={scoreTrail}
+            bestPulse={bestPulse}
+            lifePulse={lifePulse}
+            timeoutCollapse={timeoutCollapse}
+            completedPicks={completedPicks}
+            gameOver={gameOver}
+            bestScore={bestScore}
+            newBestThisRun={newBestThisRun}
+            challengeIntro={challengeIntro}
+            challengeActive={challengeActive}
+            challengePaused={isResolving || result !== null}
+            challengeKey={roundIndex}
+            challengeDurationMs={challengeDurationMs}
+            showDeviceChrome
+            waves={waves}
+            roundIndex={roundIndex}
+            totalRounds={brandOrder.length}
+            onWaveComplete={handleWaveComplete}
+            onReset={resetGame}
+          />
+        )}
       </div>
 
       <div
@@ -1604,40 +1608,42 @@ export function BrandColorGame() {
       />
 
       <div className="fixed inset-0 z-0 md:hidden">
-        <PhoneScreen
-          brand={brand}
-          result={result}
-          isResolving={isResolving}
-          resolvingMedal={resolvingMedal}
-          resolvingNearMiss={resolvingNearMiss}
-          score={score}
-          lives={lives}
-          streak={streak}
-          multiplierBurst={multiplierBurst}
-          scoreTrail={scoreTrail}
-          bestPulse={bestPulse}
-          lifePulse={lifePulse}
-          timeoutCollapse={timeoutCollapse}
-          completedPicks={completedPicks}
-          gameOver={gameOver}
-          bestScore={bestScore}
-          newBestThisRun={newBestThisRun}
-          challengeIntro={challengeIntro}
-          challengeActive={challengeActive}
-          challengePaused={isResolving || result !== null}
-          challengeKey={roundIndex}
-          challengeDurationMs={challengeDurationMs}
-          showDeviceChrome={false}
-          waves={waves}
-          roundIndex={roundIndex}
-          totalRounds={brandOrder.length}
-          onWaveComplete={handleWaveComplete}
-          onReset={resetGame}
-        />
+        {brand && (
+          <PhoneScreen
+            brand={brand}
+            result={result}
+            isResolving={isResolving}
+            resolvingMedal={resolvingMedal}
+            resolvingNearMiss={resolvingNearMiss}
+            score={score}
+            lives={lives}
+            streak={streak}
+            multiplierBurst={multiplierBurst}
+            scoreTrail={scoreTrail}
+            bestPulse={bestPulse}
+            lifePulse={lifePulse}
+            timeoutCollapse={timeoutCollapse}
+            completedPicks={completedPicks}
+            gameOver={gameOver}
+            bestScore={bestScore}
+            newBestThisRun={newBestThisRun}
+            challengeIntro={challengeIntro}
+            challengeActive={challengeActive}
+            challengePaused={isResolving || result !== null}
+            challengeKey={roundIndex}
+            challengeDurationMs={challengeDurationMs}
+            showDeviceChrome={false}
+            waves={waves}
+            roundIndex={roundIndex}
+            totalRounds={brandOrder.length}
+            onWaveComplete={handleWaveComplete}
+            onReset={resetGame}
+          />
+        )}
       </div>
 
       <AnimatePresence>
-        {!hasPicked && (
+        {brand && !hasPicked && (
           <motion.div
             key="picker-helper"
             className="pointer-events-none fixed z-[55] rounded-full border border-zinc-950/10 bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-lg shadow-black/10 backdrop-blur-sm"
@@ -1656,7 +1662,7 @@ export function BrandColorGame() {
         )}
       </AnimatePresence>
 
-      {!gameOver && (
+      {brand && !gameOver && (
         <ColorPickerFabV9
           config={GAME_PICKER_CONFIG}
           onPick={handlePick}

@@ -33,7 +33,7 @@ export const BRAND_COLOR_GAME_BRANDS = [
     "targetHex": "#1428A0",
     "answerName": "Samsung blue",
     "logoSrc": "/lab/brand-color-game/marks/samsung.svg",
-    "logoSizeClassName": "h-24 w-64",
+    "logoSizeClassName": "h-16 w-48",
     "source": "https://www.samsung.com/us/about-us/brand-identity/logo/"
   },
   {
