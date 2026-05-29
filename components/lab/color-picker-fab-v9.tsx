@@ -1480,7 +1480,11 @@ export function ColorPickerFabV9({
         animate={{
           scale: commitPulse ? [1.06, 0.9, 1.12, 1] : previewColor ? 1.06 : pressed ? 0.92 : 1,
         }}
-        transition={{ type: "spring", stiffness: 420, damping: 26 }}
+        transition={
+          commitPulse
+            ? { duration: 0.28, ease: [0.16, 1, 0.3, 1] }
+            : { type: "spring", stiffness: 420, damping: 26 }
+        }
         aria-label="Open colour picker"
       />
     </>
