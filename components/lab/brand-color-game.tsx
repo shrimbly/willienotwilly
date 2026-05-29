@@ -22,6 +22,7 @@ type Guess = {
   points?: number;
   clutch?: boolean;
   multiplier?: number;
+  speedBonus?: QuickPickBonus;
 };
 
 type PickWave = {
@@ -49,6 +50,10 @@ type TimeoutCollapse = {
 };
 
 type MedalKind = "platinum" | "gold" | "silver" | "bronze";
+type QuickPickBonus = {
+  label: string;
+  points: number;
+};
 type IntroPhase =
   | "title"
   | "hud"
@@ -86,6 +91,10 @@ const CHALLENGE_HEARTBEAT_AT_MS = 1000;
 const STARTING_LIVES = 3;
 const CLUTCH_RATIO = 0.15;
 const NEAR_MISS_POINTS = 22;
+const LIGHTNING_PICK_MS = 1400;
+const QUICK_PICK_MS = 2200;
+const LIGHTNING_PICK_BONUS = 350;
+const QUICK_PICK_BONUS = 150;
 const WAVE_ORIGIN = `calc(100% - ${FAB_INSET_FROM_SCREEN}px) calc(100% - ${FAB_INSET_FROM_SCREEN}px)`;
 const REWARD_EASE = [0.16, 1, 0.3, 1] as const;
 const OKLAB_REFERENCE_DISTANCE = 0.62;
@@ -336,17 +345,33 @@ function pointsFor({
   medal,
   streak,
   clutch,
+  speedBonus,
 }: {
   medal: MedalKind | null;
   streak: number;
   clutch: boolean;
+  speedBonus?: QuickPickBonus;
 }) {
   if (!medal) return 0;
   const multiplier = multiplierForStreak(streak);
   return {
-    points: MEDAL_POINTS[medal] * multiplier + (clutch ? 250 : 0),
+    points:
+      MEDAL_POINTS[medal] * multiplier +
+      (clutch ? 250 : 0) +
+      (speedBonus?.points ?? 0),
     multiplier,
   };
+}
+
+function quickPickBonusFor(elapsedMs: number | null, medal: MedalKind | null) {
+  if (!medal || elapsedMs === null) return undefined;
+  if (elapsedMs <= LIGHTNING_PICK_MS) {
+    return { label: "Lightning", points: LIGHTNING_PICK_BONUS };
+  }
+  if (elapsedMs <= QUICK_PICK_MS) {
+    return { label: "Quick", points: QUICK_PICK_BONUS };
+  }
+  return undefined;
 }
 
 function formatScore(value: number) {
@@ -597,6 +622,9 @@ function RewardToast({ result }: { result: Guess }) {
         </p>
         <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
           {result.points ? `+${formatScore(result.points)}` : `${result.errorPoints} points off`}
+          {result.speedBonus
+            ? ` / ${result.speedBonus.label} +${formatScore(result.speedBonus.points)}`
+            : ""}
           {result.clutch ? " / clutch" : ""}
           {result.multiplier && result.multiplier > 1
             ? ` / x${result.multiplier}`
@@ -1471,6 +1499,7 @@ export function BrandColorGame() {
   const autoAdvanceTimer = useRef<number | null>(null);
   const challengeTimer = useRef<number | null>(null);
   const challengeStartedAt = useRef<number | null>(null);
+  const roundStartedAt = useRef<number | null>(null);
   const challengeIntroTimer = useRef<number | null>(null);
   const multiplierBurstTimer = useRef<number | null>(null);
   const scoreTrailTimer = useRef<number | null>(null);
@@ -1576,6 +1605,30 @@ export function BrandColorGame() {
     return () => window.clearTimeout(timer);
   }, [brand, hasInteractedWithPicker, hasPicked, introComplete]);
 
+  useEffect(() => {
+    if (
+      !brand ||
+      !introComplete ||
+      challengeIntro ||
+      gameOver ||
+      isResolving ||
+      result
+    ) {
+      return;
+    }
+
+    roundStartedAt.current = Date.now();
+  }, [
+    brand,
+    challengeIntro,
+    completedPicks,
+    gameOver,
+    introComplete,
+    isResolving,
+    result,
+    roundIndex,
+  ]);
+
   const showMultiplierBurst = (multiplier: number) => {
     if (multiplierBurstTimer.current) {
       clearTimeout(multiplierBurstTimer.current);
@@ -1635,6 +1688,10 @@ export function BrandColorGame() {
     const errorPoints = errorPointsFor(hex, brand.targetHex);
     const medal = medalFor(errorPoints);
     const nearMiss = !medal && errorPoints <= NEAR_MISS_POINTS;
+    const elapsedMs =
+      roundStartedAt.current === null ? null : Date.now() - roundStartedAt.current;
+    const speedBonus = quickPickBonusFor(elapsedMs, medal);
+    roundStartedAt.current = null;
     const waveContrast = foregroundForBackground(hex);
     const clutch =
       challengeActive &&
@@ -1646,7 +1703,12 @@ export function BrandColorGame() {
     const nextStreak = medal ? streak + 1 : 0;
     const previousMultiplier = multiplierForStreak(streak);
     const nextMultiplier = multiplierForStreak(nextStreak);
-    const pointsResult = pointsFor({ medal, streak: nextStreak, clutch });
+    const pointsResult = pointsFor({
+      medal,
+      streak: nextStreak,
+      clutch,
+      speedBonus,
+    });
     const nextCompletedPicks = completedPicks + 1;
     setHasPicked(true);
     setResult(null);
@@ -1698,6 +1760,7 @@ export function BrandColorGame() {
         points: pointsResult ? pointsResult.points : 0,
         multiplier: pointsResult ? pointsResult.multiplier : 1,
         clutch,
+        speedBonus,
       });
       autoAdvanceTimer.current = window.setTimeout(() => {
         autoAdvanceTimer.current = null;
@@ -1731,6 +1794,7 @@ export function BrandColorGame() {
     hapticFor(null);
     showTimeoutCollapse();
     const outOfLives = lives <= 1;
+    roundStartedAt.current = null;
     setHasPicked(true);
     setIsResolving(true);
     setResolvingMedal(null);
@@ -1809,6 +1873,7 @@ export function BrandColorGame() {
     setShowPickerHelper(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
+    roundStartedAt.current = null;
   };
 
   const handleWaveComplete = () => {
