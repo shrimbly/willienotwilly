@@ -417,9 +417,17 @@ function hapticFor(medal: MedalKind | null, nearMiss = false) {
   else navigator.vibrate(26);
 }
 
-function AnimatedScore({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const previousValue = useRef(value);
+function AnimatedScore({
+  value,
+  startFrom = value,
+  durationMs,
+}: {
+  value: number;
+  startFrom?: number;
+  durationMs?: number;
+}) {
+  const [displayValue, setDisplayValue] = useState(startFrom);
+  const previousValue = useRef(startFrom);
 
   useEffect(() => {
     const from = previousValue.current;
@@ -432,7 +440,8 @@ function AnimatedScore({ value }: { value: number }) {
 
     let frame = 0;
     const start = performance.now();
-    const duration = Math.min(520, Math.max(260, Math.abs(to - from) * 0.18));
+    const duration =
+      durationMs ?? Math.min(520, Math.max(260, Math.abs(to - from) * 0.18));
 
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
@@ -443,7 +452,7 @@ function AnimatedScore({ value }: { value: number }) {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [value]);
+  }, [durationMs, value]);
 
   return (
     <motion.span
@@ -783,7 +792,15 @@ function PhoneScreen({
           showDeviceChrome ? "pt-16" : "pt-8"
         }`}
       >
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <motion.div
+          className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"
+          animate={
+            gameOver
+              ? { opacity: 0, y: -12, scale: 0.98 }
+              : { opacity: 1, y: 0, scale: 1 }
+          }
+          transition={{ duration: 0.28, ease: "easeOut" }}
+        >
           <div>
             <p
               className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
@@ -838,7 +855,7 @@ function PhoneScreen({
           >
             <RotateCcw className="size-3.5" />
           </button>
-        </div>
+        </motion.div>
 
         <AnimatePresence>
           {challengeIntro && (
@@ -854,7 +871,15 @@ function PhoneScreen({
           )}
         </AnimatePresence>
 
-        <section className="flex min-h-[260px] flex-col items-center justify-center pt-8">
+        <motion.section
+          className="flex min-h-[260px] flex-col items-center justify-center pt-8"
+          animate={
+            gameOver
+              ? { opacity: 0, y: -18, scale: 0.92, rotate: -1 }
+              : { opacity: 1, y: 0, scale: 1, rotate: 0 }
+          }
+          transition={{ duration: 0.42, ease: REWARD_EASE }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={brand.id}
@@ -918,9 +943,17 @@ function PhoneScreen({
               </div>
             </motion.div>
           </AnimatePresence>
-        </section>
+        </motion.section>
 
-        <div className="text-center">
+        <motion.div
+          className="text-center"
+          animate={
+            gameOver
+              ? { opacity: 0, y: 14, scale: 0.96 }
+              : { opacity: 1, y: 0, scale: 1 }
+          }
+          transition={{ duration: 0.32, ease: "easeOut" }}
+        >
           <p
             className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
             style={screenMuted ? { color: screenMuted } : undefined}
@@ -933,9 +966,13 @@ function PhoneScreen({
           >
             {brand.name}
           </h1>
-        </div>
+        </motion.div>
 
-        <div className="mt-auto pb-20">
+        <motion.div
+          className="mt-auto pb-20"
+          animate={gameOver ? { opacity: 0, y: 16 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+        >
           <AnimatePresence mode="wait">
             {!result && (
               <motion.div
@@ -947,7 +984,7 @@ function PhoneScreen({
               />
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
 
         <AnimatePresence>{result && <RewardToast result={result} />}</AnimatePresence>
 
@@ -998,17 +1035,31 @@ function PhoneScreen({
           {gameOver && (
             <motion.div
               className="absolute inset-0 z-40 flex items-center justify-center overflow-hidden bg-[#f8f6ee]/96 px-7 backdrop-blur-[2px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.24, ease: "easeOut" }}
+              transition={{ duration: 0.32, ease: "easeOut" }}
             >
+              <motion.div
+                aria-hidden
+                className="absolute inset-0 bg-zinc-950"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.08, 0] }}
+                transition={{ duration: 0.42, ease: "easeOut" }}
+              />
               <motion.div
                 aria-hidden
                 className="absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-950/8"
                 initial={{ opacity: 0, scale: 0.72 }}
-                animate={{ opacity: [0, 0.42, 0.12], scale: [0.72, 1.08, 1.18] }}
-                transition={{ duration: 0.9, ease: REWARD_EASE }}
+                animate={{ opacity: [0, 0.48, 0.14], scale: [0.62, 1.08, 1.24] }}
+                transition={{ duration: 1.05, ease: REWARD_EASE }}
+              />
+              <motion.div
+                aria-hidden
+                className="absolute left-1/2 top-1/2 size-96 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-950/6"
+                initial={{ opacity: 0, scale: 0.54 }}
+                animate={{ opacity: [0, 0.28, 0], scale: [0.54, 1.04, 1.34] }}
+                transition={{ duration: 1.18, ease: REWARD_EASE, delay: 0.08 }}
               />
               <motion.div
                 aria-hidden
@@ -1019,10 +1070,10 @@ function PhoneScreen({
               />
               <motion.div
                 className="relative w-full rounded-[8px] border border-zinc-950/10 bg-white/90 p-6 text-center shadow-[0_20px_62px_rgba(0,0,0,0.16)]"
-                initial={{ opacity: 0, y: 22, scale: 0.94 }}
-                animate={{ opacity: 1, y: 0, scale: [1, 1.025, 1] }}
+                initial={{ opacity: 0, y: 34, scale: 0.86, rotate: -1.5 }}
+                animate={{ opacity: 1, y: 0, scale: [0.98, 1.045, 1], rotate: 0 }}
                 exit={{ opacity: 0, y: 10, scale: 0.99 }}
-                transition={{ duration: 0.48, ease: REWARD_EASE, delay: 0.04 }}
+                transition={{ duration: 0.58, ease: REWARD_EASE, delay: 0.06 }}
               >
                 {newBestThisRun && (
                   <motion.div
@@ -1045,10 +1096,10 @@ function PhoneScreen({
                 <motion.p
                   className="mt-3 text-6xl font-semibold tabular-nums tracking-tight"
                   initial={{ opacity: 0, y: 10, scale: 0.82 }}
-                  animate={{ opacity: 1, y: 0, scale: [1, 1.08, 1] }}
-                  transition={{ duration: 0.5, ease: REWARD_EASE, delay: 0.24 }}
+                  animate={{ opacity: 1, y: 0, scale: [0.92, 1.12, 1] }}
+                  transition={{ duration: 0.62, ease: REWARD_EASE, delay: 0.22 }}
                 >
-                  <AnimatedScore value={score} />
+                  <AnimatedScore value={score} startFrom={0} durationMs={950} />
                 </motion.p>
                 <motion.div
                   className="mt-5 grid grid-cols-2 divide-x divide-zinc-950/10 rounded-[8px] border border-zinc-950/10 bg-zinc-50/80 py-3"
@@ -1065,7 +1116,7 @@ function PhoneScreen({
                       Best
                     </p>
                     <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
-                      {formatScore(bestScore)}
+                      <AnimatedScore value={bestScore} startFrom={0} durationMs={780} />
                     </p>
                   </motion.div>
                   <motion.div
@@ -1077,7 +1128,7 @@ function PhoneScreen({
                       Matched
                     </p>
                     <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
-                      {completedPicks}
+                      <AnimatedScore value={completedPicks} startFrom={0} durationMs={620} />
                     </p>
                   </motion.div>
                 </motion.div>
