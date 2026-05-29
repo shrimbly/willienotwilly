@@ -58,7 +58,6 @@ type IntroPhase =
   | "tone"
   | "settle"
   | "color"
-  | "logo"
   | "name"
   | "ready";
 
@@ -99,7 +98,6 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "tone",
   "settle",
   "color",
-  "logo",
   "name",
   "ready",
 ];
@@ -111,7 +109,6 @@ const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
   { phase: "tone", at: 2640 },
   { phase: "settle", at: 3380 },
   { phase: "color", at: 4180 },
-  { phase: "logo", at: 4660 },
   { phase: "name", at: 5200 },
   { phase: "ready", at: 5880 },
 ];
@@ -702,7 +699,7 @@ function IntroPhoneScreen({
   const phaseIndex = INTRO_PHASE_ORDER.indexOf(phase);
   const showHud = phaseIndex >= INTRO_PHASE_ORDER.indexOf("hud");
   const showColor = phaseIndex >= INTRO_PHASE_ORDER.indexOf("color");
-  const showLogo = phaseIndex >= INTRO_PHASE_ORDER.indexOf("logo");
+  const showLogo = showColor;
   const showName = phaseIndex >= INTRO_PHASE_ORDER.indexOf("name");
 
   return (
