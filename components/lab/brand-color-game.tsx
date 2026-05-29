@@ -104,16 +104,16 @@ const INTRO_PHASE_ORDER: IntroPhase[] = [
   "ready",
 ];
 const INTRO_PHASE_TIMINGS: Array<{ phase: IntroPhase; at: number }> = [
-  { phase: "hud", at: 920 },
-  { phase: "fab", at: 1340 },
-  { phase: "swatches", at: 1580 },
-  { phase: "ribbon", at: 1720 },
-  { phase: "tone", at: 1900 },
-  { phase: "settle", at: 2640 },
-  { phase: "color", at: 3060 },
-  { phase: "logo", at: 3300 },
-  { phase: "name", at: 3620 },
-  { phase: "ready", at: 4140 },
+  { phase: "hud", at: 1380 },
+  { phase: "fab", at: 1760 },
+  { phase: "swatches", at: 2000 },
+  { phase: "ribbon", at: 2140 },
+  { phase: "tone", at: 2320 },
+  { phase: "settle", at: 3060 },
+  { phase: "color", at: 3480 },
+  { phase: "logo", at: 3720 },
+  { phase: "name", at: 4040 },
+  { phase: "ready", at: 4560 },
 ];
 
 const GAME_PICKER_CONFIG: Config = {
@@ -621,6 +621,73 @@ function RewardToast({ result }: { result: Guess }) {
   );
 }
 
+function IntroTitle() {
+  const swatches = ["#ef4444", "#f59e0b", "#22c55e", "#06b6d4", "#6366f1"];
+
+  return (
+    <motion.div
+      key="intro-title"
+      className="relative flex flex-1 items-center justify-center overflow-hidden text-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, y: -12, scale: 0.99 }}
+      transition={{ duration: 0.24, ease: "easeOut" }}
+    >
+      <motion.div
+        aria-hidden
+        className="absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 blur-2xl"
+        style={{
+          background:
+            "conic-gradient(from 210deg, #ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #ef4444)",
+        }}
+        initial={{ scale: 0.68, rotate: -18, opacity: 0 }}
+        animate={{ scale: [0.72, 1.08, 1], rotate: 0, opacity: [0, 0.2, 0.14] }}
+        transition={{ duration: 0.86, ease: REWARD_EASE }}
+      />
+
+      <div className="relative">
+        <div className="overflow-hidden">
+          <motion.h1
+            className="text-[46px] font-semibold leading-[0.94] tracking-tight"
+            initial={{ y: 46 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.54, ease: REWARD_EASE, delay: 0.08 }}
+          >
+            Pick a color
+          </motion.h1>
+        </div>
+        <motion.div
+          className="mx-auto mt-5 flex w-max items-center gap-2"
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: {},
+            show: {
+              transition: {
+                staggerChildren: 0.045,
+                delayChildren: 0.34,
+              },
+            },
+          }}
+        >
+          {swatches.map((color) => (
+            <motion.span
+              key={color}
+              className="block size-2.5 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+              style={{ backgroundColor: color }}
+              variants={{
+                hidden: { opacity: 0, y: 8, scale: 0.55 },
+                show: { opacity: 1, y: 0, scale: 1 },
+              }}
+              transition={{ duration: 0.34, ease: REWARD_EASE }}
+            />
+          ))}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
 function IntroPhoneScreen({
   phase,
   brand,
@@ -659,20 +726,7 @@ function IntroPhoneScreen({
         }`}
       >
         <AnimatePresence mode="wait">
-          {phase === "title" && (
-            <motion.div
-              key="intro-title"
-              className="flex flex-1 items-center justify-center text-center"
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.985 }}
-              transition={{ duration: 0.38, ease: REWARD_EASE }}
-            >
-              <h1 className="text-5xl font-semibold tracking-tight">
-                Pick a color
-              </h1>
-            </motion.div>
-          )}
+          {phase === "title" && <IntroTitle />}
         </AnimatePresence>
 
         {showHud && (
