@@ -1464,6 +1464,7 @@ export function BrandColorGame() {
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
   const [hasInteractedWithPicker, setHasInteractedWithPicker] = useState(false);
+  const [showPickerHelper, setShowPickerHelper] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [pickerCloseSignal, setPickerCloseSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -1565,6 +1566,18 @@ export function BrandColorGame() {
     setPressed(nextPressed);
     if (nextPressed) setHasInteractedWithPicker(true);
   };
+
+  useEffect(() => {
+    if (!brand || !introComplete || hasPicked || hasInteractedWithPicker) {
+      setShowPickerHelper(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowPickerHelper(true);
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [brand, hasInteractedWithPicker, hasPicked, introComplete]);
 
   const showMultiplierBurst = (multiplier: number) => {
     if (multiplierBurstTimer.current) {
@@ -1796,6 +1809,7 @@ export function BrandColorGame() {
     closePicker();
     setHasPicked(false);
     setHasInteractedWithPicker(false);
+    setShowPickerHelper(false);
     setBrandOrder(shuffledBrands());
     setRoundIndex(0);
   };
@@ -1968,7 +1982,7 @@ export function BrandColorGame() {
       </div>
 
       <AnimatePresence>
-        {brand && introComplete && !hasPicked && !hasInteractedWithPicker && (
+        {showPickerHelper && (
           <motion.div
             key="picker-helper"
             className="pointer-events-none fixed z-[55] rounded-full border border-zinc-950/10 bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-lg shadow-black/10 backdrop-blur-sm"
@@ -1982,7 +1996,7 @@ export function BrandColorGame() {
             exit={{ opacity: 0, y: 2, scale: 0.99 }}
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           >
-            Drag to select color
+            Drag to pick a color
           </motion.div>
         )}
       </AnimatePresence>
