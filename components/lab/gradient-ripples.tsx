@@ -261,10 +261,10 @@ export function GradientRipplesLab() {
   const [colors, setColors] = useState(DEFAULT_COLORS);
   const [noiseIntensity, setNoiseIntensity] = useState(0.06);
   const [noiseStyle, setNoiseStyle] = useState(0);
-  const [ripple, setRipple] = useState(0.38);
-  const [depth, setDepth] = useState(0.34);
-  const [speed, setSpeed] = useState(1.98);
-  const [thickness, setThickness] = useState(0.25);
+  const [ripple, setRipple] = useState(0.25);
+  const [depth, setDepth] = useState(0.06);
+  const [speed, setSpeed] = useState(1.27);
+  const [thickness, setThickness] = useState(0.42);
   const [speedField, setSpeedField] = useState(0.6);
   const [rippleCount, setRippleCount] = useState(4);
   const [chromatic, setChromatic] = useState(1);
@@ -297,10 +297,10 @@ export function GradientRipplesLab() {
       uColors: { value: getColorArray(DEFAULT_COLORS) },
       uNoiseIntensity: { value: 0.06 },
       uNoiseStyle: { value: 0 },
-      uRipple: { value: 0.38 },
-      uDepth: { value: 0.34 },
-      uSpeed: { value: 1.98 },
-      uThickness: { value: 0.25 },
+      uRipple: { value: 0.25 },
+      uDepth: { value: 0.06 },
+      uSpeed: { value: 1.27 },
+      uThickness: { value: 0.42 },
       uSpeedField: { value: 0.6 },
       uRippleCount: { value: 4 },
       uChromatic: { value: 1 },
@@ -401,10 +401,10 @@ export function GradientRipplesLab() {
     setColors(DEFAULT_COLORS);
     setNoiseIntensity(0.06);
     setNoiseStyle(0);
-    setRipple(0.38);
-    setDepth(0.34);
-    setSpeed(1.98);
-    setThickness(0.25);
+    setRipple(0.25);
+    setDepth(0.06);
+    setSpeed(1.27);
+    setThickness(0.42);
     setSpeedField(0.6);
     setRippleCount(4);
     setChromatic(1);
