@@ -17,6 +17,7 @@ const enterButton = mount?.querySelector("[data-enter-ar]");
 const statusEl = mount?.querySelector("[data-status]");
 const placementEl = mount?.querySelector("[data-placement]");
 const supportEl = mount?.querySelector("[data-support]");
+const decorativeOverlay = mount?.querySelector("[data-ar-decorative-overlay]");
 
 if (!root || !canvas || !video || !captureButton || !enterButton || !statusEl || !placementEl || !supportEl) {
   throw new Error("Face Wall AR mount is missing required elements.");
@@ -51,6 +52,14 @@ const setStatus = (message) => {
 const setPlacement = (message) => {
   placementEl.textContent = message;
 };
+
+function setArOverlayActive(active) {
+  mount.style.background = active ? "transparent" : "";
+  root.style.background = "transparent";
+  if (decorativeOverlay) decorativeOverlay.style.display = active ? "none" : "";
+  document.documentElement.style.background = active ? "transparent" : "";
+  document.body.style.background = active ? "transparent" : "";
+}
 
 function updateStartButton() {
   enterButton.disabled = !(arSupported && faceCaptured);
@@ -332,6 +341,7 @@ function initThree() {
           hitTestSource = null;
           reticle.visible = false;
           aimingDot.visible = true;
+          setArOverlayActive(false);
           setPlacement("AR session ended.");
         });
         hitTestSourceRequested = true;
@@ -386,9 +396,11 @@ async function enterAR() {
       optionalFeatures: ["dom-overlay", "anchors", "light-estimation", "camera-access"],
       domOverlay: { root: document.body },
     });
+    setArOverlayActive(true);
     await renderer.xr.setSession(session);
     setStatus("AR running. Find a wall or flat surface.");
   } catch (error) {
+    setArOverlayActive(false);
     console.warn(error);
     setStatus("AR did not start. Check Chrome permissions and make sure AR services are enabled.");
   }
@@ -440,7 +452,10 @@ export function FaceWallArLab() {
       className="relative min-h-[100dvh] overflow-hidden bg-black text-white"
     >
       <div data-face-wall-root className="fixed inset-0" />
-      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,0.14),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.20),rgba(0,0,0,0.72))]" />
+      <div
+        data-ar-decorative-overlay
+        className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,0.14),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.20),rgba(0,0,0,0.72))]"
+      />
 
       <section className="fixed inset-x-0 top-0 z-20 px-5 pt-5">
         <div className="mx-auto max-w-md">
