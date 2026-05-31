@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Radial color picker",
     entries: [
       {
+        slug: "brand-color-game",
+        version: "game",
+        title: "Pick a color",
+        note: "A brand-colour guessing game built on the radial picker, with real logos, timed rounds, medals, streaks, and score juice.",
+      },
+      {
         slug: "color-picker-v9",
         version: "v9",
         title: "Life-size thumb cursor for desktop demo",
