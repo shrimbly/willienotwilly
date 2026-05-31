@@ -14,22 +14,10 @@ import {
   BRAND_COLOR_GAME_BRANDS,
   type BrandColorGameBrand,
 } from "@/lib/brandColorGameBrands";
-import {
-  BRAND_COLOR_GAME_FLAGS,
-  FLAG_BLANK_COLOR,
-  type BrandColorGameFlag,
-} from "@/lib/brandColorGameFlags";
-
-type GameMode = "brand" | "hiddenBrand" | "flags";
-
-type GamePrompt =
-  | (BrandColorGameBrand & { kind: "brand" | "hiddenBrand" })
-  | (BrandColorGameFlag & { kind: "flag" });
 
 type Guess = {
   errorPoints: number;
   medal: MedalKind | null;
-  nearMiss?: boolean;
   label?: string;
   points?: number;
   clutch?: boolean;
@@ -84,14 +72,6 @@ type IntroPhase =
   | "color"
   | "name"
   | "ready";
-
-type ModeConfig = {
-  label: string;
-  shortLabel: string;
-  description: string;
-  instruction: string;
-  bestStorageKey: string;
-};
 
 const DEVICE_SCREEN_W = 360;
 const DEVICE_SCREEN_H = 720;
@@ -180,108 +160,13 @@ const MEDAL_POINTS: Record<MedalKind, number> = {
   bronze: 150,
 };
 
-const MODE_CONFIG: Record<GameMode, ModeConfig> = {
-  brand: {
-    label: "Brand",
-    shortLabel: "Brand",
-    description: "Logo and color",
-    instruction: "Match the primary brand color",
-    bestStorageKey: "brand-color-game-best-brand",
-  },
-  hiddenBrand: {
-    label: "Hidden Brands",
-    shortLabel: "Hidden",
-    description: "Memory only",
-    instruction: "Pick the primary brand color",
-    bestStorageKey: "brand-color-game-best-hiddenBrand",
-  },
-  flags: {
-    label: "Flags",
-    shortLabel: "Flags",
-    description: "Fill the missing color",
-    instruction: "Pick the missing flag color",
-    bestStorageKey: "brand-color-game-best-flags",
-  },
-};
-
-const MODE_OPTIONS: GameMode[] = ["brand", "hiddenBrand", "flags"];
-
-const HIDDEN_BRAND_IDS = [
-  "mcdonalds",
-  "starbucks",
-  "samsung",
-  "apple",
-  "google",
-  "youtube",
-  "netflix",
-  "spotify",
-  "instagram",
-  "facebook",
-  "tiktok",
-  "snapchat",
-  "whatsapp",
-  "discord",
-  "reddit",
-  "pinterest",
-  "playstation",
-  "nike",
-  "adidas",
-  "ikea",
-  "target",
-  "cocacola",
-  "kfc",
-  "burgerking",
-  "uber",
-  "airbnb",
-  "toyota",
-  "tesla",
-  "visa",
-  "paypal",
-] as const;
-
-const FLAG_MEDAL_THRESHOLDS: Record<MedalKind, number> = {
-  platinum: 4,
-  gold: 10,
-  silver: 18,
-  bronze: 30,
-};
-const FLAG_NEAR_MISS_POINTS = 42;
-const BRAND_NEAR_MISS_POINTS = NEAR_MISS_POINTS;
-
-function shuffleArray<T>(items: readonly T[]) {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+function shuffledBrands() {
+  const brands = [...BRAND_COLOR_GAME_BRANDS];
+  for (let i = brands.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [brands[i], brands[j]] = [brands[j], brands[i]];
   }
-  return shuffled;
-}
-
-function promptsForMode(mode: GameMode): GamePrompt[] {
-  const allBrands: readonly BrandColorGameBrand[] = BRAND_COLOR_GAME_BRANDS;
-  if (mode === "hiddenBrand") {
-    const hiddenBrands = HIDDEN_BRAND_IDS.map((id) =>
-      allBrands.find((brand) => brand.id === id),
-    ).filter((brand): brand is BrandColorGameBrand => Boolean(brand));
-    return shuffleArray(hiddenBrands).map((brand) => ({
-      ...brand,
-      kind: "hiddenBrand",
-    }));
-  }
-
-  if (mode === "flags") {
-    const flags = [1, 2, 3].flatMap((difficulty) =>
-      shuffleArray(
-        BRAND_COLOR_GAME_FLAGS.filter((flag) => flag.difficulty === difficulty),
-      ),
-    );
-    return flags.map((flag) => ({ ...flag, kind: "flag" }));
-  }
-
-  return shuffleArray(allBrands).map((brand) => ({
-    ...brand,
-    kind: "brand",
-  }));
+  return brands;
 }
 
 function ThumbCursor({
@@ -451,19 +336,6 @@ function medalFor(errorPoints: number): MedalKind | null {
   if (errorPoints <= 10) return "silver";
   if (errorPoints <= 15) return "bronze";
   return null;
-}
-
-function medalForMode(errorPoints: number, mode: GameMode): MedalKind | null {
-  if (mode !== "flags") return medalFor(errorPoints);
-  if (errorPoints <= FLAG_MEDAL_THRESHOLDS.platinum) return "platinum";
-  if (errorPoints <= FLAG_MEDAL_THRESHOLDS.gold) return "gold";
-  if (errorPoints <= FLAG_MEDAL_THRESHOLDS.silver) return "silver";
-  if (errorPoints <= FLAG_MEDAL_THRESHOLDS.bronze) return "bronze";
-  return null;
-}
-
-function nearMissThresholdForMode(mode: GameMode) {
-  return mode === "flags" ? FLAG_NEAR_MISS_POINTS : BRAND_NEAR_MISS_POINTS;
 }
 
 function challengeDurationFor(completedPicks: number) {
@@ -664,7 +536,7 @@ function AnimatedScore({
 function RewardToast({ result }: { result: Guess }) {
   const medal = result.medal ? MEDALS[result.medal] : null;
   const motionConfig = rewardMotion(result.medal);
-  const nearMiss = Boolean(result.nearMiss);
+  const nearMiss = !result.medal && result.errorPoints <= NEAR_MISS_POINTS;
 
   return (
     <motion.div
@@ -847,92 +719,14 @@ function IntroTitle() {
   );
 }
 
-function FlagArt({ flag }: { flag: BrandColorGameFlag }) {
-  const renderColor = (color: string) =>
-    color.toUpperCase() === flag.missingColor.toUpperCase()
-      ? FLAG_BLANK_COLOR
-      : color;
-
-  return (
-    <svg
-      viewBox="0 0 360 240"
-      role="img"
-      aria-label={`${flag.name} flag with a missing color`}
-      className="h-full w-full rounded-[22px] shadow-[inset_0_0_0_1px_rgba(24,24,27,0.10)]"
-    >
-      <rect width="360" height="240" fill={FLAG_BLANK_COLOR} />
-      {flag.shapes.map((shape, index) => {
-        const fill = renderColor(shape.color);
-        if (shape.kind === "rect") {
-          return (
-            <rect
-              key={index}
-              x={shape.x}
-              y={shape.y}
-              width={shape.width}
-              height={shape.height}
-              fill={fill}
-            />
-          );
-        }
-        if (shape.kind === "circle") {
-          return (
-            <circle
-              key={index}
-              cx={shape.cx}
-              cy={shape.cy}
-              r={shape.r}
-              fill={fill}
-            />
-          );
-        }
-        return <polygon key={index} points={shape.points} fill={fill} />;
-      })}
-    </svg>
-  );
-}
-
-function PromptMark({ prompt }: { prompt: GamePrompt }) {
-  if (prompt.kind === "flag") {
-    return (
-      <div className="h-32 w-52 overflow-hidden rounded-[22px]">
-        <FlagArt flag={prompt} />
-      </div>
-    );
-  }
-
-  const hidden = prompt.kind === "hiddenBrand";
-
-  return (
-    <div className={`relative overflow-hidden ${prompt.logoSizeClassName}`}>
-      <Image
-        src={prompt.logoSrc}
-        alt={`${prompt.name} logo`}
-        fill
-        priority
-        sizes="208px"
-        className={`object-contain ${hidden ? "grayscale brightness-0 opacity-75" : ""}`}
-      />
-    </div>
-  );
-}
-
-function promptTileBackground(prompt: GamePrompt) {
-  if (prompt.kind === "brand") return prompt.targetHex;
-  if (prompt.kind === "flag") return "#ffffff";
-  return "#f0eee6";
-}
-
 function IntroPhoneScreen({
   phase,
-  prompt,
-  mode,
+  brand,
   totalRounds,
   showDeviceChrome,
 }: {
   phase: IntroPhase;
-  prompt?: GamePrompt;
-  mode: GameMode;
+  brand?: BrandColorGameBrand;
   totalRounds: number;
   showDeviceChrome: boolean;
 }) {
@@ -1007,7 +801,7 @@ function IntroPhoneScreen({
           </motion.div>
         )}
 
-        {prompt && showHud && (
+        {brand && showHud && (
           <>
             <motion.section className="flex min-h-[260px] flex-col items-center justify-center pt-8">
               <motion.div
@@ -1019,7 +813,7 @@ function IntroPhoneScreen({
                     : { opacity: 0, y: 14, scale: 0.96 }
                 }
                 transition={{ duration: 0.42, ease: REWARD_EASE }}
-                style={{ backgroundColor: promptTileBackground(prompt) }}
+                style={{ backgroundColor: brand.targetHex }}
               >
                 <motion.div
                   aria-hidden
@@ -1029,7 +823,7 @@ function IntroPhoneScreen({
                   transition={{ duration: 0.54, ease: REWARD_EASE }}
                 />
                 <motion.div
-                  className="relative"
+                  className={`relative overflow-hidden ${brand.logoSizeClassName}`}
                   initial={{ opacity: 0, y: 8, scale: 0.92 }}
                   animate={
                     showLogo
@@ -1038,7 +832,14 @@ function IntroPhoneScreen({
                   }
                   transition={{ duration: 0.42, ease: REWARD_EASE }}
                 >
-                  <PromptMark prompt={prompt} />
+                  <Image
+                    src={brand.logoSrc}
+                    alt={`${brand.name} logo`}
+                    fill
+                    priority
+                    sizes="208px"
+                    className="object-contain"
+                  />
                 </motion.div>
               </motion.div>
             </motion.section>
@@ -1050,10 +851,10 @@ function IntroPhoneScreen({
               transition={{ duration: 0.3, ease: "easeOut" }}
             >
               <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400">
-                {MODE_CONFIG[mode].instruction}
+                Match the primary brand color
               </p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-                {prompt.name}
+                {brand.name}
               </h1>
             </motion.div>
           </>
@@ -1068,8 +869,7 @@ function IntroPhoneScreen({
 }
 
 function PhoneScreen({
-  prompt,
-  mode,
+  brand,
   result,
   isResolving,
   resolvingMedal,
@@ -1095,16 +895,11 @@ function PhoneScreen({
   waves,
   roundIndex,
   totalRounds,
-  showModeSelect,
-  modeMenuOpen,
   onWaveComplete,
   onReset,
-  onToggleModeMenu,
-  onSelectMode,
   suppressInitialReveal = false,
 }: {
-  prompt: GamePrompt;
-  mode: GameMode;
+  brand: BrandColorGameBrand;
   result: Guess | null;
   isResolving: boolean;
   resolvingMedal: MedalKind | null;
@@ -1130,15 +925,11 @@ function PhoneScreen({
   waves: PickWave[];
   roundIndex: number;
   totalRounds: number;
-  showModeSelect: boolean;
-  modeMenuOpen: boolean;
   onWaveComplete: (id: number) => void;
   onReset: () => void;
-  onToggleModeMenu: () => void;
-  onSelectMode: (mode: GameMode) => void;
   suppressInitialReveal?: boolean;
 }) {
-  const brandRgb = hexToRgbString(prompt.targetHex);
+  const brandRgb = hexToRgbString(brand.targetHex);
   const activeWave = waves.at(-1);
   const screenForeground = activeWave?.foreground ?? "#18181b";
   const screenMuted = activeWave?.mutedForeground ?? undefined;
@@ -1364,7 +1155,7 @@ function PhoneScreen({
           </div>
           <button
             type="button"
-            onClick={() => onReset()}
+            onClick={onReset}
             aria-label="Reset game"
             className="ml-auto grid size-8 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-950"
             style={activeWave ? { color: screenMuted } : undefined}
@@ -1398,7 +1189,7 @@ function PhoneScreen({
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={prompt.id}
+              key={brand.id}
               initial={
                 suppressInitialReveal
                   ? false
@@ -1427,7 +1218,7 @@ function PhoneScreen({
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
               transition={{ duration: isResolving ? 0.36 : 0.28, ease: [0.22, 1, 0.36, 1] }}
               className="grid h-44 w-56 place-items-center rounded-[36px]"
-              style={{ backgroundColor: promptTileBackground(prompt) }}
+              style={{ backgroundColor: brand.targetHex }}
             >
               {isResolving && (resolvingMedal === "platinum" || resolvingMedal === "gold") && (
                 <motion.div
@@ -1445,11 +1236,16 @@ function PhoneScreen({
                   transition={{ duration: resolvingMedal === "platinum" ? 0.84 : 0.68, ease: REWARD_EASE }}
                 />
               )}
-              <div className="relative">
-                <PromptMark
-                  prompt={prompt}
+              <div className={`relative overflow-hidden ${brand.logoSizeClassName}`}>
+                <Image
+                  src={brand.logoSrc}
+                  alt={`${brand.name} logo`}
+                  fill
+                  priority
+                  sizes="208px"
+                  className="object-contain"
                 />
-                {isResolving && resolvingMedal && prompt.kind !== "hiddenBrand" && (
+                {isResolving && resolvingMedal && (
                   <motion.div
                     aria-hidden
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/45 to-transparent mix-blend-screen"
@@ -1480,13 +1276,13 @@ function PhoneScreen({
             className="font-mono text-[11px] uppercase tracking-widest text-zinc-400"
             style={screenMuted ? { color: screenMuted } : undefined}
           >
-            {MODE_CONFIG[mode].instruction}
+            Match the primary brand color
           </p>
           <h1
             className="mt-2 text-4xl font-semibold tracking-tight"
             style={activeWave ? { color: screenForeground } : undefined}
           >
-            {prompt.name}
+            {brand.name}
           </h1>
         </motion.div>
 
@@ -1498,7 +1294,7 @@ function PhoneScreen({
           <AnimatePresence mode="wait">
             {!result && (
               <motion.div
-                key={`${prompt.id}-prompt`}
+                key={`${brand.id}-prompt`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -1657,7 +1453,7 @@ function PhoneScreen({
                   </motion.div>
                   <motion.button
                     type="button"
-                    onClick={() => onReset()}
+                    onClick={onReset}
                     className="mt-5 rounded-full bg-zinc-950 px-6 py-2.5 text-sm font-medium text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition hover:bg-zinc-800"
                     initial={{ opacity: 0, y: 10, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1666,59 +1462,6 @@ function PhoneScreen({
                   >
                     Play again
                   </motion.button>
-                  {showModeSelect && (
-                    <motion.div
-                      className="mt-3"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.28, ease: "easeOut", delay: 0.72 }}
-                    >
-                      <button
-                        type="button"
-                        onClick={onToggleModeMenu}
-                        className="rounded-full px-4 py-2 text-sm font-medium text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950"
-                      >
-                        Play a different mode
-                      </button>
-                      <AnimatePresence>
-                        {modeMenuOpen && (
-                          <motion.div
-                            className="mt-3 grid gap-2 rounded-[8px] border border-zinc-950/10 bg-white/80 p-2 text-left"
-                            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -4, scale: 0.99 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                          >
-                            {MODE_OPTIONS.map((option) => (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => onSelectMode(option)}
-                                className={`rounded-[7px] px-3 py-2 text-left transition ${
-                                  option === mode
-                                    ? "bg-zinc-950 text-white"
-                                    : "text-zinc-700 hover:bg-zinc-950/5"
-                                }`}
-                              >
-                                <span className="block text-sm font-semibold">
-                                  {MODE_CONFIG[option].label}
-                                </span>
-                                <span
-                                  className={`mt-0.5 block font-mono text-[11px] uppercase tracking-widest ${
-                                    option === mode
-                                      ? "text-white/62"
-                                      : "text-zinc-400"
-                                  }`}
-                                >
-                                  {MODE_CONFIG[option].description}
-                                </span>
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
                 </motion.div>
               </motion.div>
             </motion.div>
@@ -1734,8 +1477,9 @@ function PhoneScreen({
 }
 
 export function BrandColorGame() {
-  const [mode, setMode] = useState<GameMode>("brand");
-  const [promptOrder, setPromptOrder] = useState<readonly GamePrompt[]>([]);
+  const [brandOrder, setBrandOrder] = useState<readonly BrandColorGameBrand[]>(
+    [],
+  );
   const [roundIndex, setRoundIndex] = useState(0);
   const [result, setResult] = useState<Guess | null>(null);
   const [isResolving, setIsResolving] = useState(false);
@@ -1753,8 +1497,6 @@ export function BrandColorGame() {
   const [resolvingMedal, setResolvingMedal] = useState<MedalKind | null>(null);
   const [resolvingNearMiss, setResolvingNearMiss] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const [hasCompletedBrandRun, setHasCompletedBrandRun] = useState(false);
   const [challengeIntro, setChallengeIntro] = useState(false);
   const [waves, setWaves] = useState<PickWave[]>([]);
   const [hasPicked, setHasPicked] = useState(false);
@@ -1782,7 +1524,7 @@ export function BrandColorGame() {
   const multiplierBurstId = useRef(0);
   const scoreTrailId = useRef(0);
   const timeoutCollapseId = useRef(0);
-  const prompt = promptOrder[roundIndex];
+  const brand = brandOrder[roundIndex];
   const introComplete = introPhase === "ready";
   const introPhaseIndex = INTRO_PHASE_ORDER.indexOf(introPhase);
   const introPickerControl: PickerControl | null =
@@ -1820,18 +1562,13 @@ export function BrandColorGame() {
   const challengeDurationMs = challengeDurationFor(completedPicks);
 
   useEffect(() => {
-    const storedBest =
-      window.localStorage.getItem(MODE_CONFIG.brand.bestStorageKey) ??
-      window.localStorage.getItem("brand-color-game-best");
+    const storedBest = window.localStorage.getItem("brand-color-game-best");
     if (storedBest) {
       const parsedBest = parseInt(storedBest, 10) || 0;
       bestScoreRef.current = parsedBest;
       setBestScore(parsedBest);
     }
-    setHasCompletedBrandRun(
-      window.localStorage.getItem("brand-color-game-brand-run-complete") === "1",
-    );
-    setPromptOrder(promptsForMode("brand"));
+    setBrandOrder(shuffledBrands());
     const mq = window.matchMedia("(max-width: 767px)");
     setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
@@ -1844,16 +1581,6 @@ export function BrandColorGame() {
       window.removeEventListener("resize", onResize);
     };
   }, []);
-
-  useEffect(() => {
-    const storedBest =
-      window.localStorage.getItem(MODE_CONFIG[mode].bestStorageKey) ??
-      (mode === "brand" ? window.localStorage.getItem("brand-color-game-best") : null);
-    const parsedBest = storedBest ? parseInt(storedBest, 10) || 0 : 0;
-    bestScoreRef.current = parsedBest;
-    setBestScore(parsedBest);
-    setBestPulse((currentPulse) => currentPulse + 1);
-  }, [mode]);
 
   useEffect(() => {
     const timers: number[] = [];
@@ -1905,10 +1632,6 @@ export function BrandColorGame() {
       completedPicks: endCompletedPicks,
       newBest: newBestThisRunRef.current,
     });
-    if (mode === "brand" && endCompletedPicks > 0) {
-      window.localStorage.setItem("brand-color-game-brand-run-complete", "1");
-      setHasCompletedBrandRun(true);
-    }
     setGameOver(true);
   };
 
@@ -1918,7 +1641,7 @@ export function BrandColorGame() {
   };
 
   useEffect(() => {
-    if (!prompt || !introComplete || hasPicked || hasInteractedWithPicker) {
+    if (!brand || !introComplete || hasPicked || hasInteractedWithPicker) {
       setShowPickerHelper(false);
       return;
     }
@@ -1927,11 +1650,11 @@ export function BrandColorGame() {
       setShowPickerHelper(true);
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [prompt, hasInteractedWithPicker, hasPicked, introComplete]);
+  }, [brand, hasInteractedWithPicker, hasPicked, introComplete]);
 
   useEffect(() => {
     if (
-      !prompt ||
+      !brand ||
       !introComplete ||
       challengeIntro ||
       gameOver ||
@@ -1943,7 +1666,7 @@ export function BrandColorGame() {
 
     roundStartedAt.current = Date.now();
   }, [
-    prompt,
+    brand,
     challengeIntro,
     completedPicks,
     gameOver,
@@ -1993,14 +1716,14 @@ export function BrandColorGame() {
   };
 
   const showTimeoutCollapse = () => {
-    if (!prompt) return;
+    if (!brand) return;
     if (timeoutCollapseTimer.current) {
       clearTimeout(timeoutCollapseTimer.current);
       timeoutCollapseTimer.current = null;
     }
     setTimeoutCollapse({
       id: ++timeoutCollapseId.current,
-      color: prompt.targetHex,
+      color: brand.targetHex,
     });
     timeoutCollapseTimer.current = window.setTimeout(() => {
       setTimeoutCollapse(null);
@@ -2009,7 +1732,7 @@ export function BrandColorGame() {
   };
 
   const handlePick = (raw: string) => {
-    if (!prompt) return;
+    if (!brand) return;
     if (revealTimer.current) {
       clearTimeout(revealTimer.current);
       revealTimer.current = null;
@@ -2024,9 +1747,9 @@ export function BrandColorGame() {
     }
     if (gameOver) return;
     const hex = resolveCssColor(raw);
-    const errorPoints = errorPointsFor(hex, prompt.targetHex);
-    const medal = medalForMode(errorPoints, mode);
-    const nearMiss = !medal && errorPoints <= nearMissThresholdForMode(mode);
+    const errorPoints = errorPointsFor(hex, brand.targetHex);
+    const medal = medalFor(errorPoints);
+    const nearMiss = !medal && errorPoints <= NEAR_MISS_POINTS;
     const elapsedMs =
       roundStartedAt.current === null ? null : Date.now() - roundStartedAt.current;
     const speedBonus = quickPickBonusFor(elapsedMs, medal);
@@ -2086,10 +1809,7 @@ export function BrandColorGame() {
         setScore(nextScore);
         if (nextScore > bestScoreRef.current) {
           bestScoreRef.current = nextScore;
-          window.localStorage.setItem(
-            MODE_CONFIG[mode].bestStorageKey,
-            String(nextScore),
-          );
+          window.localStorage.setItem("brand-color-game-best", String(nextScore));
           newBestThisRunRef.current = true;
           setBestScore(nextScore);
           setBestPulse((currentPulse) => currentPulse + 1);
@@ -2098,7 +1818,6 @@ export function BrandColorGame() {
       setResult({
         errorPoints,
         medal,
-        nearMiss,
         label: nearMiss ? "Close" : undefined,
         points: pointsResult ? pointsResult.points : 0,
         multiplier: pointsResult ? pointsResult.multiplier : 1,
@@ -2125,7 +1844,7 @@ export function BrandColorGame() {
               challengeIntroTimer.current = null;
             }, 1100);
           }
-          setRoundIndex((current) => (current + 1) % promptOrder.length);
+          setRoundIndex((current) => (current + 1) % brandOrder.length);
         }
       }, NEXT_ROUND_DELAY_MS);
     }, SCORE_REVEAL_DELAY_MS);
@@ -2148,7 +1867,6 @@ export function BrandColorGame() {
     setResult({
       errorPoints: 100,
       medal: null,
-      nearMiss: false,
       label: "Time",
     });
     autoAdvanceTimer.current = window.setTimeout(() => {
@@ -2162,12 +1880,12 @@ export function BrandColorGame() {
         hapticFor("bronze");
         endGame();
       } else {
-        setRoundIndex((current) => (current + 1) % promptOrder.length);
+        setRoundIndex((current) => (current + 1) % brandOrder.length);
       }
     }, NEXT_ROUND_DELAY_MS);
   };
 
-  const resetGame = (nextMode: GameMode = mode) => {
+  const resetGame = () => {
     if (revealTimer.current) {
       clearTimeout(revealTimer.current);
       revealTimer.current = null;
@@ -2205,12 +1923,6 @@ export function BrandColorGame() {
     bestScoreRef.current = bestScore;
     completedPicksRef.current = 0;
     newBestThisRunRef.current = false;
-    const storedBest =
-      window.localStorage.getItem(MODE_CONFIG[nextMode].bestStorageKey) ??
-      (nextMode === "brand" ? window.localStorage.getItem("brand-color-game-best") : null);
-    const parsedBest = storedBest ? parseInt(storedBest, 10) || 0 : 0;
-    bestScoreRef.current = parsedBest;
-    setBestScore(parsedBest);
     setScore(0);
     setFinalStats(null);
     setLives(STARTING_LIVES);
@@ -2219,21 +1931,15 @@ export function BrandColorGame() {
     setScoreTrail(null);
     setTimeoutCollapse(null);
     setGameOver(false);
-    setModeMenuOpen(false);
     setChallengeIntro(false);
     setWaves([]);
     closePicker();
     setHasPicked(false);
     setHasInteractedWithPicker(false);
     setShowPickerHelper(false);
-    setMode(nextMode);
-    setPromptOrder(promptsForMode(nextMode));
+    setBrandOrder(shuffledBrands());
     setRoundIndex(0);
     roundStartedAt.current = null;
-  };
-
-  const selectMode = (nextMode: GameMode) => {
-    resetGame(nextMode);
   };
 
   const handleWaveComplete = () => {
@@ -2257,7 +1963,7 @@ export function BrandColorGame() {
       clearTimeout(challengeTimer.current);
       challengeTimer.current = null;
     }
-    if (!prompt || !challengeActive || challengeIntro || gameOver || isResolving || result) return;
+    if (!brand || !challengeActive || challengeIntro || gameOver || isResolving || result) return;
 
     challengeStartedAt.current = Date.now();
     challengeTimer.current = window.setTimeout(() => {
@@ -2271,9 +1977,9 @@ export function BrandColorGame() {
         challengeTimer.current = null;
       }
     };
-    // `prompt.id` restarts the timeout for each randomized round.
+    // `brand.id` restarts the timeout for each randomized round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt?.id, challengeActive, challengeDurationMs, challengeIntro, gameOver, isResolving, result]);
+  }, [brand?.id, challengeActive, challengeDurationMs, challengeIntro, gameOver, isResolving, result]);
 
   return (
     <main className="min-h-[100dvh] overflow-hidden bg-gradient-to-br from-zinc-50 to-zinc-200 text-zinc-950 dark:from-zinc-900 dark:to-zinc-950 dark:text-white">
@@ -2302,10 +2008,9 @@ export function BrandColorGame() {
           borderRadius: 38,
         }}
       >
-        {!isMobile && introComplete && prompt ? (
+        {!isMobile && introComplete && brand ? (
           <PhoneScreen
-            prompt={prompt}
-            mode={mode}
+            brand={brand}
             result={result}
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
@@ -2330,21 +2035,16 @@ export function BrandColorGame() {
             showDeviceChrome
             waves={waves}
             roundIndex={roundIndex}
-            totalRounds={promptOrder.length}
-            showModeSelect={hasCompletedBrandRun}
-            modeMenuOpen={modeMenuOpen}
+            totalRounds={brandOrder.length}
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
-            onToggleModeMenu={() => setModeMenuOpen((open) => !open)}
-            onSelectMode={selectMode}
             suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
         ) : !isMobile ? (
           <IntroPhoneScreen
             phase={introPhase}
-            prompt={prompt}
-            mode={mode}
-            totalRounds={promptOrder.length}
+            brand={brand}
+            totalRounds={brandOrder.length}
             showDeviceChrome
           />
         ) : null}
@@ -2368,10 +2068,9 @@ export function BrandColorGame() {
 
       {isMobile && (
         <div className="fixed inset-0 z-0 md:hidden">
-          {introComplete && prompt ? (
+          {introComplete && brand ? (
           <PhoneScreen
-            prompt={prompt}
-            mode={mode}
+            brand={brand}
             result={result}
             isResolving={isResolving}
             resolvingMedal={resolvingMedal}
@@ -2396,21 +2095,16 @@ export function BrandColorGame() {
             showDeviceChrome={false}
             waves={waves}
             roundIndex={roundIndex}
-            totalRounds={promptOrder.length}
-            showModeSelect={hasCompletedBrandRun}
-            modeMenuOpen={modeMenuOpen}
+            totalRounds={brandOrder.length}
             onWaveComplete={handleWaveComplete}
             onReset={resetGame}
-            onToggleModeMenu={() => setModeMenuOpen((open) => !open)}
-            onSelectMode={selectMode}
             suppressInitialReveal={completedPicks === 0 && roundIndex === 0}
           />
           ) : (
           <IntroPhoneScreen
             phase={introPhase}
-            prompt={prompt}
-            mode={mode}
-            totalRounds={promptOrder.length}
+            brand={brand}
+            totalRounds={brandOrder.length}
             showDeviceChrome={false}
           />
           )}
@@ -2438,7 +2132,7 @@ export function BrandColorGame() {
       </AnimatePresence>
 
       {(introPhaseIndex >= INTRO_PHASE_ORDER.indexOf("fab") &&
-        (introComplete ? prompt && !gameOver : true)) && (
+        (introComplete ? brand && !gameOver : true)) && (
         <ColorPickerFabV9
           config={GAME_PICKER_CONFIG}
           onPick={introComplete ? handlePick : undefined}
