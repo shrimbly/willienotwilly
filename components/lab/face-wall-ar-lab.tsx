@@ -132,14 +132,29 @@ function updateReliefTextures() {
 
 async function loadModules() {
   if (THREE) return;
-  [{ default: THREE }, { FaceLandmarker, FilesetResolver }] = await Promise.all([
-    import(THREE_URL),
-    import(VISION_URL),
-  ]);
+  try {
+    const [threeModule, visionModule] = await Promise.all([
+      import(THREE_URL),
+      import(VISION_URL),
+    ]);
+    THREE = threeModule;
+    FaceLandmarker = visionModule.FaceLandmarker;
+    FilesetResolver = visionModule.FilesetResolver;
+  } catch (error) {
+    console.error(error);
+    setStatus("AR modules failed to load. Check connection and refresh.");
+    throw error;
+  }
 }
 
 async function setupFaceCapture() {
-  await loadModules();
+  try {
+    await loadModules();
+  } catch {
+    captureButton.disabled = true;
+    enterButton.disabled = true;
+    return;
+  }
   const fileset = await FilesetResolver.forVisionTasks(VISION_WASM);
   faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
     baseOptions: {
@@ -322,8 +337,12 @@ async function enterAR() {
     return;
   }
   if (!THREE) {
-    setStatus("Still loading AR modules. Try again in a moment.");
-    return;
+    setStatus("Loading AR modules...");
+    try {
+      await loadModules();
+    } catch {
+      return;
+    }
   }
   if (!renderer) initThree();
   if (previewStream) {
