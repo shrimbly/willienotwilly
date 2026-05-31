@@ -61,6 +61,14 @@ function setArOverlayActive(active) {
   document.body.style.background = active ? "transparent" : "";
 }
 
+function releasePreviewCamera() {
+  if (!previewStream) return;
+  previewStream.getTracks().forEach((track) => track.stop());
+  previewStream = null;
+  video.pause();
+  video.srcObject = null;
+}
+
 function updateStartButton() {
   enterButton.disabled = !(arSupported && faceCaptured);
 }
@@ -215,6 +223,7 @@ function captureFace() {
   capturedFaceData = { displacement: makeDisplacementTexture(landmarks) };
   video.style.opacity = "0";
   canvas.style.opacity = "1";
+  releasePreviewCamera();
   faceCaptured = true;
   updateReliefTextures();
   updateStartButton();
@@ -386,15 +395,11 @@ async function enterAR() {
     }
   }
   if (!renderer) initThree();
-  if (previewStream) {
-    previewStream.getTracks().forEach((track) => track.stop());
-    previewStream = null;
-  }
+  releasePreviewCamera();
   try {
     const session = await navigator.xr.requestSession("immersive-ar", {
       requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay", "anchors", "light-estimation", "camera-access"],
-      domOverlay: { root: document.body },
+      optionalFeatures: ["anchors", "light-estimation", "camera-access"],
     });
     setArOverlayActive(true);
     await renderer.xr.setSession(session);
