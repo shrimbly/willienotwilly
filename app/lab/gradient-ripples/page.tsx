@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { GradientRipplesLab } from "@/components/lab/gradient-ripples";
 
 export const metadata: Metadata = {
-  title: "Gradient Ripples",
+  title: "Chromatic Field",
   robots: { index: false, follow: false },
 };
 

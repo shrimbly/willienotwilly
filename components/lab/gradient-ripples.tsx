@@ -420,7 +420,7 @@ export function GradientRipplesLab() {
             Lab / gradient animation
           </p>
           <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
-            Depth ripples
+            Chromatic field
           </h1>
         </div>
       </div>

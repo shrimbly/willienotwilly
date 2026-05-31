@@ -20,7 +20,7 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
       {
         slug: "gradient-ripples",
         version: "v1",
-        title: "Gradient animation experiment",
+        title: "Chromatic field",
         note: "A customisable Three.js shader sketch with noisy layered gradients and irregular ripple fields.",
       },
     ],
