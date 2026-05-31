@@ -15,17 +15,6 @@ type Iteration = {
 
 const ITERATIONS: { project: string; entries: Iteration[] }[] = [
   {
-    project: "AR experiments",
-    entries: [
-      {
-        slug: "face-wall-ar",
-        version: "ar",
-        title: "Face in the wall",
-        note: "An Android-first WebXR sketch for pinning a captured face relief onto a real wall or flat surface.",
-      },
-    ],
-  },
-  {
     project: "Pick a colour game",
     entries: [
       {
