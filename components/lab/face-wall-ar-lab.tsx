@@ -31,6 +31,7 @@ let scene;
 let camera;
 let controller;
 let reticle;
+let aimingDot;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 let faceTexture;
@@ -224,6 +225,24 @@ function createReticle() {
   return mesh;
 }
 
+function createAimingDot() {
+  const group = new THREE.Group();
+  group.position.set(0, 0, -1.1);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.86,
+    depthTest: false,
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.025, 0.032, 36), material);
+  const dot = new THREE.Mesh(new THREE.CircleGeometry(0.006, 24), material);
+  ring.renderOrder = 10;
+  dot.renderOrder = 11;
+  group.add(ring, dot);
+  camera.add(group);
+  return group;
+}
+
 function createReliefMesh() {
   const geometry = new THREE.PlaneGeometry(0.72, 0.72, 96, 96);
   reliefMaterial = new THREE.MeshStandardMaterial({
@@ -260,8 +279,16 @@ function onSelect() {
 function initThree() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+  scene.add(camera);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    premultipliedAlpha: false,
+    preserveDrawingBuffer: false,
+  });
+  renderer.setClearColor(0x000000, 0);
+  renderer.autoClear = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
@@ -276,6 +303,7 @@ function initThree() {
 
   reticle = createReticle();
   scene.add(reticle);
+  aimingDot = createAimingDot();
   createReliefMesh();
 
   controller = renderer.xr.getController(0);
@@ -303,6 +331,7 @@ function initThree() {
           hitTestSourceRequested = false;
           hitTestSource = null;
           reticle.visible = false;
+          aimingDot.visible = true;
           setPlacement("AR session ended.");
         });
         hitTestSourceRequested = true;
@@ -314,10 +343,12 @@ function initThree() {
           const hit = hitTestResults[0];
           const pose = hit.getPose(referenceSpace);
           reticle.visible = true;
+          aimingDot.visible = false;
           reticle.matrix.fromArray(pose.transform.matrix);
           if (!placed) setPlacement("Surface found. Tap to pin the face relief.");
         } else {
           reticle.visible = false;
+          aimingDot.visible = true;
           if (!placed) setPlacement("Move slowly until a surface is found.");
         }
       }
@@ -352,7 +383,7 @@ async function enterAR() {
   try {
     const session = await navigator.xr.requestSession("immersive-ar", {
       requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay", "anchors", "light-estimation"],
+      optionalFeatures: ["dom-overlay", "anchors", "light-estimation", "camera-access"],
       domOverlay: { root: document.body },
     });
     await renderer.xr.setSession(session);
