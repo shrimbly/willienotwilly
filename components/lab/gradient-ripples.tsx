@@ -1,7 +1,7 @@
 "use client";
 
 import * as THREE from "three";
-import { RotateCcw } from "lucide-react";
+import { EyeOff, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_COLORS = ["#33673B", "#69B574", "#ADD7B4", "#F1F8F2", "#F5F5F5"];
@@ -268,6 +268,7 @@ export function GradientRipplesLab() {
   const [speedField, setSpeedField] = useState(0.6);
   const [rippleCount, setRippleCount] = useState(4);
   const [chromatic, setChromatic] = useState(1);
+  const [controlsHidden, setControlsHidden] = useState(false);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
 
@@ -424,131 +425,154 @@ export function GradientRipplesLab() {
         </div>
       </div>
 
-      <section
-        aria-label="Gradient controls"
-        className="absolute inset-x-3 bottom-3 z-20 rounded-lg border border-white/45 bg-white/58 p-3 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[22rem]"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">
-              Custom palette
-            </h2>
-            <p className="mt-0.5 text-xs text-[#102214]/60">
-              Static grain, slow viscous depth waves.
-            </p>
+      {controlsHidden ? (
+        <button
+          type="button"
+          onClick={() => setControlsHidden(false)}
+          className="absolute bottom-3 left-3 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-5 sm:left-5"
+          aria-label="Show gradient controls"
+        >
+          <SlidersHorizontal size={17} strokeWidth={2} />
+        </button>
+      ) : (
+        <section
+          aria-label="Gradient controls"
+          className="absolute inset-x-3 bottom-3 z-20 rounded-lg border border-white/45 bg-white/58 p-3 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[22rem]"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold tracking-tight">
+                Custom palette
+              </h2>
+              <p className="mt-0.5 text-xs text-[#102214]/60">
+                Static grain, slow viscous depth waves.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setControlsHidden(true)}
+                className="grid size-9 place-items-center rounded-full border border-[#102214]/15 bg-white/40 text-[#102214] transition hover:bg-white/75"
+                aria-label="Hide gradient controls"
+              >
+                <EyeOff size={15} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="grid size-9 place-items-center rounded-full border border-[#102214]/15 bg-white/40 text-[#102214] transition hover:bg-white/75"
+                aria-label="Reset gradient controls"
+              >
+                <RotateCcw size={15} strokeWidth={2} />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={reset}
-            className="grid size-9 place-items-center rounded-full border border-[#102214]/15 bg-white/40 text-[#102214] transition hover:bg-white/75"
-            aria-label="Reset gradient controls"
-          >
-            <RotateCcw size={15} strokeWidth={2} />
-          </button>
-        </div>
 
-        <div className="mt-4 grid grid-cols-5 gap-2">
-          {colors.map((color, index) => (
-            <label
-              key={`${index}-${color}`}
-              className="group relative block aspect-square overflow-hidden rounded-md border border-[#102214]/15 shadow-inner"
-              style={{ backgroundColor: color }}
-              aria-label={`Color ${index + 1}`}
-            >
-              <input
-                type="color"
-                value={color}
-                onChange={(event) => {
-                  const next = [...colors];
-                  next[index] = event.target.value;
-                  setColors(next);
-                }}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
-              <span className="absolute inset-x-0 bottom-0 bg-black/35 py-1 text-center font-mono text-[0.55rem] uppercase leading-none text-white opacity-0 transition group-hover:opacity-100">
-                {index + 1}
-              </span>
-            </label>
-          ))}
-        </div>
+          <div className="mt-4 grid grid-cols-5 gap-2">
+            {colors.map((color, index) => (
+              <label
+                key={`${index}-${color}`}
+                className="group relative block aspect-square overflow-hidden rounded-md border border-[#102214]/15 shadow-inner"
+                style={{ backgroundColor: color }}
+                aria-label={`Color ${index + 1}`}
+              >
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(event) => {
+                    const next = [...colors];
+                    next[index] = event.target.value;
+                    setColors(next);
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+                <span className="absolute inset-x-0 bottom-0 bg-black/35 py-1 text-center font-mono text-[0.55rem] uppercase leading-none text-white opacity-0 transition group-hover:opacity-100">
+                  {index + 1}
+                </span>
+              </label>
+            ))}
+          </div>
 
-        <div className="mt-4 grid gap-3">
-          <Control
-            label="Grain"
-            value={noiseIntensity}
-            min={0}
-            max={0.34}
-            step={0.01}
-            onChange={setNoiseIntensity}
-          />
-          <Control
-            label="Texture"
-            value={noiseStyle}
-            min={0}
-            max={2}
-            step={1}
-            onChange={setNoiseStyle}
-            formatValue={(value) => ["film", "soft", "grit"][value] ?? "film"}
-          />
-          <Control
-            label="Ripple"
-            value={ripple}
-            min={0}
-            max={1.4}
-            step={0.01}
-            onChange={setRipple}
-          />
-          <Control
-            label="Count"
-            value={rippleCount}
-            min={2}
-            max={4}
-            step={1}
-            onChange={setRippleCount}
-            formatValue={(value) => value.toFixed(0)}
-          />
-          <Control
-            label="Thickness"
-            value={thickness}
-            min={0.25}
-            max={2.4}
-            step={0.01}
-            onChange={setThickness}
-          />
-          <Control
-            label="Depth"
-            value={depth}
-            min={0.05}
-            max={1.3}
-            step={0.01}
-            onChange={setDepth}
-          />
-          <Control
-            label="Chromatic"
-            value={chromatic}
-            min={0}
-            max={2.5}
-            step={0.01}
-            onChange={setChromatic}
-          />
-          <Control
-            label="Travel"
-            value={speed}
-            min={0.12}
-            max={2.4}
-            step={0.01}
-            onChange={setSpeed}
-          />
-          <Control
-            label="Speed field"
-            value={speedField}
-            min={0}
-            max={1.8}
-            step={0.01}
-            onChange={setSpeedField}
-          />
-        </div>
-      </section>
+          <div className="mt-4 grid gap-3">
+            <Control
+              label="Grain"
+              value={noiseIntensity}
+              min={0}
+              max={0.34}
+              step={0.01}
+              onChange={setNoiseIntensity}
+            />
+            <Control
+              label="Texture"
+              value={noiseStyle}
+              min={0}
+              max={2}
+              step={1}
+              onChange={setNoiseStyle}
+              formatValue={(value) =>
+                ["film", "soft", "grit"][value] ?? "film"
+              }
+            />
+            <Control
+              label="Ripple"
+              value={ripple}
+              min={0}
+              max={1.4}
+              step={0.01}
+              onChange={setRipple}
+            />
+            <Control
+              label="Count"
+              value={rippleCount}
+              min={2}
+              max={4}
+              step={1}
+              onChange={setRippleCount}
+              formatValue={(value) => value.toFixed(0)}
+            />
+            <Control
+              label="Thickness"
+              value={thickness}
+              min={0.25}
+              max={2.4}
+              step={0.01}
+              onChange={setThickness}
+            />
+            <Control
+              label="Depth"
+              value={depth}
+              min={0.05}
+              max={1.3}
+              step={0.01}
+              onChange={setDepth}
+            />
+            <Control
+              label="Chromatic"
+              value={chromatic}
+              min={0}
+              max={2.5}
+              step={0.01}
+              onChange={setChromatic}
+            />
+            <Control
+              label="Travel"
+              value={speed}
+              min={0.12}
+              max={2.4}
+              step={0.01}
+              onChange={setSpeed}
+            />
+            <Control
+              label="Speed field"
+              value={speedField}
+              min={0}
+              max={1.8}
+              step={0.01}
+              onChange={setSpeedField}
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
