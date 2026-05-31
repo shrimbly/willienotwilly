@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Gradient animation",
     entries: [
       {
+        slug: "gradient-ripples-v2",
+        version: "v2",
+        title: "Chromatic field v2",
+        note: "A nested-ripple version with fewer origins and layered chromatic waves inside each other.",
+      },
+      {
         slug: "gradient-ripples",
         version: "v1",
         title: "Chromatic field",

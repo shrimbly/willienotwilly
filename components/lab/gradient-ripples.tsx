@@ -30,6 +30,7 @@ uniform float uThickness;
 uniform float uSpeedField;
 uniform float uRippleCount;
 uniform float uChromatic;
+uniform float uNestedMode;
 uniform vec4 uClickRipples[6];
 
 varying vec2 vUv;
@@ -145,6 +146,14 @@ vec2 viscousWave(vec2 p, float seed, float offset, float cycle, float baseRate, 
   return vec2(ring * envelope, wake * envelope);
 }
 
+vec2 nestedWaveFamily(vec2 p, float seed, float offset, float cycle, float baseRate, float width) {
+  vec2 outer = viscousWave(p, seed, offset, cycle, baseRate, width);
+  vec2 middle = viscousWave(p, seed, offset + cycle * 0.12, cycle, baseRate * 0.98, width * 0.72);
+  vec2 inner = viscousWave(p, seed, offset + cycle * 0.24, cycle, baseRate * 0.96, width * 0.5);
+
+  return outer + middle * 0.62 + inner * 0.36;
+}
+
 vec2 clickWave(vec2 p, vec4 ripple) {
   float age = max(uTime - ripple.z, 0.0);
   float alive = step(0.0, ripple.z) * (1.0 - smoothstep(3.2, 5.4, age));
@@ -181,10 +190,18 @@ void main() {
   float mid = fbm(p * 2.0 + vec2(-localT * 0.026, localT * 0.018));
   float pull = fbm(p * 3.4 + vec2(low, mid) * 0.38 + localT * 0.012);
 
-  vec2 waveA = viscousWave(p, 11.2, 0.0, 28.0, 0.046, 0.16);
-  vec2 waveB = viscousWave(p, 47.8, 14.0, 36.0, 0.038, 0.2);
-  vec2 waveC = viscousWave(p, 93.4, 22.0, 42.0, 0.033, 0.18);
-  vec2 waveD = viscousWave(p, 129.6, 31.0, 46.0, 0.03, 0.22);
+  vec2 waveA = mix(
+    viscousWave(p, 11.2, 0.0, 28.0, 0.046, 0.16),
+    nestedWaveFamily(p, 11.2, 0.0, 34.0, 0.037, 0.18),
+    uNestedMode
+  );
+  vec2 waveB = mix(
+    viscousWave(p, 47.8, 14.0, 36.0, 0.038, 0.2),
+    nestedWaveFamily(p, 47.8, 17.0, 43.0, 0.032, 0.22),
+    uNestedMode
+  );
+  vec2 waveC = viscousWave(p, 93.4, 22.0, 42.0, 0.033, 0.18) * (1.0 - uNestedMode);
+  vec2 waveD = viscousWave(p, 129.6, 31.0, 46.0, 0.03, 0.22) * (1.0 - uNestedMode);
   float cWeight = smoothstep(2.0, 3.0, uRippleCount);
   float dWeight = smoothstep(3.0, 4.0, uRippleCount);
   float waves = waveA.x + waveB.x + waveC.x * cWeight + waveD.x * dWeight;
@@ -242,7 +259,52 @@ function getColorArray(colors: string[]) {
   return colors.map((color) => hexToVector(color));
 }
 
-export function GradientRipplesLab() {
+type GradientVariant = "v1" | "v2";
+
+const VARIANT_DEFAULTS = {
+  v1: {
+    ripple: 0.25,
+    depth: 0.06,
+    speed: 1.27,
+    thickness: 0.42,
+    speedField: 0.6,
+    rippleCount: 4,
+    chromatic: 1,
+    nestedMode: 0,
+    title: "Chromatic field",
+  },
+  v2: {
+    ripple: 0.36,
+    depth: 0.08,
+    speed: 1.08,
+    thickness: 0.5,
+    speedField: 0.52,
+    rippleCount: 2,
+    chromatic: 1.15,
+    nestedMode: 1,
+    title: "Chromatic field v2",
+  },
+} satisfies Record<
+  GradientVariant,
+  {
+    ripple: number;
+    depth: number;
+    speed: number;
+    thickness: number;
+    speedField: number;
+    rippleCount: number;
+    chromatic: number;
+    nestedMode: number;
+    title: string;
+  }
+>;
+
+export function GradientRipplesLab({
+  variant = "v1",
+}: {
+  variant?: GradientVariant;
+}) {
+  const defaults = VARIANT_DEFAULTS[variant];
   const mountRef = useRef<HTMLDivElement | null>(null);
   const uniformsRef = useRef<{
     uColors: { value: THREE.Color[] };
@@ -255,19 +317,20 @@ export function GradientRipplesLab() {
     uSpeedField: { value: number };
     uRippleCount: { value: number };
     uChromatic: { value: number };
+    uNestedMode: { value: number };
     uClickRipples: { value: THREE.Vector4[] };
   } | null>(null);
 
   const [colors, setColors] = useState(DEFAULT_COLORS);
   const [noiseIntensity, setNoiseIntensity] = useState(0.06);
   const [noiseStyle, setNoiseStyle] = useState(0);
-  const [ripple, setRipple] = useState(0.25);
-  const [depth, setDepth] = useState(0.06);
-  const [speed, setSpeed] = useState(1.27);
-  const [thickness, setThickness] = useState(0.42);
-  const [speedField, setSpeedField] = useState(0.6);
-  const [rippleCount, setRippleCount] = useState(4);
-  const [chromatic, setChromatic] = useState(1);
+  const [ripple, setRipple] = useState(defaults.ripple);
+  const [depth, setDepth] = useState(defaults.depth);
+  const [speed, setSpeed] = useState(defaults.speed);
+  const [thickness, setThickness] = useState(defaults.thickness);
+  const [speedField, setSpeedField] = useState(defaults.speedField);
+  const [rippleCount, setRippleCount] = useState(defaults.rippleCount);
+  const [chromatic, setChromatic] = useState(defaults.chromatic);
   const [controlsHidden, setControlsHidden] = useState(false);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
@@ -297,13 +360,14 @@ export function GradientRipplesLab() {
       uColors: { value: getColorArray(DEFAULT_COLORS) },
       uNoiseIntensity: { value: 0.06 },
       uNoiseStyle: { value: 0 },
-      uRipple: { value: 0.25 },
-      uDepth: { value: 0.06 },
-      uSpeed: { value: 1.27 },
-      uThickness: { value: 0.42 },
-      uSpeedField: { value: 0.6 },
-      uRippleCount: { value: 4 },
-      uChromatic: { value: 1 },
+      uRipple: { value: defaults.ripple },
+      uDepth: { value: defaults.depth },
+      uSpeed: { value: defaults.speed },
+      uThickness: { value: defaults.thickness },
+      uSpeedField: { value: defaults.speedField },
+      uRippleCount: { value: defaults.rippleCount },
+      uChromatic: { value: defaults.chromatic },
+      uNestedMode: { value: defaults.nestedMode },
       uClickRipples: { value: clickRipples },
     };
     uniformsRef.current = uniforms;
@@ -367,7 +431,7 @@ export function GradientRipplesLab() {
       renderer.domElement.remove();
       uniformsRef.current = null;
     };
-  }, []);
+  }, [defaults]);
 
   useEffect(() => {
     if (!uniformsRef.current) return;
@@ -385,8 +449,10 @@ export function GradientRipplesLab() {
     uniformsRef.current.uSpeedField.value = speedField;
     uniformsRef.current.uRippleCount.value = rippleCount;
     uniformsRef.current.uChromatic.value = chromatic;
+    uniformsRef.current.uNestedMode.value = defaults.nestedMode;
   }, [
     chromatic,
+    defaults.nestedMode,
     depth,
     noiseIntensity,
     noiseStyle,
@@ -401,13 +467,13 @@ export function GradientRipplesLab() {
     setColors(DEFAULT_COLORS);
     setNoiseIntensity(0.06);
     setNoiseStyle(0);
-    setRipple(0.25);
-    setDepth(0.06);
-    setSpeed(1.27);
-    setThickness(0.42);
-    setSpeedField(0.6);
-    setRippleCount(4);
-    setChromatic(1);
+    setRipple(defaults.ripple);
+    setDepth(defaults.depth);
+    setSpeed(defaults.speed);
+    setThickness(defaults.thickness);
+    setSpeedField(defaults.speedField);
+    setRippleCount(defaults.rippleCount);
+    setChromatic(defaults.chromatic);
   };
 
   return (
@@ -420,7 +486,7 @@ export function GradientRipplesLab() {
             Lab / gradient animation
           </p>
           <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
-            Chromatic field
+            {defaults.title}
           </h1>
         </div>
       </div>
@@ -524,7 +590,7 @@ export function GradientRipplesLab() {
             <Control
               label="Count"
               value={rippleCount}
-              min={2}
+              min={variant === "v2" ? 1 : 2}
               max={4}
               step={1}
               onChange={setRippleCount}
