@@ -4,7 +4,6 @@ import { useEffect, useId, useRef } from "react";
 
 const EXPERIENCE_SCRIPT = String.raw`
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js";
-const AR_BUTTON_URL = "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/webxr/ARButton.js";
 const VISION_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs";
 const VISION_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
 const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
@@ -24,7 +23,6 @@ if (!root || !canvas || !video || !captureButton || !enterButton || !statusEl ||
 }
 
 let THREE;
-let ARButton;
 let FaceLandmarker;
 let FilesetResolver;
 let faceLandmarker;
@@ -42,6 +40,8 @@ let reliefMaterial;
 let capturedFaceData = null;
 let previewStream = null;
 let placed = false;
+let arSupported = false;
+let faceCaptured = false;
 
 const setStatus = (message) => {
   statusEl.textContent = message;
@@ -50,6 +50,10 @@ const setStatus = (message) => {
 const setPlacement = (message) => {
   placementEl.textContent = message;
 };
+
+function updateStartButton() {
+  enterButton.disabled = !(arSupported && faceCaptured);
+}
 
 function drawFallbackFaceTexture() {
   const ctx = canvas.getContext("2d");
@@ -128,9 +132,8 @@ function updateReliefTextures() {
 
 async function loadModules() {
   if (THREE) return;
-  [{ default: THREE }, { ARButton }, { FaceLandmarker, FilesetResolver }] = await Promise.all([
+  [{ default: THREE }, { FaceLandmarker, FilesetResolver }] = await Promise.all([
     import(THREE_URL),
-    import(AR_BUTTON_URL),
     import(VISION_URL),
   ]);
 }
@@ -162,7 +165,8 @@ async function setupFaceCapture() {
     drawFallbackFaceTexture();
     capturedFaceData = { displacement: makeDisplacementTexture(null) };
     captureButton.disabled = true;
-    enterButton.disabled = false;
+    faceCaptured = true;
+    updateStartButton();
     setStatus("Camera preview was blocked. Using a placeholder relief.");
   }
 }
@@ -184,8 +188,11 @@ function captureFace() {
   }
 
   capturedFaceData = { displacement: makeDisplacementTexture(landmarks) };
+  video.style.opacity = "0";
+  canvas.style.opacity = "1";
+  faceCaptured = true;
   updateReliefTextures();
-  enterButton.disabled = false;
+  updateStartButton();
   setStatus(landmarks ? "Face captured. Start AR and tap a wall or flat surface." : "Captured. Face landmarks were faint, but the relief is ready.");
 }
 
@@ -306,14 +313,16 @@ function initThree() {
 }
 
 async function enterAR() {
-  await loadModules();
   if (!navigator.xr) {
     setStatus("WebXR is not available in this browser.");
     return;
   }
-  const supported = await navigator.xr.isSessionSupported("immersive-ar");
-  if (!supported) {
+  if (!arSupported) {
     setStatus("Immersive AR is not supported here. Try Chrome on an ARCore Android phone over HTTPS.");
+    return;
+  }
+  if (!THREE) {
+    setStatus("Still loading AR modules. Try again in a moment.");
     return;
   }
   if (!renderer) initThree();
@@ -321,27 +330,31 @@ async function enterAR() {
     previewStream.getTracks().forEach((track) => track.stop());
     previewStream = null;
   }
-  const button = ARButton.createButton(renderer, {
-    requiredFeatures: ["hit-test"],
-    optionalFeatures: ["dom-overlay", "anchors", "light-estimation"],
-    domOverlay: { root: document.body },
-  });
-  button.style.display = "none";
-  document.body.appendChild(button);
-  button.click();
-  button.remove();
-  setStatus("AR running. Find a wall or flat surface.");
+  try {
+    const session = await navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["dom-overlay", "anchors", "light-estimation"],
+      domOverlay: { root: document.body },
+    });
+    await renderer.xr.setSession(session);
+    setStatus("AR running. Find a wall or flat surface.");
+  } catch (error) {
+    console.warn(error);
+    setStatus("AR did not start. Check Chrome permissions and make sure AR services are enabled.");
+  }
 }
 
 async function checkSupport() {
   if (!navigator.xr) {
     supportEl.textContent = "WebXR unavailable";
-    enterButton.disabled = true;
+    arSupported = false;
+    updateStartButton();
     return;
   }
   const supported = await navigator.xr.isSessionSupported("immersive-ar");
+  arSupported = supported;
   supportEl.textContent = supported ? "AR ready" : "AR unsupported";
-  if (!supported) enterButton.disabled = true;
+  updateStartButton();
 }
 
 captureButton.addEventListener("click", captureFace);
@@ -408,7 +421,7 @@ export function FaceWallArLab() {
             <div className="relative aspect-square overflow-hidden rounded-[8px] bg-white/8">
               <video
                 data-preview-video
-                className="absolute inset-0 h-full w-full scale-x-[-1] object-cover opacity-0"
+                className="absolute inset-0 z-10 h-full w-full scale-x-[-1] object-cover opacity-100 transition-opacity"
                 playsInline
                 muted
               />
@@ -416,7 +429,7 @@ export function FaceWallArLab() {
                 data-preview-canvas
                 width={512}
                 height={512}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover opacity-100 transition-opacity"
               />
             </div>
             <div className="min-w-0">
