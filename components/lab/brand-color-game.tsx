@@ -16,6 +16,7 @@ import {
 } from "@/lib/brandColorGameBrands";
 import {
   BRAND_COLOR_GAME_FLAGS,
+  FLAG_BLANK_COLOR,
   type BrandColorGameFlag,
 } from "@/lib/brandColorGameFlags";
 
@@ -847,14 +848,47 @@ function IntroTitle() {
 }
 
 function FlagArt({ flag }: { flag: BrandColorGameFlag }) {
+  const renderColor = (color: string) =>
+    color.toUpperCase() === flag.missingColor.toUpperCase()
+      ? FLAG_BLANK_COLOR
+      : color;
+
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={flag.missingFlagSrc}
-      alt={`${flag.name} flag with a missing color`}
-      draggable={false}
-      className="h-full w-full rounded-[22px] object-contain shadow-[inset_0_0_0_1px_rgba(24,24,27,0.10)]"
-    />
+    <svg
+      viewBox="0 0 360 240"
+      role="img"
+      aria-label={`${flag.name} flag with a missing color`}
+      className="h-full w-full rounded-[22px] shadow-[inset_0_0_0_1px_rgba(24,24,27,0.10)]"
+    >
+      <rect width="360" height="240" fill={FLAG_BLANK_COLOR} />
+      {flag.shapes.map((shape, index) => {
+        const fill = renderColor(shape.color);
+        if (shape.kind === "rect") {
+          return (
+            <rect
+              key={index}
+              x={shape.x}
+              y={shape.y}
+              width={shape.width}
+              height={shape.height}
+              fill={fill}
+            />
+          );
+        }
+        if (shape.kind === "circle") {
+          return (
+            <circle
+              key={index}
+              cx={shape.cx}
+              cy={shape.cy}
+              r={shape.r}
+              fill={fill}
+            />
+          );
+        }
+        return <polygon key={index} points={shape.points} fill={fill} />;
+      })}
+    </svg>
   );
 }
 
