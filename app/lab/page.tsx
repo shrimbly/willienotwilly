@@ -15,6 +15,17 @@ type Iteration = {
 
 const ITERATIONS: { project: string; entries: Iteration[] }[] = [
   {
+    project: "Gradient animation",
+    entries: [
+      {
+        slug: "gradient-ripples",
+        version: "v1",
+        title: "Gradient animation experiment",
+        note: "A customisable Three.js shader sketch with noisy layered gradients and irregular ripple fields.",
+      },
+    ],
+  },
+  {
     project: "Pick a colour game",
     entries: [
       {
