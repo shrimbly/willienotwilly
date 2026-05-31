@@ -94,7 +94,7 @@ export default function LabIndexPage() {
           Lab
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-          Interaction experiments
+          Experiments
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Isolated sketches for refining interaction ideas before they ship.
