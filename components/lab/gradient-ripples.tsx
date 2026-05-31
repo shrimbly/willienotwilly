@@ -151,7 +151,7 @@ vec2 clickWave(vec2 p, vec4 ripple) {
   float localSpeed = surfaceSpeed(p);
   float seeded = ripple.w;
   float baseWidth = mix(0.11, 0.18, hash(vec2(seeded, 14.6))) * uThickness;
-  float radius = age * mix(0.16, 0.27, hash(vec2(seeded + 5.0, 38.2))) * localSpeed * mix(0.72, 1.18, uSpeed);
+  float radius = age * uSpeed * mix(0.032, 0.052, hash(vec2(seeded + 5.0, 38.2))) * localSpeed;
   float drift = fbm(p * 1.9 + vec2(seeded) + age * 0.02);
   vec2 pulled = p - ripple.xy;
   pulled += 0.05 * vec2(
