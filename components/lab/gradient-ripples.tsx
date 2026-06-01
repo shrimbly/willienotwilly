@@ -319,7 +319,7 @@ float glassRefractionCurve(float x) {
 void main() {
   vec2 uv = vUv;
   vec4 base = texture2D(uScene, uv);
-  float glassInset = 2.0;
+  float glassInset = 0.0;
   vec2 halfSize = uResolution * 0.5 - vec2(glassInset);
   vec2 p = (uv - 0.5) * uResolution;
   float dist = roundedRectSDF(p, halfSize, max(uGlassRadius - glassInset, 0.0));
@@ -818,7 +818,7 @@ function LiquidGlassLayer() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-[2px] z-[5] rounded-[inherit]"
+      className="pointer-events-none absolute inset-0 z-[5] rounded-[inherit]"
     >
       <div
         className="absolute inset-0 rounded-[inherit]"
