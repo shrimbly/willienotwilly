@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Gradient animation",
     entries: [
       {
+        slug: "gradient-ripples-v3",
+        version: "v3",
+        title: "Chromatic clock",
+        note: "A recessed sage shader field with a large seven-segment glass clock over the lower-right corner.",
+      },
+      {
         slug: "gradient-ripples-v2",
         version: "v2",
         title: "Chromatic field v2",
