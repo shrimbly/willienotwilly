@@ -256,6 +256,57 @@ void main() {
   color = mix(color, refracted, min(edgeAberration * 0.72, 0.82));
   color += mix(coolFringe, warmFringe, fringeDrift) * edgeAberration * 0.42;
 
+  vec2 edgeUv = uv - 0.5;
+  vec2 edgeToWall = vec2(
+    edgeUv.x < 0.0 ? uv.x : 1.0 - uv.x,
+    edgeUv.y < 0.0 ? uv.y : 1.0 - uv.y
+  );
+  float edgeDistance = min(edgeToWall.x, edgeToWall.y);
+  vec2 edgeNormal = edgeToWall.x < edgeToWall.y
+    ? vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, 0.0)
+    : vec2(0.0, edgeUv.y < 0.0 ? -1.0 : 1.0);
+  vec2 cornerVector = normalize(vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, edgeUv.y < 0.0 ? -1.0 : 1.0));
+  float cornerProximity = smoothstep(0.28, 0.48, max(abs(edgeUv.x), abs(edgeUv.y)));
+  edgeNormal = normalize(mix(edgeNormal, cornerVector, cornerProximity));
+
+  float glassEdge = smoothstep(0.22, 0.0, edgeDistance);
+  float roundedRim = 1.0 - smoothstep(0.012, 0.05, abs(edgeDistance - 0.045));
+  float innerRim = 1.0 - smoothstep(0.0, 0.08, abs(edgeDistance - 0.12));
+  float liquidWarp = fbm(p * 5.0 + edgeNormal * 1.7 + uTime * 0.03);
+  float lensAmount = glassEdge * (0.08 + liquidWarp * 0.12);
+  vec2 edgeTangent = vec2(-edgeNormal.y, edgeNormal.x);
+  vec2 glassWarpP = p - edgeNormal * lensAmount;
+  glassWarpP += edgeTangent * (liquidWarp - 0.5) * glassEdge * 0.16;
+  vec2 glassWarpUv = vec2(glassWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), glassWarpP.y) + 0.5;
+  float warpedLow = fbm(glassWarpP * 0.95 + vec2(localT * 0.018, -localT * 0.014));
+  float warpedMid = fbm(glassWarpP * 2.0 + vec2(-localT * 0.026, localT * 0.018));
+  float warpedPull = fbm(glassWarpP * 3.4 + vec2(warpedLow, warpedMid) * 0.38 + localT * 0.012);
+  float edgeDepth = 0.84;
+  edgeDepth += (warpedLow - 0.5) * 0.12;
+  edgeDepth += (warpedMid - 0.5) * 0.08;
+  edgeDepth += (warpedPull - 0.5) * 0.14 * uDepth;
+  edgeDepth -= surfaceRidge(glassWarpP) * 0.04 * uDepth;
+  edgeDepth += wake * 0.18 * uDepth;
+  edgeDepth -= waves * 0.42 * uRipple;
+  edgeDepth = smoothstep(0.18, 1.0, edgeDepth);
+  edgeDepth += lensAmount * dot(edgeNormal, normalize(vec2(0.7, -0.45)));
+  edgeDepth += roundedRim * 0.18 - innerRim * 0.08;
+  vec3 edgeBaseGradient = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, glassWarpUv.y + warpedLow * 0.24));
+  edgeBaseGradient = mix(edgeBaseGradient, uColors[2], smoothstep(0.15, 1.12, glassWarpUv.x + warpedMid * 0.18) * 0.26);
+  vec3 edgeRefraction = mix(
+    edgeBaseGradient,
+    palette(clamp(edgeDepth, 0.0, 1.0)),
+    0.82
+  );
+  float edgeShine = roundedRim * (0.44 + 0.28 * liquidWarp) + innerRim * 0.18;
+  vec3 edgeHighlight = vec3(0.9, 0.98, 1.0) * edgeShine;
+  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassEdge * (1.0 - roundedRim) * 0.22;
+  float edgeChromatic = glassEdge * roundedRim * uChromatic;
+  edgeRefraction.r += edgeChromatic * 0.045;
+  edgeRefraction.b += edgeChromatic * 0.035;
+  edgeRefraction.g -= edgeChromatic * 0.012;
+  color = mix(color, edgeRefraction + edgeHighlight - edgeShadow, glassEdge * 0.72);
+
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
   float soft = noise(gl_FragCoord.xy * 0.42);
