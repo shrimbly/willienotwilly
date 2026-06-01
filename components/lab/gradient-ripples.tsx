@@ -319,9 +319,10 @@ float glassRefractionCurve(float x) {
 void main() {
   vec2 uv = vUv;
   vec4 base = texture2D(uScene, uv);
-  vec2 halfSize = uResolution * 0.5;
+  float glassInset = 2.0;
+  vec2 halfSize = uResolution * 0.5 - vec2(glassInset);
   vec2 p = (uv - 0.5) * uResolution;
-  float dist = roundedRectSDF(p, halfSize, uGlassRadius);
+  float dist = roundedRectSDF(p, halfSize, max(uGlassRadius - glassInset, 0.0));
 
   if (dist > 0.0) {
     gl_FragColor = base;
@@ -619,16 +620,16 @@ export function GradientRipplesLab({
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
-      <div className="absolute inset-2 overflow-hidden rounded-[1.75rem] bg-[#f5f5f5] sm:inset-3 sm:rounded-[2.25rem]">
+      <div className="absolute inset-4 overflow-hidden rounded-[2.25rem] bg-[#f5f5f5] shadow-[0_24px_90px_rgba(16,34,20,0.22),0_6px_24px_rgba(16,34,20,0.14)] sm:inset-6 sm:rounded-[3rem] lg:inset-8 lg:rounded-[3.5rem]">
         <div ref={mountRef} className="absolute inset-0" />
         <LiquidGlassLayer />
       </div>
 
-      <div className="pointer-events-none absolute right-5 top-5 z-20 rounded-full border border-white/45 bg-white/55 px-3 py-1.5 font-mono text-[0.68rem] tabular-nums text-[#102214]/70 shadow-lg shadow-[#102214]/10 backdrop-blur-xl sm:right-8 sm:top-8">
+      <div className="pointer-events-none absolute right-8 top-8 z-20 rounded-full border border-white/45 bg-white/55 px-3 py-1.5 font-mono text-[0.68rem] tabular-nums text-[#102214]/70 shadow-lg shadow-[#102214]/10 backdrop-blur-xl sm:right-12 sm:top-12 lg:right-14 lg:top-14">
         {fps} fps
       </div>
 
-      <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex justify-center px-5 pt-5 sm:inset-x-3 sm:top-3 sm:justify-start sm:px-7">
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-center px-6 pt-6 sm:inset-x-6 sm:top-6 sm:justify-start sm:px-8 lg:inset-x-8 lg:top-8">
         <div className="max-w-[22rem]">
           <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
             Lab / gradient animation
@@ -643,7 +644,7 @@ export function GradientRipplesLab({
         <button
           type="button"
           onClick={() => setControlsHidden(false)}
-          className="absolute bottom-5 left-5 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-8 sm:left-8"
+          className="absolute bottom-8 left-8 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-12 sm:left-12 lg:bottom-14 lg:left-14"
           aria-label="Show gradient controls"
         >
           <SlidersHorizontal size={17} strokeWidth={2} />
@@ -651,7 +652,7 @@ export function GradientRipplesLab({
       ) : (
         <section
           aria-label="Gradient controls"
-          className="absolute inset-x-5 bottom-5 z-20 rounded-lg border border-white/45 bg-white/58 p-3 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl sm:inset-x-auto sm:bottom-8 sm:left-8 sm:w-[22rem]"
+          className="absolute inset-x-8 bottom-8 z-20 rounded-[1.35rem] border border-white/45 bg-white/58 p-3 text-[#102214] shadow-[0_18px_50px_rgba(16,34,20,0.18)] backdrop-blur-xl sm:inset-x-auto sm:bottom-12 sm:left-12 sm:w-[22rem] lg:bottom-14 lg:left-14"
         >
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -817,7 +818,7 @@ function LiquidGlassLayer() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-[5] rounded-[inherit]"
+      className="pointer-events-none absolute inset-[2px] z-[5] rounded-[inherit]"
     >
       <div
         className="absolute inset-0 rounded-[inherit]"
