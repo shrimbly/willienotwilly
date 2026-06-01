@@ -883,7 +883,7 @@ export function GradientRipplesLab({
         href="https://x.com/daniel__designs"
         target="_blank"
         rel="noreferrer"
-        className="absolute bottom-3 right-16 z-30 font-[var(--font-geist-mono)] text-[0.62rem] text-[#102214]/45 transition hover:text-[#102214]/75"
+        className="absolute bottom-4 right-[5.5rem] z-30 font-[var(--font-geist-mono)] text-[0.62rem] text-[#102214]/45 transition hover:text-[#102214]/75"
       >
         Inspired by Daniel Destefanis
       </a>
