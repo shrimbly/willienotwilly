@@ -5,6 +5,18 @@ import { EyeOff, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_COLORS = ["#33673B", "#69B574", "#ADD7B4", "#F1F8F2", "#F5F5F5"];
+const COLOR_PALETTES = {
+  sage: {
+    label: "Sage",
+    colors: DEFAULT_COLORS,
+  },
+  chrome: {
+    label: "Chrome",
+    colors: ["#050608", "#07152E", "#F2C84B", "#B8C0C4", "#F2F4F3"],
+  },
+} as const;
+
+type PaletteId = keyof typeof COLOR_PALETTES;
 
 const VERTEX_SHADER = `
 varying vec2 vUv;
@@ -322,6 +334,9 @@ export function GradientRipplesLab({
   } | null>(null);
 
   const [colors, setColors] = useState(DEFAULT_COLORS);
+  const [activePalette, setActivePalette] = useState<PaletteId | "custom">(
+    "sage",
+  );
   const [noiseIntensity, setNoiseIntensity] = useState(0.06);
   const [noiseStyle, setNoiseStyle] = useState(0);
   const [ripple, setRipple] = useState(defaults.ripple);
@@ -464,7 +479,9 @@ export function GradientRipplesLab({
   ]);
 
   const reset = () => {
-    setColors(DEFAULT_COLORS);
+    const palette =
+      activePalette === "custom" ? COLOR_PALETTES.sage : COLOR_PALETTES[activePalette];
+    setColors([...palette.colors]);
     setNoiseIntensity(0.06);
     setNoiseStyle(0);
     setRipple(defaults.ripple);
@@ -548,6 +565,7 @@ export function GradientRipplesLab({
                   onChange={(event) => {
                     const next = [...colors];
                     next[index] = event.target.value;
+                    setActivePalette("custom");
                     setColors(next);
                   }}
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -556,6 +574,27 @@ export function GradientRipplesLab({
                   {index + 1}
                 </span>
               </label>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(Object.keys(COLOR_PALETTES) as PaletteId[]).map((paletteId) => (
+              <button
+                key={paletteId}
+                type="button"
+                onClick={() => {
+                  setActivePalette(paletteId);
+                  setColors([...COLOR_PALETTES[paletteId].colors]);
+                }}
+                className={[
+                  "rounded-md border px-3 py-2 text-xs font-medium transition",
+                  activePalette === paletteId
+                    ? "border-[#102214]/35 bg-[#102214] text-white"
+                    : "border-[#102214]/15 bg-white/35 text-[#102214]/75 hover:bg-white/65",
+                ].join(" ")}
+              >
+                {COLOR_PALETTES[paletteId].label}
+              </button>
             ))}
           </div>
 
