@@ -241,11 +241,20 @@ void main() {
   float meniscus = smoothstep(0.18, 0.82, waves) * (1.0 - smoothstep(0.72, 1.0, waves));
   color = mix(color, palette(clamp(depth - 0.18, 0.0, 1.0)), meniscus * 0.36);
 
-  float edgeAberration = smoothstep(0.08, 0.74, waves) * (1.0 - smoothstep(0.62, 1.0, waves)) * uChromatic;
-  float edgeDirection = sin((p.x - p.y) * 6.0 + low * 3.0);
-  vec3 warmFringe = vec3(0.038, -0.004, -0.026);
-  vec3 coolFringe = vec3(-0.018, 0.004, 0.034);
-  color += mix(coolFringe, warmFringe, step(0.0, edgeDirection)) * edgeAberration;
+  float edgeMask = smoothstep(0.06, 0.62, waves) * (1.0 - smoothstep(0.58, 1.0, waves));
+  float organicSplit = fbm(p * 3.1 + vec2(low, mid) * 0.8 + uTime * 0.018);
+  float edgeAberration = edgeMask * (0.72 + 0.28 * organicSplit) * uChromatic;
+  float depthSplit = 0.045 * edgeAberration;
+  vec3 redShift = mix(baseGradient, palette(clamp(depth - depthSplit, 0.0, 1.0)), 0.74);
+  vec3 blueShift = mix(baseGradient, palette(clamp(depth + depthSplit, 0.0, 1.0)), 0.74);
+  vec3 refracted = vec3(redShift.r, color.g, blueShift.b);
+  float fringeDrift = 0.5 + 0.5 * sin(
+    p.x * 2.4 - p.y * 1.7 + organicSplit * 6.283 + uTime * 0.045
+  );
+  vec3 warmFringe = vec3(0.018, -0.002, -0.014);
+  vec3 coolFringe = vec3(-0.012, 0.001, 0.018);
+  color = mix(color, refracted, min(edgeAberration * 0.72, 0.82));
+  color += mix(coolFringe, warmFringe, fringeDrift) * edgeAberration * 0.42;
 
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
