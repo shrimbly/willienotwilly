@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Gradient animation",
     entries: [
       {
+        slug: "gradient-ripples-v4",
+        version: "v4",
+        title: "Chromatic clock clean",
+        note: "A clean landscape glass clock composition without the title, controls, or frame counter.",
+      },
+      {
         slug: "gradient-ripples-v3",
         version: "v3",
         title: "Chromatic clock",

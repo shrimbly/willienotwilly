@@ -352,7 +352,7 @@ void main() {
 }
 `;
 
-type GradientVariant = "v1" | "v2" | "v3";
+type GradientVariant = "v1" | "v2" | "v3" | "v4";
 
 const VARIANT_DEFAULTS = {
   v1: {
@@ -378,6 +378,17 @@ const VARIANT_DEFAULTS = {
     title: "Chromatic field v2",
   },
   v3: {
+    ripple: 0.36,
+    depth: 0.08,
+    speed: 1.08,
+    thickness: 0.5,
+    speedField: 0.52,
+    rippleCount: 2,
+    chromatic: 1.15,
+    nestedMode: 1,
+    title: "Chromatic clock",
+  },
+  v4: {
     ripple: 0.36,
     depth: 0.08,
     speed: 1.08,
@@ -439,7 +450,9 @@ export function GradientRipplesLab({
   const [speedField, setSpeedField] = useState(defaults.speedField);
   const [rippleCount, setRippleCount] = useState(defaults.rippleCount);
   const [chromatic, setChromatic] = useState(defaults.chromatic);
-  const [controlsHidden, setControlsHidden] = useState(variant === "v3");
+  const [controlsHidden, setControlsHidden] = useState(
+    variant === "v3" || variant === "v4",
+  );
   const [fps, setFps] = useState(0);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
@@ -629,30 +642,31 @@ export function GradientRipplesLab({
     setChromatic(defaults.chromatic);
   };
 
-  const isClockVariant = variant === "v3";
-  const frameClassName = isClockVariant
+  const isInfoVariant = variant === "v3" || variant === "v4";
+  const isMinimalVariant = variant === "v4";
+  const frameClassName = isInfoVariant
     ? "absolute inset-8 overflow-hidden rounded-[2.75rem] bg-[#f5f5f5] shadow-[0_30px_110px_rgba(16,34,20,0.26),0_8px_30px_rgba(16,34,20,0.16)] sm:inset-10 sm:rounded-[3.5rem] lg:inset-14 lg:rounded-[4.25rem]"
     : "absolute inset-4 overflow-hidden rounded-[2.25rem] bg-[#f5f5f5] shadow-[0_24px_90px_rgba(16,34,20,0.22),0_6px_24px_rgba(16,34,20,0.14)] sm:inset-6 sm:rounded-[3rem] lg:inset-8 lg:rounded-[3.5rem]";
-  const titleClassName = isClockVariant
+  const titleClassName = isInfoVariant
     ? "pointer-events-none absolute inset-x-8 top-8 z-10 flex justify-center px-6 pt-6 sm:inset-x-10 sm:top-10 sm:justify-start sm:px-9 lg:inset-x-14 lg:top-14"
     : "pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-center px-6 pt-6 sm:inset-x-6 sm:top-6 sm:justify-start sm:px-8 lg:inset-x-8 lg:top-8";
-  const fpsClassName = isClockVariant
+  const fpsClassName = isInfoVariant
     ? "pointer-events-none absolute right-12 top-12 z-20 rounded-full border border-white/45 bg-white/55 px-3 py-1.5 font-mono text-[0.68rem] tabular-nums text-[#102214]/70 shadow-lg shadow-[#102214]/10 backdrop-blur-xl sm:right-16 sm:top-16 lg:right-20 lg:top-20"
     : "pointer-events-none absolute right-8 top-8 z-20 rounded-full border border-white/45 bg-white/55 px-3 py-1.5 font-mono text-[0.68rem] tabular-nums text-[#102214]/70 shadow-lg shadow-[#102214]/10 backdrop-blur-xl sm:right-12 sm:top-12 lg:right-14 lg:top-14";
-  const showControlsClassName = isClockVariant
+  const showControlsClassName = isInfoVariant
     ? "absolute bottom-12 left-12 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-16 sm:left-16 lg:bottom-20 lg:left-20"
     : "absolute bottom-8 left-8 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-12 sm:left-12 lg:bottom-14 lg:left-14";
-  const controlsClassName = isClockVariant
+  const controlsClassName = isInfoVariant
     ? "absolute inset-x-12 bottom-12 z-20 rounded-[1.35rem] border border-white/45 bg-white/58 p-3 text-[#102214] shadow-[0_18px_50px_rgba(16,34,20,0.18)] backdrop-blur-xl sm:inset-x-auto sm:bottom-16 sm:left-16 sm:w-[22rem] lg:bottom-20 lg:left-20"
     : "absolute inset-x-8 bottom-8 z-20 rounded-[1.35rem] border border-white/45 bg-white/58 p-3 text-[#102214] shadow-[0_18px_50px_rgba(16,34,20,0.18)] backdrop-blur-xl sm:inset-x-auto sm:bottom-12 sm:left-12 sm:w-[22rem] lg:bottom-14 lg:left-14";
   const stageClassName = [
     "absolute inset-0",
-    isClockVariant ? "gradient-landscape-stage" : "",
+    isInfoVariant ? "gradient-landscape-stage" : "",
   ].join(" ");
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
-      {isClockVariant ? (
+      {isInfoVariant ? (
         <style>{`
           @media (orientation: portrait) and (max-width: 767px) {
             .gradient-landscape-stage {
@@ -670,25 +684,29 @@ export function GradientRipplesLab({
         <div className={frameClassName}>
           <div ref={mountRef} className="absolute inset-0" />
           <LiquidGlassLayer />
-          {isClockVariant ? <GlassInfoTile /> : null}
+          {isInfoVariant ? <GlassInfoTile /> : null}
         </div>
 
-        <div className={fpsClassName}>
-          {fps} fps
-        </div>
-
-        <div className={titleClassName}>
-          <div className="max-w-[22rem]">
-            <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
-              Lab / gradient animation
-            </p>
-            <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
-              {defaults.title}
-            </h1>
+        {isMinimalVariant ? null : (
+          <div className={fpsClassName}>
+            {fps} fps
           </div>
-        </div>
+        )}
 
-        {controlsHidden ? (
+        {isMinimalVariant ? null : (
+          <div className={titleClassName}>
+            <div className="max-w-[22rem]">
+              <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
+                Lab / gradient animation
+              </p>
+              <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
+                {defaults.title}
+              </h1>
+            </div>
+          </div>
+        )}
+
+        {isMinimalVariant ? null : controlsHidden ? (
           <button
             type="button"
             onClick={() => setControlsHidden(false)}
