@@ -266,7 +266,7 @@ void main() {
     ? vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, 0.0)
     : vec2(0.0, edgeUv.y < 0.0 ? -1.0 : 1.0);
   vec2 cornerVector = normalize(vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, edgeUv.y < 0.0 ? -1.0 : 1.0));
-  float cornerProximity = smoothstep(0.28, 0.48, max(abs(edgeUv.x), abs(edgeUv.y)));
+  float cornerProximity = smoothstep(0.28, 0.48, min(abs(edgeUv.x), abs(edgeUv.y)));
   edgeNormal = normalize(mix(edgeNormal, cornerVector, cornerProximity));
 
   float glassEdge = smoothstep(0.22, 0.0, edgeDistance);
