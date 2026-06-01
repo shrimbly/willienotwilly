@@ -645,44 +645,63 @@ export function GradientRipplesLab({
   const controlsClassName = isClockVariant
     ? "absolute inset-x-12 bottom-12 z-20 rounded-[1.35rem] border border-white/45 bg-white/58 p-3 text-[#102214] shadow-[0_18px_50px_rgba(16,34,20,0.18)] backdrop-blur-xl sm:inset-x-auto sm:bottom-16 sm:left-16 sm:w-[22rem] lg:bottom-20 lg:left-20"
     : "absolute inset-x-8 bottom-8 z-20 rounded-[1.35rem] border border-white/45 bg-white/58 p-3 text-[#102214] shadow-[0_18px_50px_rgba(16,34,20,0.18)] backdrop-blur-xl sm:inset-x-auto sm:bottom-12 sm:left-12 sm:w-[22rem] lg:bottom-14 lg:left-14";
+  const stageClassName = [
+    "absolute inset-0",
+    isClockVariant ? "gradient-landscape-stage" : "",
+  ].join(" ");
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
-      <div className={frameClassName}>
-        <div ref={mountRef} className="absolute inset-0" />
-        <LiquidGlassLayer />
-        {isClockVariant ? <GlassInfoTile /> : null}
-      </div>
-
-      <div className={fpsClassName}>
-        {fps} fps
-      </div>
-
-      <div className={titleClassName}>
-        <div className="max-w-[22rem]">
-          <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
-            Lab / gradient animation
-          </p>
-          <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
-            {defaults.title}
-          </h1>
+      {isClockVariant ? (
+        <style>{`
+          @media (orientation: portrait) and (max-width: 767px) {
+            .gradient-landscape-stage {
+              width: 100dvh;
+              height: 100dvw;
+              min-width: 100dvh;
+              min-height: 100dvw;
+              transform: rotate(90deg) translateY(-100%);
+              transform-origin: top left;
+            }
+          }
+        `}</style>
+      ) : null}
+      <div className={stageClassName}>
+        <div className={frameClassName}>
+          <div ref={mountRef} className="absolute inset-0" />
+          <LiquidGlassLayer />
+          {isClockVariant ? <GlassInfoTile /> : null}
         </div>
-      </div>
 
-      {controlsHidden ? (
-        <button
-          type="button"
-          onClick={() => setControlsHidden(false)}
-          className={showControlsClassName}
-          aria-label="Show gradient controls"
-        >
-          <SlidersHorizontal size={17} strokeWidth={2} />
-        </button>
-      ) : (
-        <section
-          aria-label="Gradient controls"
-          className={controlsClassName}
-        >
+        <div className={fpsClassName}>
+          {fps} fps
+        </div>
+
+        <div className={titleClassName}>
+          <div className="max-w-[22rem]">
+            <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
+              Lab / gradient animation
+            </p>
+            <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-[#102214] sm:text-5xl">
+              {defaults.title}
+            </h1>
+          </div>
+        </div>
+
+        {controlsHidden ? (
+          <button
+            type="button"
+            onClick={() => setControlsHidden(false)}
+            className={showControlsClassName}
+            aria-label="Show gradient controls"
+          >
+            <SlidersHorizontal size={17} strokeWidth={2} />
+          </button>
+        ) : (
+          <section
+            aria-label="Gradient controls"
+            className={controlsClassName}
+          >
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold tracking-tight">
@@ -837,8 +856,9 @@ export function GradientRipplesLab({
               onChange={setSpeedField}
             />
           </div>
-        </section>
-      )}
+          </section>
+        )}
+      </div>
     </main>
   );
 }
