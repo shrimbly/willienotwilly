@@ -270,64 +270,6 @@ void main() {
   color = mix(color, refracted, min(edgeAberration * 0.72, 0.82));
   color += mix(coolFringe, warmFringe, fringeDrift) * edgeAberration * 0.42;
 
-  float glassMinResolution = max(min(uResolution.x, uResolution.y), 1.0);
-  vec2 glassP = (uv - 0.5) * uResolution / glassMinResolution;
-  vec2 glassHalfSize = uResolution / glassMinResolution * 0.5;
-  float glassRadius = uGlassRadius / glassMinResolution;
-  float glassDistance = roundedRectSDF(glassP, glassHalfSize, glassRadius);
-  float glassMask = 1.0 - smoothstep(0.0, 0.01, glassDistance);
-
-  if (glassMask > 0.0) {
-    float glassDepth = max(-glassDistance / max(min(glassHalfSize.x, glassHalfSize.y), 0.001), 0.0);
-    float glassFalloff = pow(max(glassRefractionCurve(glassDepth), 0.0), 1.779);
-    vec2 glassSampleP = glassP * glassFalloff;
-    vec2 glassDelta = (glassSampleP - glassP) * glassMask;
-    vec2 paneWarpP = p + glassDelta;
-    vec2 paneWarpUv = vec2(paneWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), paneWarpP.y) + 0.5;
-
-    float paneSpeed = surfaceSpeed(paneWarpP);
-    float paneT = t * paneSpeed;
-    float paneLow = fbm(paneWarpP * 0.95 + vec2(paneT * 0.018, -paneT * 0.014));
-    float paneMid = fbm(paneWarpP * 2.0 + vec2(-paneT * 0.026, paneT * 0.018));
-    float panePull = fbm(paneWarpP * 3.4 + vec2(paneLow, paneMid) * 0.38 + paneT * 0.012);
-    vec2 paneWaveA = mix(
-      viscousWave(paneWarpP, 11.2, 0.0, 28.0, 0.046, 0.16),
-      nestedWaveFamily(paneWarpP, 11.2, 0.0, 34.0, 0.037, 0.18),
-      uNestedMode
-    );
-    vec2 paneWaveB = mix(
-      viscousWave(paneWarpP, 47.8, 14.0, 36.0, 0.038, 0.2),
-      nestedWaveFamily(paneWarpP, 47.8, 17.0, 43.0, 0.032, 0.22),
-      uNestedMode
-    );
-    vec2 paneWaveC = viscousWave(paneWarpP, 93.4, 22.0, 42.0, 0.033, 0.18) * (1.0 - uNestedMode);
-    vec2 paneWaveD = viscousWave(paneWarpP, 129.6, 31.0, 46.0, 0.03, 0.22) * (1.0 - uNestedMode);
-    float paneWaves = paneWaveA.x + paneWaveB.x + paneWaveC.x * cWeight + paneWaveD.x * dWeight;
-    float paneWake = paneWaveA.y + paneWaveB.y + paneWaveC.y * cWeight + paneWaveD.y * dWeight;
-
-    for (int i = 0; i < 6; i++) {
-      vec2 paneClicked = clickWave(paneWarpP, uClickRipples[i]);
-      paneWaves += paneClicked.x;
-      paneWake += paneClicked.y;
-    }
-
-    float paneDepth = 0.84;
-    paneDepth += (paneLow - 0.5) * 0.12;
-    paneDepth += (paneMid - 0.5) * 0.08;
-    paneDepth += (panePull - 0.5) * 0.14 * uDepth;
-    paneDepth -= surfaceRidge(paneWarpP) * 0.04 * uDepth;
-    paneDepth += paneWake * 0.18 * uDepth;
-    paneDepth -= paneWaves * 0.42 * uRipple;
-    paneDepth = smoothstep(0.18, 1.0, paneDepth);
-
-    vec3 paneBase = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, paneWarpUv.y + paneLow * 0.24));
-    paneBase = mix(paneBase, uColors[2], smoothstep(0.15, 1.12, paneWarpUv.x + paneMid * 0.18) * 0.26);
-    vec3 paneColor = mix(paneBase, palette(paneDepth), 0.74);
-    float paneMeniscus = smoothstep(0.18, 0.82, paneWaves) * (1.0 - smoothstep(0.72, 1.0, paneWaves));
-    paneColor = mix(paneColor, palette(clamp(paneDepth - 0.18, 0.0, 1.0)), paneMeniscus * 0.36);
-    color = mix(color, paneColor, glassMask);
-  }
-
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
   float soft = noise(gl_FragCoord.xy * 0.42);
@@ -351,6 +293,63 @@ function hexToVector(hex: string) {
 function getColorArray(colors: string[]) {
   return colors.map((color) => hexToVector(color));
 }
+
+const LIQUID_GLASS_FRAGMENT_SHADER = `
+precision highp float;
+
+uniform sampler2D uScene;
+uniform vec2 uResolution;
+uniform float uGlassRadius;
+
+varying vec2 vUv;
+
+float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p) - halfSize + vec2(radius);
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+float glassRefractionCurve(float x) {
+  float a = 0.992;
+  float b = 2.332;
+  float c = 4.544;
+  float d = 6.923;
+  return 1.0 - b * pow(c * 2.718281828459045, -d * x - a);
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec4 base = texture2D(uScene, uv);
+  vec2 halfSize = uResolution * 0.5;
+  vec2 p = (uv - 0.5) * uResolution;
+  float dist = roundedRectSDF(p, halfSize, uGlassRadius);
+
+  if (dist > 0.0) {
+    gl_FragColor = base;
+    return;
+  }
+
+  float depthPx = max(-dist, 0.0);
+  float depth = depthPx / max(min(halfSize.x, halfSize.y), 1.0);
+  float edgeBand = 1.0 - smoothstep(0.0, 150.0, depthPx);
+
+  if (edgeBand <= 0.001) {
+    gl_FragColor = base;
+    return;
+  }
+
+  float falloff = pow(max(glassRefractionCurve(depth), 0.0), 1.779);
+  vec2 sampleP = p * falloff;
+  vec2 sampleUv = sampleP / uResolution + 0.5;
+  vec3 refracted = texture2D(uScene, clamp(sampleUv, vec2(0.0), vec2(1.0))).rgb;
+  float edge = 1.0 - smoothstep(0.0, 42.0, depthPx);
+  float innerShadow = smoothstep(0.0, 80.0, depthPx) * (1.0 - smoothstep(80.0, 150.0, depthPx));
+  vec3 color = mix(base.rgb, refracted, edgeBand);
+  color *= 1.0 - innerShadow * 0.045;
+  color += vec3(edge * 0.018);
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
 
 type GradientVariant = "v1" | "v2";
 
@@ -442,7 +441,7 @@ export function GradientRipplesLab({
       alpha: false,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(1);
     renderer.setClearColor(0xf5f5f5, 1);
     mount.appendChild(renderer.domElement);
 
@@ -480,15 +479,39 @@ export function GradientRipplesLab({
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
+    const postScene = new THREE.Scene();
+    const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
+      depthBuffer: false,
+      stencilBuffer: false,
+    });
+    renderTarget.texture.minFilter = THREE.LinearFilter;
+    renderTarget.texture.magFilter = THREE.LinearFilter;
+    renderTarget.texture.generateMipmaps = false;
+
+    const postUniforms = {
+      uScene: { value: renderTarget.texture },
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uGlassRadius: { value: 36 * renderer.getPixelRatio() },
+    };
+    const postMaterial = new THREE.ShaderMaterial({
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: LIQUID_GLASS_FRAGMENT_SHADER,
+      uniforms: postUniforms,
+    });
+    const postMesh = new THREE.Mesh(geometry, postMaterial);
+    postScene.add(postMesh);
+
     const resize = () => {
       const { clientWidth, clientHeight } = mount;
       const pixelRatio = renderer.getPixelRatio();
       renderer.setSize(clientWidth, clientHeight, false);
-      uniforms.uResolution.value.set(
-        clientWidth * pixelRatio,
-        clientHeight * pixelRatio,
-      );
+      const width = clientWidth * pixelRatio;
+      const height = clientHeight * pixelRatio;
+      uniforms.uResolution.value.set(width, height);
+      postUniforms.uResolution.value.set(width, height);
       uniforms.uGlassRadius.value = (clientWidth >= 640 ? 36 : 28) * pixelRatio;
+      postUniforms.uGlassRadius.value = uniforms.uGlassRadius.value;
+      renderTarget.setSize(width, height);
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -519,7 +542,10 @@ export function GradientRipplesLab({
     const render = () => {
       const now = performance.now();
       uniforms.uTime.value = (now - startedAt) / 1000;
+      renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.render(postScene, camera);
       frameCount += 1;
       if (now - lastFpsAt >= 500) {
         setFps(Math.round((frameCount * 1000) / (now - lastFpsAt)));
@@ -535,8 +561,11 @@ export function GradientRipplesLab({
       resizeObserver.disconnect();
       mount.removeEventListener("pointerdown", addClickRipple);
       scene.remove(mesh);
+      postScene.remove(postMesh);
       geometry.dispose();
       material.dispose();
+      postMaterial.dispose();
+      renderTarget.dispose();
       renderer.dispose();
       renderer.domElement.remove();
       uniformsRef.current = null;
