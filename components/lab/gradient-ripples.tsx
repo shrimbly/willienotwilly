@@ -100,6 +100,13 @@ float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
+float chamferedRectSDF(vec2 p, vec2 halfSize, float chamfer) {
+  vec2 a = abs(p);
+  float box = max(a.x - halfSize.x, a.y - halfSize.y);
+  float corner = a.x + a.y - (halfSize.x + halfSize.y - chamfer);
+  return max(box, corner) * 0.7071;
+}
+
 float glassRefractionCurve(float x) {
   float a = 0.992;
   float b = 2.332;
@@ -313,6 +320,13 @@ float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
+float chamferedRectSDF(vec2 p, vec2 halfSize, float chamfer) {
+  vec2 a = abs(p);
+  float box = max(a.x - halfSize.x, a.y - halfSize.y);
+  float corner = a.x + a.y - (halfSize.x + halfSize.y - chamfer);
+  return max(box, corner) * 0.7071;
+}
+
 float glassRefractionCurve(float x) {
   float a = 0.992;
   float b = 2.332;
@@ -334,8 +348,8 @@ void main() {
   for (int i = 0; i < 30; i++) {
     if (float(i) < uClockSegmentCount) {
       vec4 segment = uClockSegments[i];
-      float segmentRadius = min(segment.z, segment.w) * 0.5;
-      float segmentDist = roundedRectSDF(p - segment.xy, segment.zw, segmentRadius);
+      float segmentChamfer = min(segment.z, segment.w) * 0.9;
+      float segmentDist = chamferedRectSDF(p - segment.xy, segment.zw, segmentChamfer);
 
       if (segmentDist < clockDist) {
         clockDist = segmentDist;
@@ -988,6 +1002,7 @@ type ClockSegmentGeometry = {
   top: number;
   width: number;
   height: number;
+  orientation: "horizontal" | "vertical";
 };
 
 const DIGIT_SEGMENTS: Record<string, ClockSegmentId[]> = {
@@ -1012,13 +1027,13 @@ const DIGIT_SEGMENTS: Record<string, ClockSegmentId[]> = {
 };
 
 const SEGMENT_GEOMETRY: Record<ClockSegmentId, ClockSegmentGeometry> = {
-  top: { left: 18, top: 0, width: 64, height: 16 },
-  upperLeft: { left: 0, top: 18, width: 16, height: 62 },
-  upperRight: { left: 84, top: 18, width: 16, height: 62 },
-  middle: { left: 18, top: 82, width: 64, height: 16 },
-  lowerLeft: { left: 0, top: 100, width: 16, height: 62 },
-  lowerRight: { left: 84, top: 100, width: 16, height: 62 },
-  bottom: { left: 18, top: 164, width: 64, height: 16 },
+  top: { left: 20, top: 0, width: 60, height: 18, orientation: "horizontal" },
+  upperLeft: { left: 0, top: 18, width: 18, height: 62, orientation: "vertical" },
+  upperRight: { left: 82, top: 18, width: 18, height: 62, orientation: "vertical" },
+  middle: { left: 20, top: 81, width: 60, height: 18, orientation: "horizontal" },
+  lowerLeft: { left: 0, top: 100, width: 18, height: 62, orientation: "vertical" },
+  lowerRight: { left: 82, top: 100, width: 18, height: 62, orientation: "vertical" },
+  bottom: { left: 20, top: 162, width: 60, height: 18, orientation: "horizontal" },
 };
 
 const CLOCK_SEGMENT_IDS = Object.keys(
@@ -1077,6 +1092,10 @@ function ClockDigit({ value }: { value: string }) {
           "--segment-top": `${(geometry.top / CLOCK_DIGIT_HEIGHT) * 100}%`,
           "--segment-width": `${(geometry.width / CLOCK_DIGIT_WIDTH) * 100}%`,
           "--segment-height": `${(geometry.height / CLOCK_DIGIT_HEIGHT) * 100}%`,
+          clipPath:
+            geometry.orientation === "horizontal"
+              ? "polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%)"
+              : "polygon(50% 0, 100% 12%, 100% 88%, 50% 100%, 0 88%, 0 12%)",
         } as CSSProperties;
 
         return (
@@ -1084,7 +1103,7 @@ function ClockDigit({ value }: { value: string }) {
             key={id}
             data-clock-segment={active ? "active" : "inactive"}
             className={[
-              "absolute left-[var(--segment-left)] top-[var(--segment-top)] h-[var(--segment-height)] w-[var(--segment-width)] rounded-[999px] transition duration-500 ease-out",
+              "absolute left-[var(--segment-left)] top-[var(--segment-top)] h-[var(--segment-height)] w-[var(--segment-width)] transition duration-500 ease-out",
               active
                 ? "overflow-hidden border border-white/45 bg-white/[0.018] opacity-100 shadow-[0_12px_30px_rgba(16,34,20,0.13)] backdrop-blur-md"
                 : "border border-white/[0.08] bg-[#102214]/[0.02] opacity-20",
