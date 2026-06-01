@@ -16,6 +16,9 @@ const COLOR_PALETTES = {
   },
 } as const;
 
+const GLASS_SIZE = 320;
+const GLASS_RADIUS = 64;
+
 type PaletteId = keyof typeof COLOR_PALETTES;
 
 const VERTEX_SHADER = `
@@ -97,19 +100,17 @@ float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
-vec2 roundedRectNormal(vec2 p, vec2 halfSize, float radius) {
-  vec2 eps = vec2(1.0 / max(min(uResolution.x, uResolution.y), 1.0));
-  float dx = roundedRectSDF(p + vec2(eps.x, 0.0), halfSize, radius) -
-    roundedRectSDF(p - vec2(eps.x, 0.0), halfSize, radius);
-  float dy = roundedRectSDF(p + vec2(0.0, eps.y), halfSize, radius) -
-    roundedRectSDF(p - vec2(0.0, eps.y), halfSize, radius);
-  vec2 normal = vec2(dx, dy);
+float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p) - halfSize + vec2(radius);
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
 
-  if (length(normal) < 0.0001) {
-    return vec2(0.0, 1.0);
-  }
-
-  return normalize(normal);
+float glassRefractionCurve(float x) {
+  float a = 0.992;
+  float b = 2.332;
+  float c = 4.544;
+  float d = 6.923;
+  return 1.0 - b * pow(c * 2.718281828459045, -d * x - a);
 }
 
 vec2 randomCenter(float seed) {
@@ -280,68 +281,60 @@ void main() {
   float glassMinResolution = max(min(uResolution.x, uResolution.y), 1.0);
   vec2 glassP = (uv - 0.5) * uResolution / glassMinResolution;
   vec2 glassHalfSize = vec2(uGlassSize * 0.5 / glassMinResolution);
-  float glassRadius = uGlassSize * 0.22 / glassMinResolution;
-  float glassSDF = roundedRectSDF(glassP, glassHalfSize, glassRadius);
-  float glassSDFPx = glassSDF * glassMinResolution;
-  float glassDepth = max(-glassSDFPx, 0.0);
-  float glassMask = 1.0 - smoothstep(0.0, 2.0, glassSDFPx);
-  vec2 glassNormal = roundedRectNormal(glassP, glassHalfSize, glassRadius);
-  vec2 glassTangent = vec2(-glassNormal.y, glassNormal.x);
-  float glassBevel = pow(1.0 - smoothstep(0.0, 36.0, glassDepth), 0.9) * glassMask;
-  float glassLip = (1.0 - smoothstep(4.0, 18.0, abs(glassDepth - 11.0))) * glassMask;
-  float glassFlow = fbm(glassP * 3.8 + glassNormal * 1.4);
-  float glassCurve = glassBevel * (0.026 + glassFlow * 0.018);
-  vec2 paneWarpP = p - glassNormal * glassCurve;
-  paneWarpP += glassTangent * (glassFlow - 0.5) * glassBevel * 0.04;
-  vec2 paneWarpUv = vec2(paneWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), paneWarpP.y) + 0.5;
+  float glassRadius = uGlassSize * 0.2 / glassMinResolution;
+  float glassDistance = roundedRectSDF(glassP, glassHalfSize, glassRadius);
+  float glassMask = 1.0 - smoothstep(0.0, 0.01, glassDistance);
 
-  float paneSpeed = surfaceSpeed(paneWarpP);
-  float paneT = t * paneSpeed;
-  float paneLow = fbm(paneWarpP * 0.95 + vec2(paneT * 0.018, -paneT * 0.014));
-  float paneMid = fbm(paneWarpP * 2.0 + vec2(-paneT * 0.026, paneT * 0.018));
-  float panePull = fbm(paneWarpP * 3.4 + vec2(paneLow, paneMid) * 0.38 + paneT * 0.012);
-  vec2 paneWaveA = mix(
-    viscousWave(paneWarpP, 11.2, 0.0, 28.0, 0.046, 0.16),
-    nestedWaveFamily(paneWarpP, 11.2, 0.0, 34.0, 0.037, 0.18),
-    uNestedMode
-  );
-  vec2 paneWaveB = mix(
-    viscousWave(paneWarpP, 47.8, 14.0, 36.0, 0.038, 0.2),
-    nestedWaveFamily(paneWarpP, 47.8, 17.0, 43.0, 0.032, 0.22),
-    uNestedMode
-  );
-  vec2 paneWaveC = viscousWave(paneWarpP, 93.4, 22.0, 42.0, 0.033, 0.18) * (1.0 - uNestedMode);
-  vec2 paneWaveD = viscousWave(paneWarpP, 129.6, 31.0, 46.0, 0.03, 0.22) * (1.0 - uNestedMode);
-  float paneWaves = paneWaveA.x + paneWaveB.x + paneWaveC.x * cWeight + paneWaveD.x * dWeight;
-  float paneWake = paneWaveA.y + paneWaveB.y + paneWaveC.y * cWeight + paneWaveD.y * dWeight;
+  if (glassMask > 0.0) {
+    float glassDepth = max(-glassDistance / max(glassHalfSize.x, 0.001), 0.0);
+    float glassFalloff = pow(max(glassRefractionCurve(glassDepth), 0.0), 1.779);
+    vec2 glassSampleP = glassP * glassFalloff;
+    vec2 glassDelta = (glassSampleP - glassP) * glassMask;
+    vec2 paneWarpP = p + glassDelta;
+    vec2 paneWarpUv = vec2(paneWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), paneWarpP.y) + 0.5;
 
-  for (int i = 0; i < 6; i++) {
-    vec2 paneClicked = clickWave(paneWarpP, uClickRipples[i]);
-    paneWaves += paneClicked.x;
-    paneWake += paneClicked.y;
+    float paneSpeed = surfaceSpeed(paneWarpP);
+    float paneT = t * paneSpeed;
+    float paneLow = fbm(paneWarpP * 0.95 + vec2(paneT * 0.018, -paneT * 0.014));
+    float paneMid = fbm(paneWarpP * 2.0 + vec2(-paneT * 0.026, paneT * 0.018));
+    float panePull = fbm(paneWarpP * 3.4 + vec2(paneLow, paneMid) * 0.38 + paneT * 0.012);
+    vec2 paneWaveA = mix(
+      viscousWave(paneWarpP, 11.2, 0.0, 28.0, 0.046, 0.16),
+      nestedWaveFamily(paneWarpP, 11.2, 0.0, 34.0, 0.037, 0.18),
+      uNestedMode
+    );
+    vec2 paneWaveB = mix(
+      viscousWave(paneWarpP, 47.8, 14.0, 36.0, 0.038, 0.2),
+      nestedWaveFamily(paneWarpP, 47.8, 17.0, 43.0, 0.032, 0.22),
+      uNestedMode
+    );
+    vec2 paneWaveC = viscousWave(paneWarpP, 93.4, 22.0, 42.0, 0.033, 0.18) * (1.0 - uNestedMode);
+    vec2 paneWaveD = viscousWave(paneWarpP, 129.6, 31.0, 46.0, 0.03, 0.22) * (1.0 - uNestedMode);
+    float paneWaves = paneWaveA.x + paneWaveB.x + paneWaveC.x * cWeight + paneWaveD.x * dWeight;
+    float paneWake = paneWaveA.y + paneWaveB.y + paneWaveC.y * cWeight + paneWaveD.y * dWeight;
+
+    for (int i = 0; i < 6; i++) {
+      vec2 paneClicked = clickWave(paneWarpP, uClickRipples[i]);
+      paneWaves += paneClicked.x;
+      paneWake += paneClicked.y;
+    }
+
+    float paneDepth = 0.84;
+    paneDepth += (paneLow - 0.5) * 0.12;
+    paneDepth += (paneMid - 0.5) * 0.08;
+    paneDepth += (panePull - 0.5) * 0.14 * uDepth;
+    paneDepth -= surfaceRidge(paneWarpP) * 0.04 * uDepth;
+    paneDepth += paneWake * 0.18 * uDepth;
+    paneDepth -= paneWaves * 0.42 * uRipple;
+    paneDepth = smoothstep(0.18, 1.0, paneDepth);
+
+    vec3 paneBase = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, paneWarpUv.y + paneLow * 0.24));
+    paneBase = mix(paneBase, uColors[2], smoothstep(0.15, 1.12, paneWarpUv.x + paneMid * 0.18) * 0.26);
+    vec3 paneColor = mix(paneBase, palette(paneDepth), 0.74);
+    float paneMeniscus = smoothstep(0.18, 0.82, paneWaves) * (1.0 - smoothstep(0.72, 1.0, paneWaves));
+    paneColor = mix(paneColor, palette(clamp(paneDepth - 0.18, 0.0, 1.0)), paneMeniscus * 0.36);
+    color = mix(color, paneColor, glassMask);
   }
-
-  float paneDepth = 0.84;
-  paneDepth += (paneLow - 0.5) * 0.12;
-  paneDepth += (paneMid - 0.5) * 0.08;
-  paneDepth += (panePull - 0.5) * 0.14 * uDepth;
-  paneDepth -= surfaceRidge(paneWarpP) * 0.04 * uDepth;
-  paneDepth += paneWake * 0.18 * uDepth;
-  paneDepth -= paneWaves * 0.42 * uRipple;
-  paneDepth = smoothstep(0.18, 1.0, paneDepth);
-
-  vec3 paneBase = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, paneWarpUv.y + paneLow * 0.24));
-  paneBase = mix(paneBase, uColors[2], smoothstep(0.15, 1.12, paneWarpUv.x + paneMid * 0.18) * 0.26);
-  vec3 paneColor = mix(paneBase, palette(paneDepth), 0.74);
-  float paneMeniscus = smoothstep(0.18, 0.82, paneWaves) * (1.0 - smoothstep(0.72, 1.0, paneWaves));
-  paneColor = mix(paneColor, palette(clamp(paneDepth - 0.18, 0.0, 1.0)), paneMeniscus * 0.36);
-  float paneChromatic = glassBevel * uChromatic;
-  paneColor.r += paneChromatic * 0.012;
-  paneColor.b += paneChromatic * 0.01;
-  paneColor.g -= paneChromatic * 0.003;
-  paneColor -= vec3(0.015, 0.025, 0.02) * glassBevel;
-  paneColor += vec3(0.025, 0.032, 0.026) * glassLip;
-  color = mix(color, paneColor, glassBevel * 0.82);
 
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
@@ -481,7 +474,7 @@ export function GradientRipplesLab({
       uRippleCount: { value: defaults.rippleCount },
       uChromatic: { value: defaults.chromatic },
       uNestedMode: { value: defaults.nestedMode },
-      uGlassSize: { value: 128 * renderer.getPixelRatio() },
+      uGlassSize: { value: GLASS_SIZE * renderer.getPixelRatio() },
       uClickRipples: { value: clickRipples },
     };
     uniformsRef.current = uniforms;
@@ -497,12 +490,13 @@ export function GradientRipplesLab({
 
     const resize = () => {
       const { clientWidth, clientHeight } = mount;
+      const pixelRatio = renderer.getPixelRatio();
       renderer.setSize(clientWidth, clientHeight, false);
       uniforms.uResolution.value.set(
-        clientWidth * renderer.getPixelRatio(),
-        clientHeight * renderer.getPixelRatio(),
+        clientWidth * pixelRatio,
+        clientHeight * pixelRatio,
       );
-      uniforms.uGlassSize.value = 128 * renderer.getPixelRatio();
+      uniforms.uGlassSize.value = GLASS_SIZE * pixelRatio;
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -802,14 +796,22 @@ function LiquidGlassLayer() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute left-1/2 top-1/2 z-[5] size-32 -translate-x-1/2 -translate-y-1/2 rounded-[1.75rem]"
+      className="pointer-events-none absolute left-1/2 top-1/2 z-[5] -translate-x-1/2 -translate-y-1/2"
+      style={{
+        width: GLASS_SIZE,
+        height: GLASS_SIZE,
+        borderRadius: GLASS_RADIUS,
+      }}
+    >
+      <div
+        className="absolute inset-0 rounded-[inherit]"
       style={{
         background:
           "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.01) 38%, rgba(27,53,39,0.04) 68%, rgba(255,255,255,0.035))",
         boxShadow:
           "inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 90px rgba(255,255,255,0.055), inset 0 0 150px rgba(12,28,20,0.08)",
       }}
-    >
+      />
       <div
         className="absolute inset-0 rounded-[inherit] opacity-70"
         style={{
