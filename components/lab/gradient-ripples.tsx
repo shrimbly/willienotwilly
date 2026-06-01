@@ -505,6 +505,7 @@ export function GradientRipplesLab({
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
       <div ref={mountRef} className="absolute inset-0" />
+      <LiquidGlassEdges />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-5 pt-6 sm:justify-start sm:px-7">
         <div className="max-w-[22rem]">
@@ -688,6 +689,89 @@ export function GradientRipplesLab({
         </section>
       )}
     </main>
+  );
+}
+
+function LiquidGlassEdges() {
+  const glassStyle = {
+    backdropFilter: "blur(16px) saturate(1.45) contrast(1.08)",
+    WebkitBackdropFilter: "blur(16px) saturate(1.45) contrast(1.08)",
+  };
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[5] overflow-hidden"
+    >
+      <div
+        className="absolute inset-x-0 top-0 h-28 opacity-80"
+        style={{
+          ...glassStyle,
+          background:
+            "linear-gradient(to bottom, rgba(255,255,255,0.46), rgba(255,255,255,0.16) 46%, rgba(255,255,255,0))",
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -18px 36px rgba(255,255,255,0.18)",
+          maskImage: "linear-gradient(to bottom, #000 0%, transparent 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0 h-24 opacity-70"
+        style={{
+          ...glassStyle,
+          background:
+            "linear-gradient(to top, rgba(255,255,255,0.36), rgba(255,255,255,0.11) 52%, rgba(255,255,255,0))",
+          boxShadow:
+            "inset 0 -1px 0 rgba(255,255,255,0.75), inset 0 18px 34px rgba(255,255,255,0.13)",
+          maskImage: "linear-gradient(to top, #000 0%, transparent 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-y-0 left-0 w-20 opacity-65"
+        style={{
+          ...glassStyle,
+          background:
+            "linear-gradient(to right, rgba(255,255,255,0.34), rgba(255,255,255,0.1) 54%, rgba(255,255,255,0))",
+          boxShadow:
+            "inset 1px 0 0 rgba(255,255,255,0.72), inset -16px 0 28px rgba(255,255,255,0.12)",
+          maskImage: "linear-gradient(to right, #000 0%, transparent 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-y-0 right-0 w-20 opacity-65"
+        style={{
+          ...glassStyle,
+          background:
+            "linear-gradient(to left, rgba(255,255,255,0.34), rgba(255,255,255,0.1) 54%, rgba(255,255,255,0))",
+          boxShadow:
+            "inset -1px 0 0 rgba(255,255,255,0.72), inset 16px 0 28px rgba(255,255,255,0.12)",
+          maskImage: "linear-gradient(to left, #000 0%, transparent 100%)",
+        }}
+      />
+      <div
+        className="absolute -left-12 top-10 h-36 w-36 rounded-full opacity-35 blur-xl"
+        style={{
+          background:
+            "radial-gradient(circle at 64% 42%, rgba(255,255,255,0.9), rgba(255,255,255,0.18) 48%, rgba(255,255,255,0) 72%)",
+          mixBlendMode: "screen",
+        }}
+      />
+      <div
+        className="absolute -right-14 bottom-10 h-40 w-40 rounded-full opacity-30 blur-xl"
+        style={{
+          background:
+            "radial-gradient(circle at 36% 58%, rgba(255,255,255,0.86), rgba(255,255,255,0.16) 50%, rgba(255,255,255,0) 74%)",
+          mixBlendMode: "screen",
+        }}
+      />
+      <div
+        className="absolute left-1/2 top-0 h-16 w-[34rem] -translate-x-1/2 rounded-b-[60%] opacity-28 blur-sm"
+        style={{
+          background:
+            "linear-gradient(100deg, rgba(255,255,255,0), rgba(255,255,255,0.55) 42%, rgba(189,219,226,0.28) 58%, rgba(255,255,255,0))",
+          mixBlendMode: "screen",
+        }}
+      />
+    </div>
   );
 }
 
