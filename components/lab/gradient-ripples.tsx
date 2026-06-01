@@ -43,6 +43,7 @@ uniform float uSpeedField;
 uniform float uRippleCount;
 uniform float uChromatic;
 uniform float uNestedMode;
+uniform float uGlassSize;
 uniform vec4 uClickRipples[6];
 
 varying vec2 vUv;
@@ -276,51 +277,71 @@ void main() {
   color = mix(color, refracted, min(edgeAberration * 0.72, 0.82));
   color += mix(coolFringe, warmFringe, fringeDrift) * edgeAberration * 0.42;
 
-  float minResolution = max(min(uResolution.x, uResolution.y), 1.0);
-  vec2 glassP = (uv - 0.5) * uResolution / minResolution;
-  vec2 glassHalfSize = uResolution / minResolution * 0.5;
-  float glassRadius = 0.055;
+  float glassMinResolution = max(min(uResolution.x, uResolution.y), 1.0);
+  vec2 glassP = (uv - 0.5) * uResolution / glassMinResolution;
+  vec2 glassHalfSize = vec2(uGlassSize * 0.5 / glassMinResolution);
+  float glassRadius = uGlassSize * 0.22 / glassMinResolution;
   float glassSDF = roundedRectSDF(glassP, glassHalfSize, glassRadius);
-  float edgeDistance = max(-glassSDF, 0.0);
-  vec2 edgeNormal = roundedRectNormal(glassP, glassHalfSize, glassRadius);
+  float glassSDFPx = glassSDF * glassMinResolution;
+  float glassDepth = max(-glassSDFPx, 0.0);
+  float glassMask = 1.0 - smoothstep(0.0, 2.0, glassSDFPx);
+  vec2 glassNormal = roundedRectNormal(glassP, glassHalfSize, glassRadius);
+  vec2 glassTangent = vec2(-glassNormal.y, glassNormal.x);
+  float glassBevel = pow(1.0 - smoothstep(0.0, 36.0, glassDepth), 0.9) * glassMask;
+  float glassLip = (1.0 - smoothstep(4.0, 18.0, abs(glassDepth - 11.0))) * glassMask;
+  float glassFlow = fbm(glassP * 3.8 + glassNormal * 1.4);
+  float glassCurve = glassBevel * (0.026 + glassFlow * 0.018);
+  vec2 paneWarpP = p - glassNormal * glassCurve;
+  paneWarpP += glassTangent * (glassFlow - 0.5) * glassBevel * 0.04;
+  vec2 paneWarpUv = vec2(paneWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), paneWarpP.y) + 0.5;
 
-  float glassEdge = smoothstep(0.24, 0.0, edgeDistance);
-  float glassBevel = pow(1.0 - smoothstep(0.0, 0.15, edgeDistance), 1.05);
-  float roundedRim = 1.0 - smoothstep(0.012, 0.086, abs(edgeDistance - 0.04));
-  float innerRim = 1.0 - smoothstep(0.0, 0.16, abs(edgeDistance - 0.115));
-  float liquidWarp = fbm(p * 5.0 + edgeNormal * 1.7 + uTime * 0.03);
-  float lensAmount = glassEdge * 0.026 + glassBevel * (0.13 + liquidWarp * 0.075);
-  vec2 edgeTangent = vec2(-edgeNormal.y, edgeNormal.x);
-  vec2 glassWarpP = p - edgeNormal * lensAmount;
-  glassWarpP += edgeTangent * (liquidWarp - 0.5) * glassBevel * 0.16;
-  vec2 glassWarpUv = vec2(glassWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), glassWarpP.y) + 0.5;
-  float warpedLow = fbm(glassWarpP * 0.95 + vec2(localT * 0.018, -localT * 0.014));
-  float warpedMid = fbm(glassWarpP * 2.0 + vec2(-localT * 0.026, localT * 0.018));
-  float warpedPull = fbm(glassWarpP * 3.4 + vec2(warpedLow, warpedMid) * 0.38 + localT * 0.012);
-  float edgeDepth = 0.84;
-  edgeDepth += (warpedLow - 0.5) * 0.12;
-  edgeDepth += (warpedMid - 0.5) * 0.08;
-  edgeDepth += (warpedPull - 0.5) * 0.14 * uDepth;
-  edgeDepth -= surfaceRidge(glassWarpP) * 0.04 * uDepth;
-  edgeDepth += wake * 0.18 * uDepth;
-  edgeDepth -= waves * 0.42 * uRipple;
-  edgeDepth = smoothstep(0.18, 1.0, edgeDepth);
-  edgeDepth += lensAmount * dot(edgeNormal, normalize(vec2(0.7, -0.45)));
-  edgeDepth -= innerRim * 0.035;
-  vec3 edgeBaseGradient = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, glassWarpUv.y + warpedLow * 0.24));
-  edgeBaseGradient = mix(edgeBaseGradient, uColors[2], smoothstep(0.15, 1.12, glassWarpUv.x + warpedMid * 0.18) * 0.26);
-  vec3 edgeRefraction = mix(
-    edgeBaseGradient,
-    palette(clamp(edgeDepth, 0.0, 1.0)),
-    0.82
+  float paneSpeed = surfaceSpeed(paneWarpP);
+  float paneT = t * paneSpeed;
+  float paneLow = fbm(paneWarpP * 0.95 + vec2(paneT * 0.018, -paneT * 0.014));
+  float paneMid = fbm(paneWarpP * 2.0 + vec2(-paneT * 0.026, paneT * 0.018));
+  float panePull = fbm(paneWarpP * 3.4 + vec2(paneLow, paneMid) * 0.38 + paneT * 0.012);
+  vec2 paneWaveA = mix(
+    viscousWave(paneWarpP, 11.2, 0.0, 28.0, 0.046, 0.16),
+    nestedWaveFamily(paneWarpP, 11.2, 0.0, 34.0, 0.037, 0.18),
+    uNestedMode
   );
-  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassBevel * 0.11;
-  float edgeChromatic = glassBevel * (0.36 + roundedRim * 0.64) * uChromatic;
-  edgeRefraction.r += edgeChromatic * 0.022;
-  edgeRefraction.b += edgeChromatic * 0.017;
-  edgeRefraction.g -= edgeChromatic * 0.005;
-  float glassMix = max(glassEdge * 0.28, glassBevel * 0.78);
-  color = mix(color, edgeRefraction - edgeShadow, glassMix);
+  vec2 paneWaveB = mix(
+    viscousWave(paneWarpP, 47.8, 14.0, 36.0, 0.038, 0.2),
+    nestedWaveFamily(paneWarpP, 47.8, 17.0, 43.0, 0.032, 0.22),
+    uNestedMode
+  );
+  vec2 paneWaveC = viscousWave(paneWarpP, 93.4, 22.0, 42.0, 0.033, 0.18) * (1.0 - uNestedMode);
+  vec2 paneWaveD = viscousWave(paneWarpP, 129.6, 31.0, 46.0, 0.03, 0.22) * (1.0 - uNestedMode);
+  float paneWaves = paneWaveA.x + paneWaveB.x + paneWaveC.x * cWeight + paneWaveD.x * dWeight;
+  float paneWake = paneWaveA.y + paneWaveB.y + paneWaveC.y * cWeight + paneWaveD.y * dWeight;
+
+  for (int i = 0; i < 6; i++) {
+    vec2 paneClicked = clickWave(paneWarpP, uClickRipples[i]);
+    paneWaves += paneClicked.x;
+    paneWake += paneClicked.y;
+  }
+
+  float paneDepth = 0.84;
+  paneDepth += (paneLow - 0.5) * 0.12;
+  paneDepth += (paneMid - 0.5) * 0.08;
+  paneDepth += (panePull - 0.5) * 0.14 * uDepth;
+  paneDepth -= surfaceRidge(paneWarpP) * 0.04 * uDepth;
+  paneDepth += paneWake * 0.18 * uDepth;
+  paneDepth -= paneWaves * 0.42 * uRipple;
+  paneDepth = smoothstep(0.18, 1.0, paneDepth);
+
+  vec3 paneBase = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, paneWarpUv.y + paneLow * 0.24));
+  paneBase = mix(paneBase, uColors[2], smoothstep(0.15, 1.12, paneWarpUv.x + paneMid * 0.18) * 0.26);
+  vec3 paneColor = mix(paneBase, palette(paneDepth), 0.74);
+  float paneMeniscus = smoothstep(0.18, 0.82, paneWaves) * (1.0 - smoothstep(0.72, 1.0, paneWaves));
+  paneColor = mix(paneColor, palette(clamp(paneDepth - 0.18, 0.0, 1.0)), paneMeniscus * 0.36);
+  float paneChromatic = glassBevel * uChromatic;
+  paneColor.r += paneChromatic * 0.012;
+  paneColor.b += paneChromatic * 0.01;
+  paneColor.g -= paneChromatic * 0.003;
+  paneColor -= vec3(0.015, 0.025, 0.02) * glassBevel;
+  paneColor += vec3(0.025, 0.032, 0.026) * glassLip;
+  color = mix(color, paneColor, glassBevel * 0.82);
 
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
@@ -405,6 +426,7 @@ export function GradientRipplesLab({
     uRippleCount: { value: number };
     uChromatic: { value: number };
     uNestedMode: { value: number };
+    uGlassSize: { value: number };
     uClickRipples: { value: THREE.Vector4[] };
   } | null>(null);
 
@@ -422,6 +444,7 @@ export function GradientRipplesLab({
   const [rippleCount, setRippleCount] = useState(defaults.rippleCount);
   const [chromatic, setChromatic] = useState(defaults.chromatic);
   const [controlsHidden, setControlsHidden] = useState(false);
+  const [fps, setFps] = useState(0);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
 
@@ -458,6 +481,7 @@ export function GradientRipplesLab({
       uRippleCount: { value: defaults.rippleCount },
       uChromatic: { value: defaults.chromatic },
       uNestedMode: { value: defaults.nestedMode },
+      uGlassSize: { value: 128 * renderer.getPixelRatio() },
       uClickRipples: { value: clickRipples },
     };
     uniformsRef.current = uniforms;
@@ -478,6 +502,7 @@ export function GradientRipplesLab({
         clientWidth * renderer.getPixelRatio(),
         clientHeight * renderer.getPixelRatio(),
       );
+      uniforms.uGlassSize.value = 128 * renderer.getPixelRatio();
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -486,6 +511,8 @@ export function GradientRipplesLab({
 
     let animationFrame = 0;
     const startedAt = performance.now();
+    let frameCount = 0;
+    let lastFpsAt = startedAt;
     let clickRippleIndex = 0;
     const addClickRipple = (event: PointerEvent) => {
       if (event.button !== 0 && event.pointerType === "mouse") return;
@@ -504,8 +531,15 @@ export function GradientRipplesLab({
     mount.addEventListener("pointerdown", addClickRipple);
 
     const render = () => {
-      uniforms.uTime.value = (performance.now() - startedAt) / 1000;
+      const now = performance.now();
+      uniforms.uTime.value = (now - startedAt) / 1000;
       renderer.render(scene, camera);
+      frameCount += 1;
+      if (now - lastFpsAt >= 500) {
+        setFps(Math.round((frameCount * 1000) / (now - lastFpsAt)));
+        frameCount = 0;
+        lastFpsAt = now;
+      }
       animationFrame = requestAnimationFrame(render);
     };
     render();
@@ -572,7 +606,11 @@ export function GradientRipplesLab({
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
       <div className="absolute inset-2 overflow-hidden rounded-[1.75rem] bg-[#f5f5f5] sm:inset-3 sm:rounded-[2.25rem]">
         <div ref={mountRef} className="absolute inset-0" />
-        <LiquidGlassEdges />
+        <LiquidGlassLayer />
+      </div>
+
+      <div className="pointer-events-none absolute right-5 top-5 z-20 rounded-full border border-white/45 bg-white/55 px-3 py-1.5 font-mono text-[0.68rem] tabular-nums text-[#102214]/70 shadow-lg shadow-[#102214]/10 backdrop-blur-xl sm:right-8 sm:top-8">
+        {fps} fps
       </div>
 
       <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex justify-center px-5 pt-5 sm:inset-x-3 sm:top-3 sm:justify-start sm:px-7">
@@ -760,91 +798,39 @@ export function GradientRipplesLab({
   );
 }
 
-function LiquidGlassEdges() {
-  const glassStyle = {
-    backdropFilter: "blur(28px) saturate(1.45) contrast(1.08)",
-    WebkitBackdropFilter:
-      "blur(28px) saturate(1.45) contrast(1.08)",
-  };
-
+function LiquidGlassLayer() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-[5] overflow-hidden"
+      className="pointer-events-none absolute left-1/2 top-1/2 z-[5] size-32 -translate-x-1/2 -translate-y-1/2 rounded-[1.75rem]"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.01) 38%, rgba(27,53,39,0.04) 68%, rgba(255,255,255,0.035))",
+        boxShadow:
+          "inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 90px rgba(255,255,255,0.055), inset 0 0 150px rgba(12,28,20,0.08)",
+      }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-60 opacity-[0.92]"
+        className="absolute inset-0 rounded-[inherit] opacity-70"
         style={{
-          ...glassStyle,
           background:
-            "linear-gradient(to bottom, rgba(18,36,28,0.16), rgba(255,255,255,0.12) 40%, rgba(170,205,213,0.08) 66%, rgba(255,255,255,0))",
-          boxShadow:
-            "inset 0 -72px 120px rgba(255,255,255,0.12), inset 0 -18px 54px rgba(25,40,45,0.06)",
-          maskImage: "linear-gradient(to bottom, #000 0%, #000 28%, transparent 100%)",
+            "radial-gradient(circle at 18% 12%, rgba(255,255,255,0.26), transparent 34%), radial-gradient(circle at 82% 92%, rgba(15,38,29,0.14), transparent 38%)",
+          mixBlendMode: "soft-light",
         }}
       />
       <div
-        className="absolute inset-x-0 bottom-0 h-52 opacity-[0.82]"
+        className="absolute inset-0 rounded-[inherit] opacity-80"
         style={{
-          ...glassStyle,
           background:
-            "linear-gradient(to top, rgba(18,36,28,0.13), rgba(255,255,255,0.1) 48%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
-          boxShadow:
-            "inset 0 64px 110px rgba(255,255,255,0.1), inset 0 16px 48px rgba(25,40,45,0.05)",
-          maskImage: "linear-gradient(to top, #000 0%, #000 26%, transparent 100%)",
+            "linear-gradient(100deg, transparent 7%, rgba(255,255,255,0.18) 16%, transparent 28%, transparent 70%, rgba(16,34,20,0.12) 84%, transparent 94%)",
+          mixBlendMode: "overlay",
         }}
       />
       <div
-        className="absolute inset-y-0 left-0 w-48 opacity-80"
-        style={{
-          ...glassStyle,
-          background:
-            "linear-gradient(to right, rgba(18,36,28,0.13), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
-          boxShadow:
-            "inset -66px 0 112px rgba(255,255,255,0.1), inset -18px 0 48px rgba(25,40,45,0.05)",
-          maskImage: "linear-gradient(to right, #000 0%, #000 26%, transparent 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-y-0 right-0 w-48 opacity-80"
-        style={{
-          ...glassStyle,
-          background:
-            "linear-gradient(to left, rgba(18,36,28,0.13), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
-          boxShadow:
-            "inset 66px 0 112px rgba(255,255,255,0.1), inset 18px 0 48px rgba(25,40,45,0.05)",
-          maskImage: "linear-gradient(to left, #000 0%, #000 26%, transparent 100%)",
-        }}
-      />
-      <div
-        className="absolute -left-28 top-8 h-72 w-72 rounded-full opacity-20 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(circle at 64% 42%, rgba(255,255,255,1), rgba(255,255,255,0.36) 46%, rgba(183,220,230,0.18) 62%, rgba(255,255,255,0) 78%)",
-          mixBlendMode: "screen",
-        }}
-      />
-      <div
-        className="absolute -right-28 bottom-4 h-80 w-80 rounded-full opacity-18 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(circle at 36% 58%, rgba(255,255,255,0.98), rgba(255,255,255,0.32) 48%, rgba(183,220,230,0.16) 64%, rgba(255,255,255,0) 78%)",
-          mixBlendMode: "screen",
-        }}
-      />
-      <div
-        className="absolute left-1/2 top-0 h-36 w-[46rem] -translate-x-1/2 rounded-b-[60%] opacity-18 blur-xl"
-        style={{
-          background:
-            "linear-gradient(100deg, rgba(255,255,255,0), rgba(255,255,255,0.85) 42%, rgba(189,219,226,0.45) 58%, rgba(255,255,255,0))",
-          mixBlendMode: "screen",
-        }}
-      />
-      <div
-        className="absolute inset-0 rounded-[inherit] opacity-22"
+        className="absolute inset-0 rounded-[inherit]"
         style={{
           boxShadow:
-            "inset 0 0 110px rgba(20,35,40,0.12)",
+            "inset 0 12px 42px rgba(255,255,255,0.14), inset 0 -18px 54px rgba(16,34,20,0.1), inset 20px 0 70px rgba(255,255,255,0.08), inset -20px 0 70px rgba(16,34,20,0.08)",
         }}
       />
     </div>
