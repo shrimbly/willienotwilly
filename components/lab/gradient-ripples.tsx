@@ -183,10 +183,12 @@ vec2 nestedWaveFamily(vec2 p, float seed, float offset, float cycle, float baseR
 vec2 clickWave(vec2 p, vec4 ripple) {
   float age = max(uTime - ripple.z, 0.0);
   float alive = step(0.0, ripple.z) * (1.0 - smoothstep(3.2, 5.4, age));
+  float entrance = smoothstep(0.0, 0.72, age);
+  float easedAge = age * mix(0.28, 1.0, entrance);
   float localSpeed = surfaceSpeed(p);
   float seeded = ripple.w;
-  float baseWidth = mix(0.11, 0.18, hash(vec2(seeded, 14.6))) * uThickness;
-  float radius = age * uSpeed * mix(0.032, 0.052, hash(vec2(seeded + 5.0, 38.2))) * localSpeed;
+  float baseWidth = mix(0.11, 0.18, hash(vec2(seeded, 14.6))) * uThickness * mix(0.45, 1.0, entrance);
+  float radius = easedAge * uSpeed * mix(0.032, 0.052, hash(vec2(seeded + 5.0, 38.2))) * localSpeed;
   float drift = fbm(p * 1.9 + vec2(seeded) + age * 0.02);
   vec2 pulled = p - ripple.xy;
   pulled += 0.05 * vec2(
@@ -199,7 +201,7 @@ vec2 clickWave(vec2 p, vec4 ripple) {
   float wake = smoothstep(0.0, baseWidth * 3.2, interiorDistance);
   wake *= 1.0 - smoothstep(max(radius * 0.26, baseWidth * 2.4), max(radius * 1.08, baseWidth * 4.2), interiorDistance);
 
-  return vec2(ring, wake) * alive;
+  return vec2(ring, wake) * alive * entrance;
 }
 
 void main() {
