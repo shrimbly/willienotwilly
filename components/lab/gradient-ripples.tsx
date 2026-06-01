@@ -12,7 +12,7 @@ const COLOR_PALETTES = {
   },
   chrome: {
     label: "Chrome",
-    colors: ["#050608", "#07152E", "#F2C84B", "#B8C0C4", "#F2F4F3"],
+    colors: ["#07080B", "#394351", "#A8B0B5", "#D9DDD8", "#F6F7F4"],
   },
 } as const;
 
