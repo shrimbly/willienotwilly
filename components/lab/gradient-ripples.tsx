@@ -291,7 +291,7 @@ void main() {
   edgeDepth -= waves * 0.42 * uRipple;
   edgeDepth = smoothstep(0.18, 1.0, edgeDepth);
   edgeDepth += lensAmount * dot(edgeNormal, normalize(vec2(0.7, -0.45)));
-  edgeDepth += roundedRim * 0.13 - innerRim * 0.055;
+  edgeDepth -= innerRim * 0.035;
   vec3 edgeBaseGradient = mix(uColors[4], uColors[3], smoothstep(-0.2, 1.05, glassWarpUv.y + warpedLow * 0.24));
   edgeBaseGradient = mix(edgeBaseGradient, uColors[2], smoothstep(0.15, 1.12, glassWarpUv.x + warpedMid * 0.18) * 0.26);
   vec3 edgeRefraction = mix(
@@ -299,15 +299,13 @@ void main() {
     palette(clamp(edgeDepth, 0.0, 1.0)),
     0.82
   );
-  float edgeShine = roundedRim * (0.3 + 0.14 * liquidWarp) + innerRim * 0.08;
-  vec3 edgeHighlight = vec3(0.9, 0.98, 1.0) * edgeShine;
-  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassEdge * (1.0 - roundedRim) * 0.1;
+  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassEdge * (1.0 - roundedRim) * 0.055;
   float edgeChromatic = glassBevel * roundedRim * uChromatic;
   edgeRefraction.r += edgeChromatic * 0.024;
   edgeRefraction.b += edgeChromatic * 0.018;
   edgeRefraction.g -= edgeChromatic * 0.006;
   float glassMix = max(glassEdge * 0.12, glassBevel * 0.76);
-  color = mix(color, edgeRefraction + edgeHighlight - edgeShadow, glassMix);
+  color = mix(color, edgeRefraction - edgeShadow, glassMix);
 
   float grain = hash(gl_FragCoord.xy);
   float fine = hash(gl_FragCoord.xy * 1.37 + 8.4);
