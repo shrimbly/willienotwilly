@@ -665,7 +665,7 @@ export function GradientRipplesLab({
   ].join(" ");
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#edf2ed] text-[#102214]">
       {isInfoVariant ? (
         <style>{`
           @media (orientation: portrait) and (max-width: 767px) {
