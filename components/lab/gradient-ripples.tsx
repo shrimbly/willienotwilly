@@ -2,7 +2,6 @@
 
 import * as THREE from "three";
 import { EyeOff, RotateCcw, SlidersHorizontal } from "lucide-react";
-import type { CSSProperties, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_COLORS = ["#33673B", "#69B574", "#ADD7B4", "#F1F8F2", "#F5F5F5"];
@@ -27,8 +26,6 @@ void main() {
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }
 `;
-
-const MAX_CLOCK_SEGMENTS = 30;
 
 const FRAGMENT_SHADER = `
 precision highp float;
@@ -98,13 +95,6 @@ vec3 palette(float t) {
 float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   vec2 q = abs(p) - halfSize + vec2(radius);
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-
-float chamferedRectSDF(vec2 p, vec2 halfSize, float chamfer) {
-  vec2 a = abs(p);
-  float box = max(a.x - halfSize.x, a.y - halfSize.y);
-  float corner = a.x + a.y - (halfSize.x + halfSize.y - chamfer);
-  return max(box, corner) * 0.7071;
 }
 
 float glassRefractionCurve(float x) {
@@ -310,21 +300,12 @@ precision highp float;
 uniform sampler2D uScene;
 uniform vec2 uResolution;
 uniform float uGlassRadius;
-uniform vec4 uClockSegments[30];
-uniform float uClockSegmentCount;
 
 varying vec2 vUv;
 
 float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   vec2 q = abs(p) - halfSize + vec2(radius);
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-
-float chamferedRectSDF(vec2 p, vec2 halfSize, float chamfer) {
-  vec2 a = abs(p);
-  float box = max(a.x - halfSize.x, a.y - halfSize.y);
-  float corner = a.x + a.y - (halfSize.x + halfSize.y - chamfer);
-  return max(box, corner) * 0.7071;
 }
 
 float glassRefractionCurve(float x) {
@@ -342,23 +323,8 @@ void main() {
   vec2 halfSize = uResolution * 0.5 - vec2(glassInset);
   vec2 p = (uv - 0.5) * uResolution;
   float dist = roundedRectSDF(p, halfSize, max(uGlassRadius - glassInset, 0.0));
-  float clockDist = 999999.0;
-  vec2 clockCenter = vec2(0.0);
 
-  for (int i = 0; i < 30; i++) {
-    if (float(i) < uClockSegmentCount) {
-      vec4 segment = uClockSegments[i];
-      float segmentChamfer = min(segment.z, segment.w) * 0.9;
-      float segmentDist = chamferedRectSDF(p - segment.xy, segment.zw, segmentChamfer);
-
-      if (segmentDist < clockDist) {
-        clockDist = segmentDist;
-        clockCenter = segment.xy;
-      }
-    }
-  }
-
-  if (dist > 0.0 && clockDist > 0.0) {
+  if (dist > 0.0) {
     gl_FragColor = base;
     return;
   }
@@ -366,12 +332,8 @@ void main() {
   float depthPx = max(-dist, 0.0);
   float depth = depthPx / max(min(halfSize.x, halfSize.y), 1.0);
   float edgeBand = 1.0 - smoothstep(0.0, 150.0, depthPx);
-  float clockDepthPx = max(-clockDist, 0.0);
-  float clockMask = 1.0 - smoothstep(0.0, 1.5, clockDist);
-  float clockEdge = 1.0 - smoothstep(0.0, 22.0, clockDepthPx);
-  float clockGlass = clockMask * (0.2 + clockEdge * 0.8);
 
-  if (edgeBand <= 0.001 && clockGlass <= 0.001) {
+  if (edgeBand <= 0.001) {
     gl_FragColor = base;
     return;
   }
@@ -380,17 +342,11 @@ void main() {
   vec2 sampleP = p * falloff;
   vec2 sampleUv = sampleP / uResolution + 0.5;
   vec3 refracted = texture2D(uScene, clamp(sampleUv, vec2(0.0), vec2(1.0))).rgb;
-  vec2 clockDirection = normalize(clockCenter - p + vec2(0.001));
-  vec2 clockSampleUv = (p + clockDirection * clockGlass * 10.0) / uResolution + 0.5;
-  vec3 clockRefracted = texture2D(uScene, clamp(clockSampleUv, vec2(0.0), vec2(1.0))).rgb;
   float edge = 1.0 - smoothstep(0.0, 42.0, depthPx);
   float innerShadow = smoothstep(0.0, 80.0, depthPx) * (1.0 - smoothstep(80.0, 150.0, depthPx));
   vec3 color = mix(base.rgb, refracted, edgeBand);
-  color = mix(color, clockRefracted, min(clockGlass * 0.6, 0.68));
   color *= 1.0 - innerShadow * 0.045;
-  color *= 1.0 - clockMask * (1.0 - clockEdge) * 0.025;
   color += vec3(edge * 0.018);
-  color += vec3(clockEdge * clockMask * 0.015);
 
   gl_FragColor = vec4(color, 1.0);
 }
@@ -454,7 +410,6 @@ export function GradientRipplesLab({
 }) {
   const defaults = VARIANT_DEFAULTS[variant];
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const clockRef = useRef<HTMLDivElement | null>(null);
   const uniformsRef = useRef<{
     uColors: { value: THREE.Color[] };
     uNoiseIntensity: { value: number };
@@ -484,7 +439,7 @@ export function GradientRipplesLab({
   const [speedField, setSpeedField] = useState(defaults.speedField);
   const [rippleCount, setRippleCount] = useState(defaults.rippleCount);
   const [chromatic, setChromatic] = useState(defaults.chromatic);
-  const [controlsHidden, setControlsHidden] = useState(false);
+  const [controlsHidden, setControlsHidden] = useState(variant === "v3");
   const [fps, setFps] = useState(0);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
@@ -504,10 +459,6 @@ export function GradientRipplesLab({
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const scene = new THREE.Scene();
-    const clockSegments = Array.from(
-      { length: MAX_CLOCK_SEGMENTS },
-      () => new THREE.Vector4(0, 0, 0, 0),
-    );
     const clickRipples = Array.from(
       { length: 6 },
       () => new THREE.Vector4(0, 0, -100, 0),
@@ -553,8 +504,6 @@ export function GradientRipplesLab({
       uScene: { value: renderTarget.texture },
       uResolution: { value: new THREE.Vector2(1, 1) },
       uGlassRadius: { value: 36 * renderer.getPixelRatio() },
-      uClockSegments: { value: clockSegments },
-      uClockSegmentCount: { value: 0 },
     };
     const postMaterial = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
@@ -585,44 +534,7 @@ export function GradientRipplesLab({
     const startedAt = performance.now();
     let frameCount = 0;
     let lastFpsAt = startedAt;
-    let lastClockMeasureAt = 0;
     let clickRippleIndex = 0;
-    const updateClockSegments = () => {
-      if (variant !== "v3" || !clockRef.current) {
-        postUniforms.uClockSegmentCount.value = 0;
-        return;
-      }
-
-      const pixelRatio = renderer.getPixelRatio();
-      const mountRect = mount.getBoundingClientRect();
-      const segments = clockRef.current.querySelectorAll<HTMLElement>(
-        "[data-clock-segment='active']",
-      );
-      const count = Math.min(segments.length, MAX_CLOCK_SEGMENTS);
-
-      for (let i = 0; i < count; i++) {
-        const rect = segments[i].getBoundingClientRect();
-        const centerX =
-          (rect.left - mountRect.left + rect.width / 2 - mountRect.width / 2) *
-          pixelRatio;
-        const centerY =
-          (mountRect.height / 2 - (rect.top - mountRect.top + rect.height / 2)) *
-          pixelRatio;
-
-        clockSegments[i].set(
-          centerX,
-          centerY,
-          (rect.width / 2) * pixelRatio,
-          (rect.height / 2) * pixelRatio,
-        );
-      }
-
-      for (let i = count; i < MAX_CLOCK_SEGMENTS; i++) {
-        clockSegments[i].set(0, 0, 0, 0);
-      }
-
-      postUniforms.uClockSegmentCount.value = count;
-    };
     const addClickRipple = (event: PointerEvent) => {
       if (event.button !== 0 && event.pointerType === "mouse") return;
       const rect = mount.getBoundingClientRect();
@@ -642,10 +554,6 @@ export function GradientRipplesLab({
     const render = () => {
       const now = performance.now();
       uniforms.uTime.value = (now - startedAt) / 1000;
-      if (now - lastClockMeasureAt > 250) {
-        updateClockSegments();
-        lastClockMeasureAt = now;
-      }
       renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
       renderer.setRenderTarget(null);
@@ -743,6 +651,7 @@ export function GradientRipplesLab({
       <div className={frameClassName}>
         <div ref={mountRef} className="absolute inset-0" />
         <LiquidGlassLayer />
+        {isClockVariant ? <GlassInfoTile /> : null}
       </div>
 
       <div className={fpsClassName}>
@@ -759,8 +668,6 @@ export function GradientRipplesLab({
           </h1>
         </div>
       </div>
-
-      {isClockVariant ? <SevenSegmentClock clockRef={clockRef} /> : null}
 
       {controlsHidden ? (
         <button
@@ -988,73 +895,13 @@ function LiquidGlassSurface({ compact = false }: { compact?: boolean }) {
   );
 }
 
-type ClockSegmentId =
-  | "top"
-  | "upperLeft"
-  | "upperRight"
-  | "middle"
-  | "lowerLeft"
-  | "lowerRight"
-  | "bottom";
-
-type ClockSegmentGeometry = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  orientation: "horizontal" | "vertical";
-};
-
-const DIGIT_SEGMENTS: Record<string, ClockSegmentId[]> = {
-  "0": ["top", "upperLeft", "upperRight", "lowerLeft", "lowerRight", "bottom"],
-  "1": ["upperRight", "lowerRight"],
-  "2": ["top", "upperRight", "middle", "lowerLeft", "bottom"],
-  "3": ["top", "upperRight", "middle", "lowerRight", "bottom"],
-  "4": ["upperLeft", "upperRight", "middle", "lowerRight"],
-  "5": ["top", "upperLeft", "middle", "lowerRight", "bottom"],
-  "6": ["top", "upperLeft", "middle", "lowerLeft", "lowerRight", "bottom"],
-  "7": ["top", "upperRight", "lowerRight"],
-  "8": [
-    "top",
-    "upperLeft",
-    "upperRight",
-    "middle",
-    "lowerLeft",
-    "lowerRight",
-    "bottom",
-  ],
-  "9": ["top", "upperLeft", "upperRight", "middle", "lowerRight", "bottom"],
-};
-
-const SEGMENT_GEOMETRY: Record<ClockSegmentId, ClockSegmentGeometry> = {
-  top: { left: 20, top: 0, width: 60, height: 18, orientation: "horizontal" },
-  upperLeft: { left: 0, top: 18, width: 18, height: 62, orientation: "vertical" },
-  upperRight: { left: 82, top: 18, width: 18, height: 62, orientation: "vertical" },
-  middle: { left: 20, top: 81, width: 60, height: 18, orientation: "horizontal" },
-  lowerLeft: { left: 0, top: 100, width: 18, height: 62, orientation: "vertical" },
-  lowerRight: { left: 82, top: 100, width: 18, height: 62, orientation: "vertical" },
-  bottom: { left: 20, top: 162, width: 60, height: 18, orientation: "horizontal" },
-};
-
-const CLOCK_SEGMENT_IDS = Object.keys(
-  SEGMENT_GEOMETRY,
-) as ClockSegmentId[];
-const CLOCK_DIGIT_WIDTH = 100;
-const CLOCK_DIGIT_HEIGHT = 180;
-
-function SevenSegmentClock({
-  clockRef,
-}: {
-  clockRef: RefObject<HTMLDivElement | null>;
-}) {
-  const [time, setTime] = useState("--:--");
+function GlassInfoTile() {
+  const [now, setNow] = useState<Date | null>(null);
+  const [temperature, setTemperature] = useState("18°");
 
   useEffect(() => {
     const update = () => {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, "0");
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      setTime(`${hours}:${minutes}`);
+      setNow(new Date());
     };
 
     update();
@@ -1062,77 +909,50 @@ function SevenSegmentClock({
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch(
+      "https://api.open-meteo.com/v1/forecast?latitude=-36.8485&longitude=174.7633&current=temperature_2m&temperature_unit=celsius",
+      { signal: controller.signal },
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        const value = data?.current?.temperature_2m;
+        if (typeof value === "number") {
+          setTemperature(`${Math.round(value)}°`);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, []);
+
+  const time = now
+    ? new Intl.DateTimeFormat("en-NZ", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now)
+    : "--:--";
+  const date = now
+    ? new Intl.DateTimeFormat("en-NZ", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }).format(now)
+    : "Today";
+
   return (
-    <div
-      ref={clockRef}
-      className="pointer-events-none absolute bottom-[31rem] right-12 z-10 flex items-center gap-[clamp(0.45rem,1vw,1rem)] sm:bottom-16 sm:right-16 lg:bottom-20 lg:right-20"
-      aria-label={`Current time ${time}`}
-    >
-      {time.split("").map((char, index) =>
-        char === ":" ? (
-          <ClockColon key={`${char}-${index}`} />
-        ) : (
-          <ClockDigit key={`${char}-${index}`} value={char} />
-        ),
-      )}
-    </div>
-  );
-}
-
-function ClockDigit({ value }: { value: string }) {
-  const activeSegments = DIGIT_SEGMENTS[value] ?? [];
-
-  return (
-    <div className="relative aspect-[100/180] w-[clamp(3.4rem,8.8vw,7.4rem)]">
-      {CLOCK_SEGMENT_IDS.map((id) => {
-        const active = activeSegments.includes(id);
-        const geometry = SEGMENT_GEOMETRY[id];
-        const style = {
-          "--segment-left": `${(geometry.left / CLOCK_DIGIT_WIDTH) * 100}%`,
-          "--segment-top": `${(geometry.top / CLOCK_DIGIT_HEIGHT) * 100}%`,
-          "--segment-width": `${(geometry.width / CLOCK_DIGIT_WIDTH) * 100}%`,
-          "--segment-height": `${(geometry.height / CLOCK_DIGIT_HEIGHT) * 100}%`,
-          clipPath:
-            geometry.orientation === "horizontal"
-              ? "polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%)"
-              : "polygon(50% 0, 100% 12%, 100% 88%, 50% 100%, 0 88%, 0 12%)",
-        } as CSSProperties;
-
-        return (
-          <span
-            key={id}
-            data-clock-segment={active ? "active" : "inactive"}
-            className={[
-              "absolute left-[var(--segment-left)] top-[var(--segment-top)] h-[var(--segment-height)] w-[var(--segment-width)] transition duration-500 ease-out",
-              active
-                ? "overflow-hidden border border-white/45 bg-white/[0.018] opacity-100 shadow-[0_12px_30px_rgba(16,34,20,0.13)] backdrop-blur-md"
-                : "border border-white/[0.08] bg-[#102214]/[0.02] opacity-20",
-            ].join(" ")}
-            style={style}
-          >
-            {active ? (
-              <LiquidGlassSurface compact />
-            ) : null}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function ClockColon() {
-  return (
-    <div className="flex aspect-[24/180] w-[clamp(0.8rem,2vw,1.55rem)] flex-col items-center justify-center gap-[18%]">
-      {[0, 1].map((dot) => (
-        <span
-          key={dot}
-          data-clock-segment="active"
-          className="relative size-[clamp(0.42rem,1.4vw,1.05rem)] overflow-hidden rounded-full border border-white/45 bg-white/[0.018] shadow-[0_10px_24px_rgba(16,34,20,0.13)] backdrop-blur-md"
-        >
-          <LiquidGlassSurface compact />
-        </span>
-      ))}
-    </div>
+    <section className="pointer-events-none absolute bottom-5 right-5 z-20 flex h-1/2 w-1/2 flex-col justify-between overflow-hidden rounded-[1.6rem] border border-white/30 bg-white/[0.13] p-5 text-[#102214] shadow-[0_10px_24px_rgba(16,34,20,0.12)] backdrop-blur-2xl sm:bottom-7 sm:right-7 sm:rounded-[2rem] sm:p-6 lg:bottom-8 lg:right-8">
+      <div className="flex items-start justify-between gap-4 font-[var(--font-geist-mono)] text-[clamp(0.6rem,1vw,0.85rem)] uppercase tracking-[0.16em] text-[#102214]/70">
+        <span>{date}</span>
+        <span>{temperature}</span>
+      </div>
+      <div className="font-[var(--font-geist-mono)] text-[clamp(2rem,8vw,7.5rem)] font-medium leading-none tracking-[-0.08em] text-[#102214]/82">
+        {time}
+      </div>
+    </section>
   );
 }
 
