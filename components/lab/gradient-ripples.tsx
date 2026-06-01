@@ -555,8 +555,10 @@ export function GradientRipplesLab({
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden bg-[#f5f5f5] text-[#102214]">
-      <div ref={mountRef} className="absolute inset-0" />
-      <LiquidGlassEdges />
+      <div className="absolute inset-2 overflow-hidden rounded-[1.75rem] bg-[#f5f5f5] shadow-[0_0_0_1px_rgba(16,34,20,0.08)] sm:inset-3 sm:rounded-[2.25rem]">
+        <div ref={mountRef} className="absolute inset-0" />
+        <LiquidGlassEdges />
+      </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-5 pt-6 sm:justify-start sm:px-7">
         <div className="max-w-[22rem]">
