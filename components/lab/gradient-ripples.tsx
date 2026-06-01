@@ -16,9 +16,6 @@ const COLOR_PALETTES = {
   },
 } as const;
 
-const GLASS_SIZE = 320;
-const GLASS_RADIUS = 64;
-
 type PaletteId = keyof typeof COLOR_PALETTES;
 
 const VERTEX_SHADER = `
@@ -46,7 +43,7 @@ uniform float uSpeedField;
 uniform float uRippleCount;
 uniform float uChromatic;
 uniform float uNestedMode;
-uniform float uGlassSize;
+uniform float uGlassRadius;
 uniform vec4 uClickRipples[6];
 
 varying vec2 vUv;
@@ -275,13 +272,13 @@ void main() {
 
   float glassMinResolution = max(min(uResolution.x, uResolution.y), 1.0);
   vec2 glassP = (uv - 0.5) * uResolution / glassMinResolution;
-  vec2 glassHalfSize = vec2(uGlassSize * 0.5 / glassMinResolution);
-  float glassRadius = uGlassSize * 0.2 / glassMinResolution;
+  vec2 glassHalfSize = uResolution / glassMinResolution * 0.5;
+  float glassRadius = uGlassRadius / glassMinResolution;
   float glassDistance = roundedRectSDF(glassP, glassHalfSize, glassRadius);
   float glassMask = 1.0 - smoothstep(0.0, 0.01, glassDistance);
 
   if (glassMask > 0.0) {
-    float glassDepth = max(-glassDistance / max(glassHalfSize.x, 0.001), 0.0);
+    float glassDepth = max(-glassDistance / max(min(glassHalfSize.x, glassHalfSize.y), 0.001), 0.0);
     float glassFalloff = pow(max(glassRefractionCurve(glassDepth), 0.0), 1.779);
     vec2 glassSampleP = glassP * glassFalloff;
     vec2 glassDelta = (glassSampleP - glassP) * glassMask;
@@ -414,7 +411,7 @@ export function GradientRipplesLab({
     uRippleCount: { value: number };
     uChromatic: { value: number };
     uNestedMode: { value: number };
-    uGlassSize: { value: number };
+    uGlassRadius: { value: number };
     uClickRipples: { value: THREE.Vector4[] };
   } | null>(null);
 
@@ -469,7 +466,7 @@ export function GradientRipplesLab({
       uRippleCount: { value: defaults.rippleCount },
       uChromatic: { value: defaults.chromatic },
       uNestedMode: { value: defaults.nestedMode },
-      uGlassSize: { value: GLASS_SIZE * renderer.getPixelRatio() },
+      uGlassRadius: { value: 36 * renderer.getPixelRatio() },
       uClickRipples: { value: clickRipples },
     };
     uniformsRef.current = uniforms;
@@ -491,7 +488,7 @@ export function GradientRipplesLab({
         clientWidth * pixelRatio,
         clientHeight * pixelRatio,
       );
-      uniforms.uGlassSize.value = GLASS_SIZE * pixelRatio;
+      uniforms.uGlassRadius.value = (clientWidth >= 640 ? 36 : 28) * pixelRatio;
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -791,12 +788,7 @@ function LiquidGlassLayer() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute left-1/2 top-1/2 z-[5] -translate-x-1/2 -translate-y-1/2"
-      style={{
-        width: GLASS_SIZE,
-        height: GLASS_SIZE,
-        borderRadius: GLASS_RADIUS,
-      }}
+      className="pointer-events-none absolute inset-0 z-[5] rounded-[inherit]"
     >
       <div
         className="absolute inset-0 rounded-[inherit]"
