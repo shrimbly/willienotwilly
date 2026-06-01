@@ -270,14 +270,14 @@ void main() {
   edgeNormal = normalize(mix(edgeNormal, cornerVector, cornerProximity));
 
   float glassEdge = smoothstep(0.22, 0.0, edgeDistance);
-  float glassBevel = pow(1.0 - smoothstep(0.0, 0.105, edgeDistance), 1.22);
-  float roundedRim = 1.0 - smoothstep(0.018, 0.082, abs(edgeDistance - 0.034));
+  float glassBevel = pow(1.0 - smoothstep(0.0, 0.13, edgeDistance), 1.08);
+  float roundedRim = 1.0 - smoothstep(0.012, 0.074, abs(edgeDistance - 0.036));
   float innerRim = 1.0 - smoothstep(0.0, 0.14, abs(edgeDistance - 0.105));
   float liquidWarp = fbm(p * 5.0 + edgeNormal * 1.7 + uTime * 0.03);
-  float lensAmount = glassEdge * 0.018 + glassBevel * (0.085 + liquidWarp * 0.055);
+  float lensAmount = glassEdge * 0.026 + glassBevel * (0.13 + liquidWarp * 0.075);
   vec2 edgeTangent = vec2(-edgeNormal.y, edgeNormal.x);
   vec2 glassWarpP = p - edgeNormal * lensAmount;
-  glassWarpP += edgeTangent * (liquidWarp - 0.5) * glassBevel * 0.1;
+  glassWarpP += edgeTangent * (liquidWarp - 0.5) * glassBevel * 0.16;
   vec2 glassWarpUv = vec2(glassWarpP.x / (uResolution.x / max(uResolution.y, 1.0)), glassWarpP.y) + 0.5;
   float warpedLow = fbm(glassWarpP * 0.95 + vec2(localT * 0.018, -localT * 0.014));
   float warpedMid = fbm(glassWarpP * 2.0 + vec2(-localT * 0.026, localT * 0.018));
@@ -299,12 +299,12 @@ void main() {
     palette(clamp(edgeDepth, 0.0, 1.0)),
     0.82
   );
-  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassEdge * (1.0 - roundedRim) * 0.035;
+  vec3 edgeShadow = vec3(0.02, 0.04, 0.045) * glassBevel * 0.11;
   float edgeChromatic = glassBevel * (0.36 + roundedRim * 0.64) * uChromatic;
-  edgeRefraction.r += edgeChromatic * 0.014;
-  edgeRefraction.b += edgeChromatic * 0.011;
-  edgeRefraction.g -= edgeChromatic * 0.003;
-  float glassMix = max(glassEdge * 0.22, glassBevel * 0.54);
+  edgeRefraction.r += edgeChromatic * 0.022;
+  edgeRefraction.b += edgeChromatic * 0.017;
+  edgeRefraction.g -= edgeChromatic * 0.005;
+  float glassMix = max(glassEdge * 0.28, glassBevel * 0.78);
   color = mix(color, edgeRefraction - edgeShadow, glassMix);
 
   float grain = hash(gl_FragCoord.xy);
@@ -758,44 +758,44 @@ function LiquidGlassEdges() {
       className="pointer-events-none absolute inset-0 z-[5] overflow-hidden"
     >
       <div
-        className="absolute inset-x-0 top-0 h-60 opacity-70"
+        className="absolute inset-x-0 top-0 h-60 opacity-[0.92]"
         style={{
           ...glassStyle,
           background:
-            "linear-gradient(to bottom, rgba(255,255,255,0.24), rgba(255,255,255,0.12) 42%, rgba(170,205,213,0.08) 66%, rgba(255,255,255,0))",
+            "linear-gradient(to bottom, rgba(18,36,28,0.16), rgba(255,255,255,0.12) 40%, rgba(170,205,213,0.08) 66%, rgba(255,255,255,0))",
           boxShadow:
             "inset 0 -72px 120px rgba(255,255,255,0.12), inset 0 -18px 54px rgba(25,40,45,0.06)",
           maskImage: "linear-gradient(to bottom, #000 0%, #000 28%, transparent 100%)",
         }}
       />
       <div
-        className="absolute inset-x-0 bottom-0 h-52 opacity-64"
+        className="absolute inset-x-0 bottom-0 h-52 opacity-[0.82]"
         style={{
           ...glassStyle,
           background:
-            "linear-gradient(to top, rgba(255,255,255,0.2), rgba(255,255,255,0.1) 48%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
+            "linear-gradient(to top, rgba(18,36,28,0.13), rgba(255,255,255,0.1) 48%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
           boxShadow:
             "inset 0 64px 110px rgba(255,255,255,0.1), inset 0 16px 48px rgba(25,40,45,0.05)",
           maskImage: "linear-gradient(to top, #000 0%, #000 26%, transparent 100%)",
         }}
       />
       <div
-        className="absolute inset-y-0 left-0 w-48 opacity-62"
+        className="absolute inset-y-0 left-0 w-48 opacity-80"
         style={{
           ...glassStyle,
           background:
-            "linear-gradient(to right, rgba(255,255,255,0.18), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
+            "linear-gradient(to right, rgba(18,36,28,0.13), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
           boxShadow:
             "inset -66px 0 112px rgba(255,255,255,0.1), inset -18px 0 48px rgba(25,40,45,0.05)",
           maskImage: "linear-gradient(to right, #000 0%, #000 26%, transparent 100%)",
         }}
       />
       <div
-        className="absolute inset-y-0 right-0 w-48 opacity-62"
+        className="absolute inset-y-0 right-0 w-48 opacity-80"
         style={{
           ...glassStyle,
           background:
-            "linear-gradient(to left, rgba(255,255,255,0.18), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
+            "linear-gradient(to left, rgba(18,36,28,0.13), rgba(255,255,255,0.09) 46%, rgba(170,205,213,0.07) 68%, rgba(255,255,255,0))",
           boxShadow:
             "inset 66px 0 112px rgba(255,255,255,0.1), inset 18px 0 48px rgba(25,40,45,0.05)",
           maskImage: "linear-gradient(to left, #000 0%, #000 26%, transparent 100%)",
