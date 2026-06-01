@@ -560,7 +560,7 @@ export function GradientRipplesLab({
         <LiquidGlassEdges />
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-5 pt-6 sm:justify-start sm:px-7">
+      <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex justify-center px-5 pt-5 sm:inset-x-3 sm:top-3 sm:justify-start sm:px-7">
         <div className="max-w-[22rem]">
           <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-[#102214]/65">
             Lab / gradient animation
@@ -575,7 +575,7 @@ export function GradientRipplesLab({
         <button
           type="button"
           onClick={() => setControlsHidden(false)}
-          className="absolute bottom-3 left-3 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-5 sm:left-5"
+          className="absolute bottom-5 left-5 z-20 grid size-11 place-items-center rounded-full border border-white/45 bg-white/58 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl transition hover:bg-white/75 sm:bottom-8 sm:left-8"
           aria-label="Show gradient controls"
         >
           <SlidersHorizontal size={17} strokeWidth={2} />
@@ -583,7 +583,7 @@ export function GradientRipplesLab({
       ) : (
         <section
           aria-label="Gradient controls"
-          className="absolute inset-x-3 bottom-3 z-20 rounded-lg border border-white/45 bg-white/58 p-3 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[22rem]"
+          className="absolute inset-x-5 bottom-5 z-20 rounded-lg border border-white/45 bg-white/58 p-3 text-[#102214] shadow-2xl shadow-[#102214]/15 backdrop-blur-xl sm:inset-x-auto sm:bottom-8 sm:left-8 sm:w-[22rem]"
         >
           <div className="flex items-center justify-between gap-3">
             <div>
