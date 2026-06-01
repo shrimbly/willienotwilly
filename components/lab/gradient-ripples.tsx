@@ -91,6 +91,26 @@ vec3 palette(float t) {
   return mix(uColors[3], uColors[4], blend);
 }
 
+float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p) - halfSize + vec2(radius);
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+vec2 roundedRectNormal(vec2 p, vec2 halfSize, float radius) {
+  vec2 eps = vec2(1.0 / max(min(uResolution.x, uResolution.y), 1.0));
+  float dx = roundedRectSDF(p + vec2(eps.x, 0.0), halfSize, radius) -
+    roundedRectSDF(p - vec2(eps.x, 0.0), halfSize, radius);
+  float dy = roundedRectSDF(p + vec2(0.0, eps.y), halfSize, radius) -
+    roundedRectSDF(p - vec2(0.0, eps.y), halfSize, radius);
+  vec2 normal = vec2(dx, dy);
+
+  if (length(normal) < 0.0001) {
+    return vec2(0.0, 1.0);
+  }
+
+  return normalize(normal);
+}
+
 vec2 randomCenter(float seed) {
   return vec2(
     mix(-0.82, 0.82, hash(vec2(seed, seed + 19.7))),
@@ -256,23 +276,18 @@ void main() {
   color = mix(color, refracted, min(edgeAberration * 0.72, 0.82));
   color += mix(coolFringe, warmFringe, fringeDrift) * edgeAberration * 0.42;
 
-  vec2 edgeUv = uv - 0.5;
-  vec2 edgeToWall = vec2(
-    edgeUv.x < 0.0 ? uv.x : 1.0 - uv.x,
-    edgeUv.y < 0.0 ? uv.y : 1.0 - uv.y
-  );
-  float edgeDistance = min(edgeToWall.x, edgeToWall.y);
-  vec2 edgeNormal = edgeToWall.x < edgeToWall.y
-    ? vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, 0.0)
-    : vec2(0.0, edgeUv.y < 0.0 ? -1.0 : 1.0);
-  vec2 cornerVector = normalize(vec2(edgeUv.x < 0.0 ? -1.0 : 1.0, edgeUv.y < 0.0 ? -1.0 : 1.0));
-  float cornerProximity = smoothstep(0.28, 0.48, min(abs(edgeUv.x), abs(edgeUv.y)));
-  edgeNormal = normalize(mix(edgeNormal, cornerVector, cornerProximity));
+  float minResolution = max(min(uResolution.x, uResolution.y), 1.0);
+  vec2 glassP = (uv - 0.5) * uResolution / minResolution;
+  vec2 glassHalfSize = uResolution / minResolution * 0.5;
+  float glassRadius = 0.055;
+  float glassSDF = roundedRectSDF(glassP, glassHalfSize, glassRadius);
+  float edgeDistance = max(-glassSDF, 0.0);
+  vec2 edgeNormal = roundedRectNormal(glassP, glassHalfSize, glassRadius);
 
-  float glassEdge = smoothstep(0.22, 0.0, edgeDistance);
-  float glassBevel = pow(1.0 - smoothstep(0.0, 0.13, edgeDistance), 1.08);
-  float roundedRim = 1.0 - smoothstep(0.012, 0.074, abs(edgeDistance - 0.036));
-  float innerRim = 1.0 - smoothstep(0.0, 0.14, abs(edgeDistance - 0.105));
+  float glassEdge = smoothstep(0.24, 0.0, edgeDistance);
+  float glassBevel = pow(1.0 - smoothstep(0.0, 0.15, edgeDistance), 1.05);
+  float roundedRim = 1.0 - smoothstep(0.012, 0.086, abs(edgeDistance - 0.04));
+  float innerRim = 1.0 - smoothstep(0.0, 0.16, abs(edgeDistance - 0.115));
   float liquidWarp = fbm(p * 5.0 + edgeNormal * 1.7 + uTime * 0.03);
   float lensAmount = glassEdge * 0.026 + glassBevel * (0.13 + liquidWarp * 0.075);
   vec2 edgeTangent = vec2(-edgeNormal.y, edgeNormal.x);
