@@ -100,11 +100,6 @@ float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
-float roundedRectSDF(vec2 p, vec2 halfSize, float radius) {
-  vec2 q = abs(p) - halfSize + vec2(radius);
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-
 float glassRefractionCurve(float x) {
   float a = 0.992;
   float b = 2.332;
