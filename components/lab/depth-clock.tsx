@@ -233,6 +233,8 @@ uniform float uFogBands;
 uniform float uClockShadow;
 uniform float uClockEmbossTint;
 uniform float uChromaticDepth;
+uniform vec3 uNearDepthTint;
+uniform vec3 uFarDepthTint;
 uniform vec4 uClockRipples[6];
 
 varying vec3 vColor;
@@ -308,12 +310,10 @@ void main() {
   vec3 fogColor = mix(vec3(0.04, 0.12, 0.14), vec3(0.33, 0.48, 0.52), farMask);
   color = mix(color, fogColor, clamp(fogAmount, 0.0, 0.92));
 
-  vec3 warmNear = vec3(1.0, 0.72, 0.54);
-  vec3 cyanFar = vec3(0.45, 0.9, 1.0);
-  vec3 depthTint = mix(cyanFar, warmNear, nearMask);
+  vec3 depthTint = mix(uFarDepthTint, uNearDepthTint, nearMask);
   color = mix(color, color * depthTint, uChromaticDepth * 0.72);
-  color.r += nearMask * uChromaticDepth * 0.045;
-  color.b += farMask * uChromaticDepth * 0.055;
+  color += uNearDepthTint * nearMask * uChromaticDepth * 0.028;
+  color += uFarDepthTint * farMask * uChromaticDepth * 0.024;
 
   float embossMask = smoothstep(0.04, 0.95, vClockMask);
   float farClockLayer = smoothstep(0.48, 0.82, farMask);
@@ -403,6 +403,8 @@ void main() {
 type ParticleCloud = {
   geometry: THREE.BufferGeometry;
   sourceAspect: number;
+  nearDepthTint: THREE.Vector3;
+  farDepthTint: THREE.Vector3;
 };
 
 type DepthClockProps = {
@@ -470,6 +472,10 @@ async function buildParticleCloud(
   const alphas: number[] = [];
   const sizes: number[] = [];
   const phases: number[] = [];
+  const nearTintTotals = new THREE.Vector3();
+  const farTintTotals = new THREE.Vector3();
+  let nearTintWeight = 0;
+  let farTintWeight = 0;
 
   for (let y = 0; y < height; y += sampleStride) {
     for (let x = 0; x < width; x += sampleStride) {
@@ -503,22 +509,37 @@ async function buildParticleCloud(
 
       if (colorData) {
         const source = colorData.data;
+        const sourceRed = source[pixel] / 255;
+        const sourceGreen = source[pixel + 1] / 255;
+        const sourceBlue = source[pixel + 2] / 255;
+        const sourceLuma = sourceRed * 0.299 + sourceGreen * 0.587 + sourceBlue * 0.114;
+        const colorWeight = smoothstep(0.035, 0.34, sourceLuma);
+        const nearWeight = Math.pow(depth, 1.85) * colorWeight;
+        const farWeight = Math.pow(1 - depth, 1.35) * colorWeight;
+
+        nearTintTotals.x += sourceRed * nearWeight;
+        nearTintTotals.y += sourceGreen * nearWeight;
+        nearTintTotals.z += sourceBlue * nearWeight;
+        nearTintWeight += nearWeight;
+        farTintTotals.x += sourceRed * farWeight;
+        farTintTotals.y += sourceGreen * farWeight;
+        farTintTotals.z += sourceBlue * farWeight;
+        farTintWeight += farWeight;
+
         photoColors.push(
           clamp(
-            mix(depthRed, source[pixel] / 255, ORIGINAL_COLOR_BLEND) +
+            mix(depthRed, sourceRed, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
+            0,
+            1,
+          ),
+          clamp(
+            mix(depthGreen, sourceGreen, ORIGINAL_COLOR_BLEND) +
               DEPTH_COLOR_LIFT * depth,
             0,
             1,
           ),
           clamp(
-            mix(depthGreen, source[pixel + 1] / 255, ORIGINAL_COLOR_BLEND) +
-              DEPTH_COLOR_LIFT * depth,
-            0,
-            1,
-          ),
-          clamp(
-            mix(depthBlue, source[pixel + 2] / 255, ORIGINAL_COLOR_BLEND) +
-              DEPTH_COLOR_LIFT * depth,
+            mix(depthBlue, sourceBlue, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
             0,
             1,
           ),
@@ -549,11 +570,49 @@ async function buildParticleCloud(
   geometry.setAttribute("aPhase", new THREE.Float32BufferAttribute(phases, 1));
   geometry.computeBoundingSphere();
 
-  return { geometry, sourceAspect };
+  const nearDepthTint = colorData
+    ? makeDepthTint(nearTintTotals, nearTintWeight, 1.08, 1.9)
+    : new THREE.Vector3(1, 0.72, 0.54);
+  const farDepthTint = colorData
+    ? makeDepthTint(farTintTotals, farTintWeight, 0.88, 2.15)
+    : new THREE.Vector3(0.45, 0.9, 1);
+
+  return { geometry, sourceAspect, nearDepthTint, farDepthTint };
 }
 
 function mix(a: number, b: number, t: number) {
   return a + (b - a) * t;
+}
+
+function makeDepthTint(
+  totals: THREE.Vector3,
+  weight: number,
+  targetLuma: number,
+  saturationBoost: number,
+) {
+  if (weight <= 0.0001) {
+    return new THREE.Vector3(targetLuma, targetLuma, targetLuma);
+  }
+
+  const color = totals.clone().multiplyScalar(1 / weight);
+  const luma = color.x * 0.299 + color.y * 0.587 + color.z * 0.114;
+  color.set(
+    luma + (color.x - luma) * saturationBoost,
+    luma + (color.y - luma) * saturationBoost,
+    luma + (color.z - luma) * saturationBoost,
+  );
+
+  const boostedLuma = Math.max(
+    color.x * 0.299 + color.y * 0.587 + color.z * 0.114,
+    0.001,
+  );
+  color.multiplyScalar(targetLuma / boostedLuma);
+
+  return new THREE.Vector3(
+    clamp(color.x, 0.36, 1.42),
+    clamp(color.y, 0.36, 1.42),
+    clamp(color.z, 0.36, 1.42),
+  );
 }
 
 function smoothstep(edge0: number, edge1: number, value: number) {
@@ -764,6 +823,8 @@ export function DepthClockLab({
       uClockShadow: { value: tuningRef.current.clockShadow },
       uClockEmbossTint: { value: tuningRef.current.clockEmbossTint },
       uChromaticDepth: { value: tuningRef.current.chromaticDepth },
+      uNearDepthTint: { value: new THREE.Vector3(1, 0.72, 0.54) },
+      uFarDepthTint: { value: new THREE.Vector3(0.45, 0.9, 1) },
       uClockMap: { value: null as THREE.Texture | null },
       uClockBounds: { value: new THREE.Vector4(0, 0, 0.0001, 0.0001) },
       uClockAngle: { value: THREE.MathUtils.degToRad(tuningRef.current.clockAngle) },
@@ -934,7 +995,12 @@ export function DepthClockLab({
       const version = buildVersion;
 
       buildParticleCloud(depthImageSrc, originalImageSrc, sampleStride)
-        .then(({ geometry, sourceAspect: loadedSourceAspect }) => {
+        .then(({
+          geometry,
+          sourceAspect: loadedSourceAspect,
+          nearDepthTint,
+          farDepthTint,
+        }) => {
           if (disposed || version !== buildVersion) {
             geometry.dispose();
             return;
@@ -946,6 +1012,8 @@ export function DepthClockLab({
           }
 
           sourceAspect = loadedSourceAspect;
+          uniforms.uNearDepthTint.value.copy(nearDepthTint);
+          uniforms.uFarDepthTint.value.copy(farDepthTint);
           points = new THREE.Points(geometry, material);
           points.rotation.x = -0.05;
           scene.add(points);
