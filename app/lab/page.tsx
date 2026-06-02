@@ -15,6 +15,17 @@ type Iteration = {
 
 const ITERATIONS: { project: string; entries: Iteration[] }[] = [
   {
+    project: "Depth clock",
+    entries: [
+      {
+        slug: "depth-clock",
+        version: "v1",
+        title: "Depth point-cloud clock",
+        note: "A depth-map particle field with foreground points pulled forward and a glass clock overlay.",
+      },
+    ],
+  },
+  {
     project: "Gradient animation",
     entries: [
       {
