@@ -1,7 +1,13 @@
 "use client";
 
 import * as THREE from "three";
-import { EyeOff, RotateCcw, SlidersHorizontal } from "lucide-react";
+import {
+  EyeOff,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_COLORS = ["#33673B", "#69B574", "#ADD7B4", "#F1F8F2", "#F5F5F5"];
@@ -422,6 +428,7 @@ export function GradientRipplesLab({
   variant?: GradientVariant;
 }) {
   const defaults = VARIANT_DEFAULTS[variant];
+  const mainRef = useRef<HTMLElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const uniformsRef = useRef<{
     uColors: { value: THREE.Color[] };
@@ -456,8 +463,20 @@ export function GradientRipplesLab({
     variant === "v3" || variant === "v4",
   );
   const [fps, setFps] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const colorVectors = useMemo(() => getColorArray(colors), [colors]);
+
+  useEffect(() => {
+    const updateFullscreen = () => {
+      setIsFullscreen(document.fullscreenElement === mainRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    updateFullscreen();
+
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, []);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -665,9 +684,28 @@ export function GradientRipplesLab({
     "absolute inset-0",
     isInfoVariant ? "gradient-landscape-stage" : "",
   ].join(" ");
+  const toggleFullscreen = async () => {
+    if (!mainRef.current) return;
+    const orientation = screen.orientation as ScreenOrientation & {
+      lock?: (orientation: string) => Promise<void>;
+      unlock?: () => void;
+    };
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      orientation.unlock?.();
+      return;
+    }
+
+    await mainRef.current.requestFullscreen?.().catch(() => undefined);
+    await orientation.lock?.("landscape").catch(() => undefined);
+  };
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#edf2ed] text-[#102214]">
+    <main
+      ref={mainRef}
+      className="relative min-h-[100dvh] overflow-hidden bg-[#edf2ed] text-[#102214]"
+    >
       {isInfoVariant ? (
         <style>{`
           @media (orientation: portrait) and (max-width: 767px) {
@@ -887,6 +925,20 @@ export function GradientRipplesLab({
       >
         Inspired by Daniel Destefanis
       </a>
+      {isInfoVariant ? (
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="absolute bottom-3 left-4 z-40 grid size-10 place-items-center rounded-full border border-white/50 bg-white/58 text-[#102214] shadow-xl shadow-[#102214]/10 backdrop-blur-xl transition hover:bg-white/75 sm:hidden"
+          aria-label={isFullscreen ? "Exit fullscreen clock" : "Open fullscreen clock"}
+        >
+          {isFullscreen ? (
+            <Minimize2 size={16} strokeWidth={2} />
+          ) : (
+            <Maximize2 size={16} strokeWidth={2} />
+          )}
+        </button>
+      ) : null}
     </main>
   );
 }
