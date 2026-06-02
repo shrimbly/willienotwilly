@@ -20,8 +20,8 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
       {
         slug: "depth-clock-v2",
         version: "v2",
-        title: "Depth point-cloud clock glass",
-        note: "The depth-map particle clock with the liquid glass surface layered over the canvas.",
+        title: "Depth point-cloud clock particles",
+        note: "A cinematic depth-map particle clock with separate clock particles, fog bands, chromatic depth, and digit-triggered spatial ripples.",
       },
       {
         slug: "depth-clock",

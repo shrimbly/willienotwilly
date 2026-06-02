@@ -39,6 +39,11 @@ const CLOCK_BACKDROP_MAX_HEIGHT = 0.46;
 const CLOCK_BACKDROP_Y = 0;
 const CLOCK_TEXTURE_WIDTH = 2048;
 const CLOCK_TEXTURE_HEIGHT = 512;
+const CLOCK_EMBOSS_SAMPLE_STRIDE = 8;
+const CLOCK_EMBOSS_POINT_SIZE = 1.75;
+const CLOCK_MASK_HUE = 125;
+const CLOCK_CHANGE_RIPPLE_COUNT = 6;
+const CLOCK_CHARACTER_OFFSETS = [-1.12, -0.56, 0, 0.56, 1.12];
 const CURSOR_CAMERA_X = 0.42;
 const CURSOR_CAMERA_Y = 0.26;
 const CURSOR_LOOK_X = 0.22;
@@ -56,15 +61,19 @@ type TuningControls = {
   baseColorBlend: number;
   rippleColorBlend: number;
   rippleLift: number;
+  clockRipple: number;
   cursorTilt: number;
-  clockOpacity: number;
   clockDepth: number;
   clockX: number;
   clockY: number;
   clockAngle: number;
   clockGlow: number;
-  clockHue: number;
   clockSize: number;
+  fogBands: number;
+  clockShadow: number;
+  clockEmbossTint: number;
+  clockEmbossSize: number;
+  chromaticDepth: number;
   canvasBlur: number;
 };
 
@@ -76,15 +85,19 @@ const DEFAULT_TUNING: TuningControls = {
   baseColorBlend: 1,
   rippleColorBlend: 1.8,
   rippleLift: 0.12,
+  clockRipple: 0.62,
   cursorTilt: 1.69,
-  clockOpacity: 0.48,
   clockDepth: -2.84,
-  clockX: 0,
-  clockY: 0,
+  clockX: 0.19,
+  clockY: -0.2,
   clockAngle: 0,
-  clockGlow: 0.2,
-  clockHue: 194,
-  clockSize: 0.52,
+  clockGlow: 0.29,
+  clockSize: 0.49,
+  fogBands: 0.42,
+  clockShadow: 1.4,
+  clockEmbossTint: 1.05,
+  clockEmbossSize: 0.77,
+  chromaticDepth: 1.2,
   canvasBlur: 1.13,
 };
 
@@ -100,12 +113,21 @@ uniform float uPixelRatio;
 uniform float uViewportPointScale;
 uniform float uDepthScale;
 uniform float uRippleLift;
+uniform float uClockEmbossSize;
+uniform float uClockRipple;
+uniform sampler2D uClockMap;
+uniform vec4 uClockBounds;
+uniform float uClockAngle;
+uniform float uClockDepth;
+uniform vec4 uClockRipples[6];
 
 varying vec3 vColor;
 varying vec3 vPhotoColor;
 varying vec2 vFieldPosition;
 varying float vDepth;
 varying float vAlpha;
+varying float vClockMask;
+varying float vBehindClock;
 
 float colorRipple(vec2 center, float offset, vec2 fieldPosition) {
   float cycle = 7.4;
@@ -118,12 +140,58 @@ float colorRipple(vec2 center, float offset, vec2 fieldPosition) {
   return ring * fadeIn * fadeOut;
 }
 
+float clockMaskAt(vec2 fieldPosition) {
+  vec2 halfSize = max(uClockBounds.zw, vec2(0.0001));
+  vec2 local = fieldPosition - uClockBounds.xy;
+  float angle = -uClockAngle;
+  float s = sin(angle);
+  float c = cos(angle);
+  local = mat2(c, -s, s, c) * local;
+  vec2 uv = local / (halfSize * 2.0) + 0.5;
+  vec2 inside = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+  float inBounds = inside.x * inside.y;
+  vec2 spread = vec2(0.006, 0.014);
+  float clockAlpha = texture2D(uClockMap, uv).a;
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv + vec2(spread.x, 0.0)).a * 0.82);
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv - vec2(spread.x, 0.0)).a * 0.82);
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv + vec2(0.0, spread.y)).a * 0.82);
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv - vec2(0.0, spread.y)).a * 0.82);
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv + spread).a * 0.62);
+  clockAlpha = max(clockAlpha, texture2D(uClockMap, uv - spread).a * 0.62);
+
+  return smoothstep(0.16, 0.62, clockAlpha) * inBounds;
+}
+
+float clockChangeRipple(vec2 fieldPosition) {
+  float ripple = 0.0;
+
+  for (int i = 0; i < 6; i++) {
+    vec4 source = uClockRipples[i];
+    if (source.w < 0.5) continue;
+
+    float age = uTime - source.z;
+    if (age < 0.0 || age > 5.2) continue;
+
+    float travel = age * 1.18;
+    float distanceToCenter = length(fieldPosition - source.xy);
+    float ring = 1.0 - smoothstep(0.0, 0.42, abs(distanceToCenter - travel));
+    float bloom = 1.0 - smoothstep(0.0, 1.1, distanceToCenter);
+    float fadeIn = smoothstep(0.0, 0.28, age);
+    float fadeOut = 1.0 - smoothstep(3.4, 5.2, age);
+
+    ripple = max(ripple, (ring * 0.88 + bloom * 0.14) * fadeIn * fadeOut);
+  }
+
+  return ripple;
+}
+
 void main() {
   vColor = color;
   vPhotoColor = aPhotoColor;
   vFieldPosition = position.xy;
   vDepth = aDepth;
   vAlpha = aAlpha;
+  vClockMask = clockMaskAt(position.xy);
 
   vec3 displaced = position;
   float zLift = max(
@@ -138,10 +206,16 @@ void main() {
   displaced.y += cos(uTime * 0.27 + aPhase * 0.83) * 0.006;
   displaced.z *= uDepthScale;
   displaced.z += zLift * uRippleLift;
+  displaced.z += clockChangeRipple(position.xy) * uClockRipple * 0.42;
+  vBehindClock = smoothstep(0.02, 0.34, uClockDepth - displaced.z);
 
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
   gl_Position = projectionMatrix * mvPosition;
-  gl_PointSize = aSize * uViewportPointScale * uPixelRatio * (4.8 / max(-mvPosition.z, 0.1));
+  gl_PointSize =
+    aSize *
+    uViewportPointScale *
+    uPixelRatio *
+    (4.8 / max(-mvPosition.z, 0.1));
 }
 `;
 
@@ -154,12 +228,20 @@ uniform float uFarDetail;
 uniform float uMaxBrightness;
 uniform float uBaseColorBlend;
 uniform float uRippleColorBlend;
+uniform float uClockRipple;
+uniform float uFogBands;
+uniform float uClockShadow;
+uniform float uClockEmbossTint;
+uniform float uChromaticDepth;
+uniform vec4 uClockRipples[6];
 
 varying vec3 vColor;
 varying vec3 vPhotoColor;
 varying vec2 vFieldPosition;
 varying float vDepth;
 varying float vAlpha;
+varying float vClockMask;
+varying float vBehindClock;
 
 float colorRipple(vec2 center, float offset) {
   float cycle = 7.4;
@@ -170,6 +252,29 @@ float colorRipple(vec2 center, float offset) {
   float fadeOut = 1.0 - smoothstep(cycle - 1.35, cycle, travel);
 
   return ring * fadeIn * fadeOut;
+}
+
+float clockChangeRipple() {
+  float ripple = 0.0;
+
+  for (int i = 0; i < 6; i++) {
+    vec4 source = uClockRipples[i];
+    if (source.w < 0.5) continue;
+
+    float age = uTime - source.z;
+    if (age < 0.0 || age > 5.2) continue;
+
+    float travel = age * 1.18;
+    float distanceToCenter = length(vFieldPosition - source.xy);
+    float ring = 1.0 - smoothstep(0.0, 0.42, abs(distanceToCenter - travel));
+    float bloom = 1.0 - smoothstep(0.0, 1.1, distanceToCenter);
+    float fadeIn = smoothstep(0.0, 0.28, age);
+    float fadeOut = 1.0 - smoothstep(3.4, 5.2, age);
+
+    ripple = max(ripple, (ring * 0.82 + bloom * 0.22) * fadeIn * fadeOut);
+  }
+
+  return ripple;
 }
 
 void main() {
@@ -187,16 +292,111 @@ void main() {
   colorReveal = smoothstep(0.04, 0.92, colorReveal);
   float farMask = pow(1.0 - clamp(vDepth, 0.0, 1.0), 1.35);
   colorReveal = uBaseColorBlend + colorReveal * uRippleColorBlend;
+  colorReveal += clockChangeRipple() * uClockRipple * 0.1;
   colorReveal += farMask * uFarDetail * 0.48;
   colorReveal = clamp(colorReveal, 0.0, 1.0);
   vec3 color = mix(vColor, vPhotoColor, colorReveal) + core * vec3(0.06, 0.075, 0.08);
   color += vec3(0.055, 0.07, 0.085) * farMask * uFarDetail;
+  float clockRipple = clockChangeRipple() * uClockRipple;
+  color += vec3(0.035, 0.055, 0.06) * clockRipple;
+
+  float nearMask = pow(clamp(vDepth, 0.0, 1.0), 1.15);
+  float fogPhase = (1.0 - vDepth) * 18.0 + vFieldPosition.y * 1.45 + uTime * 0.12;
+  float fogBand = 0.5 + 0.5 * sin(fogPhase);
+  fogBand = smoothstep(0.38, 0.82, fogBand);
+  float fogAmount = uFogBands * (0.24 + farMask * 0.82) * fogBand;
+  vec3 fogColor = mix(vec3(0.04, 0.12, 0.14), vec3(0.33, 0.48, 0.52), farMask);
+  color = mix(color, fogColor, clamp(fogAmount, 0.0, 0.92));
+
+  vec3 warmNear = vec3(1.0, 0.72, 0.54);
+  vec3 cyanFar = vec3(0.45, 0.9, 1.0);
+  vec3 depthTint = mix(cyanFar, warmNear, nearMask);
+  color = mix(color, color * depthTint, uChromaticDepth * 0.72);
+  color.r += nearMask * uChromaticDepth * 0.045;
+  color.b += farMask * uChromaticDepth * 0.055;
+
+  float embossMask = smoothstep(0.04, 0.95, vClockMask);
+  float farClockLayer = smoothstep(0.48, 0.82, farMask);
+  float tintMask = embossMask * vBehindClock * farClockLayer;
+  vec3 clockBaseTint = mix(vColor, vec3(0.14, 0.28, 0.34), farMask * 0.35);
+
+  float shadow = tintMask * uClockShadow;
+  float shadowVolume = shadow * mix(0.22, 1.0, nearMask);
+  color *= 1.0 - shadowVolume * 0.54;
+  color += vec3(0.03, 0.12, 0.15) * shadow * farMask;
+
   float peak = max(max(color.r, color.g), color.b);
   if (peak > uMaxBrightness) {
     color *= uMaxBrightness / peak;
   }
+  color = mix(color, clockBaseTint, tintMask * uClockEmbossTint * 0.055);
 
-  gl_FragColor = vec4(color, vAlpha * (1.0 + farMask * uFarDetail * 1.35) * uPointOpacity * disk);
+  float alpha = vAlpha * (1.0 + farMask * uFarDetail * 1.35) * uPointOpacity;
+  alpha *= 1.0 + fogAmount * 0.45;
+  alpha *= 1.0 + clockRipple * 0.12;
+  alpha *= 1.0 - shadowVolume * 0.34;
+
+  gl_FragColor = vec4(color, alpha * disk);
+}
+`;
+
+const CLOCK_EMBOSS_VERTEX_SHADER = `
+attribute float aAlpha;
+attribute float aPhase;
+
+uniform float uTime;
+uniform float uPixelRatio;
+uniform float uViewportPointScale;
+uniform float uClockEmbossSize;
+
+varying float vAlpha;
+varying float vPhase;
+varying vec2 vLocalPosition;
+
+void main() {
+  vAlpha = aAlpha;
+  vPhase = aPhase;
+  vLocalPosition = position.xy;
+
+  vec3 displaced = position;
+  displaced.x += sin(uTime * 0.18 + aPhase) * 0.004;
+  displaced.y += cos(uTime * 0.16 + aPhase * 0.7) * 0.004;
+
+  vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  gl_PointSize =
+    ${CLOCK_EMBOSS_POINT_SIZE.toFixed(1)} *
+    (1.0 + uClockEmbossSize * 0.85) *
+    uViewportPointScale *
+    uPixelRatio *
+    (5.2 / max(-mvPosition.z, 0.1));
+}
+`;
+
+const CLOCK_EMBOSS_FRAGMENT_SHADER = `
+precision highp float;
+
+uniform float uClockEmbossTint;
+uniform float uClockShadow;
+
+varying float vAlpha;
+varying float vPhase;
+varying vec2 vLocalPosition;
+
+void main() {
+  vec2 p = gl_PointCoord - vec2(0.5);
+  float d = length(p);
+  float disk = 1.0 - smoothstep(0.32, 0.5, d);
+  float core = 1.0 - smoothstep(0.0, 0.34, d);
+  float vertical = smoothstep(-0.24, 0.34, vLocalPosition.y);
+  vec3 deepBlue = vec3(0.04, 0.24, 0.42);
+  vec3 brightBlue = vec3(0.58, 0.92, 1.0);
+  vec3 color = mix(deepBlue, brightBlue, vertical);
+  color += core * vec3(0.12, 0.24, 0.28);
+  color *= 1.0 - uClockShadow * 0.18;
+
+  float alpha = vAlpha * disk * (0.52 + uClockEmbossTint * 0.58);
+  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -208,7 +408,7 @@ type ParticleCloud = {
 type DepthClockProps = {
   depthImageSrc?: string;
   originalImageSrc?: string;
-  liquidGlass?: boolean;
+  startControlsHidden?: boolean;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -425,16 +625,57 @@ function paintClockTexture(
   context.restore();
 }
 
+function buildClockEmbossGeometry(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d");
+  if (!context) return new THREE.BufferGeometry();
+
+  const { width, height } = canvas;
+  const { data } = context.getImageData(0, 0, width, height);
+  const textureAspect = width / Math.max(height, 1);
+  const positions: number[] = [];
+  const alphas: number[] = [];
+  const phases: number[] = [];
+
+  for (let y = 0; y < height; y += CLOCK_EMBOSS_SAMPLE_STRIDE) {
+    for (let x = 0; x < width; x += CLOCK_EMBOSS_SAMPLE_STRIDE) {
+      const pixel = (y * width + x) * 4;
+      const alpha = data[pixel + 3] / 255;
+
+      if (alpha < 0.5) continue;
+
+      const random = hash2(x, y);
+      const localX =
+        (x / Math.max(width - 1, 1) - 0.5) * textureAspect +
+        (random - 0.5) * 0.004;
+      const localY =
+        0.5 - y / Math.max(height - 1, 1) + (hash2(y, x) - 0.5) * 0.004;
+      const localZ = (random - 0.5) * 0.035;
+
+      positions.push(localX, localY, localZ);
+      alphas.push(smoothstep(0.5, 0.96, alpha));
+      phases.push(random * Math.PI * 2);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("aAlpha", new THREE.Float32BufferAttribute(alphas, 1));
+  geometry.setAttribute("aPhase", new THREE.Float32BufferAttribute(phases, 1));
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
 export function DepthClockLab({
   depthImageSrc = DEPTH_IMAGE_SRC,
   originalImageSrc = ORIGINAL_IMAGE_SRC,
-  liquidGlass = false,
+  startControlsHidden = false,
 }: DepthClockProps) {
   const mainRef = useRef<HTMLElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const tuningRef = useRef(DEFAULT_TUNING);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [controlsHidden, setControlsHidden] = useState(false);
+  const [controlsHidden, setControlsHidden] = useState(startControlsHidden);
   const [tuning, setTuning] = useState<TuningControls>(DEFAULT_TUNING);
 
   useEffect(() => {
@@ -461,17 +702,25 @@ export function DepthClockLab({
     let animationFrame = 0;
     let points: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial> | null =
       null;
+    let clockEmbossPoints: THREE.Points<
+      THREE.BufferGeometry,
+      THREE.ShaderMaterial
+    > | null = null;
     let clockText = "";
     let activeClockGlow = Number.NaN;
-    let activeClockHue = Number.NaN;
     let sourceAspect = 1;
     let activeSampleStride = 0;
     let buildVersion = 0;
     let activeCanvasBlur = tuningRef.current.canvasBlur;
+    let nextClockRippleIndex = 0;
     const cursorTarget = new THREE.Vector2(0, 0);
     const cursorLagTarget = new THREE.Vector2(0, 0);
     const cursorCurrent = new THREE.Vector2(0, 0);
     const cameraLookTarget = new THREE.Vector3(0, 0, 0);
+    const clockRipples = Array.from(
+      { length: CLOCK_CHANGE_RIPPLE_COUNT },
+      () => new THREE.Vector4(0, 0, -100, 0),
+    );
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -504,11 +753,22 @@ export function DepthClockLab({
       uViewportPointScale: { value: 1 },
       uDepthScale: { value: tuningRef.current.depthScale },
       uRippleLift: { value: tuningRef.current.rippleLift },
+      uClockEmbossSize: { value: tuningRef.current.clockEmbossSize },
       uPointOpacity: { value: tuningRef.current.pointOpacity },
       uFarDetail: { value: tuningRef.current.farDetail },
       uMaxBrightness: { value: tuningRef.current.maxBrightness },
       uBaseColorBlend: { value: tuningRef.current.baseColorBlend },
       uRippleColorBlend: { value: tuningRef.current.rippleColorBlend },
+      uClockRipple: { value: tuningRef.current.clockRipple },
+      uFogBands: { value: tuningRef.current.fogBands },
+      uClockShadow: { value: tuningRef.current.clockShadow },
+      uClockEmbossTint: { value: tuningRef.current.clockEmbossTint },
+      uChromaticDepth: { value: tuningRef.current.chromaticDepth },
+      uClockMap: { value: null as THREE.Texture | null },
+      uClockBounds: { value: new THREE.Vector4(0, 0, 0.0001, 0.0001) },
+      uClockAngle: { value: THREE.MathUtils.degToRad(tuningRef.current.clockAngle) },
+      uClockDepth: { value: tuningRef.current.clockDepth },
+      uClockRipples: { value: clockRipples },
     };
     const material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
@@ -519,6 +779,24 @@ export function DepthClockLab({
       depthTest: true,
       depthWrite: false,
       blending: THREE.NormalBlending,
+    });
+
+    const clockEmbossUniforms = {
+      uTime: { value: 0 },
+      uPixelRatio: { value: renderer.getPixelRatio() },
+      uViewportPointScale: { value: 1 },
+      uClockEmbossSize: { value: tuningRef.current.clockEmbossSize },
+      uClockEmbossTint: { value: tuningRef.current.clockEmbossTint },
+      uClockShadow: { value: tuningRef.current.clockShadow },
+    };
+    const clockEmbossMaterial = new THREE.ShaderMaterial({
+      vertexShader: CLOCK_EMBOSS_VERTEX_SHADER,
+      fragmentShader: CLOCK_EMBOSS_FRAGMENT_SHADER,
+      uniforms: clockEmbossUniforms,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
 
     const clockCanvas = document.createElement("canvas");
@@ -544,27 +822,86 @@ export function DepthClockLab({
     );
     clockMesh.position.z = tuningRef.current.clockDepth;
     clockMesh.renderOrder = -10;
-    scene.add(clockMesh);
+    uniforms.uClockMap.value = clockTexture;
 
-    const updateClockTexture = () => {
+    const digitRippleOrigin = (characterIndex: number) => {
+      if (!points) return null;
+
+      const pointScale = Math.max(points.scale.x, 0.0001);
+      const characterX =
+        CLOCK_CHARACTER_OFFSETS[characterIndex] ??
+        ((characterIndex - 2) / 2) * CLOCK_CHARACTER_OFFSETS[4];
+      const local = new THREE.Vector2(characterX * clockMesh.scale.y, 0);
+      const angle = THREE.MathUtils.degToRad(tuningRef.current.clockAngle);
+      local.rotateAround(new THREE.Vector2(0, 0), angle);
+
+      return new THREE.Vector2(
+        (clockMesh.position.x + local.x - points.position.x) / pointScale,
+        (clockMesh.position.y + local.y - points.position.y) / pointScale,
+      );
+    };
+
+    const triggerClockRipple = (characterIndex: number, startedAt: number) => {
+      const origin = digitRippleOrigin(characterIndex);
+      if (!origin) return;
+
+      const ripple = clockRipples[nextClockRippleIndex];
+      ripple.set(origin.x, origin.y, startedAt, 1);
+      nextClockRippleIndex = (nextClockRippleIndex + 1) % clockRipples.length;
+    };
+
+    const updateClockTexture = (elapsed: number) => {
       if (!clockContext) return;
 
       const nextClockText = formatClockTime(new Date());
       const nextClockGlow = tuningRef.current.clockGlow;
-      const nextClockHue = tuningRef.current.clockHue;
       if (
         nextClockText === clockText &&
-        nextClockGlow === activeClockGlow &&
-        nextClockHue === activeClockHue
+        nextClockGlow === activeClockGlow
       ) {
         return;
       }
 
+      const previousClockText = clockText;
       clockText = nextClockText;
       activeClockGlow = nextClockGlow;
-      activeClockHue = nextClockHue;
-      paintClockTexture(clockContext, clockText, activeClockGlow, activeClockHue);
+
+      if (previousClockText) {
+        for (let index = 0; index < nextClockText.length; index += 1) {
+          if (nextClockText[index] === ":" || nextClockText[index] === previousClockText[index]) {
+            continue;
+          }
+
+          triggerClockRipple(index, elapsed);
+        }
+      }
+
+      paintClockTexture(clockContext, clockText, activeClockGlow, CLOCK_MASK_HUE);
       clockTexture.needsUpdate = true;
+
+      const nextGeometry = buildClockEmbossGeometry(clockCanvas);
+      if (clockEmbossPoints) {
+        clockEmbossPoints.geometry.dispose();
+        clockEmbossPoints.geometry = nextGeometry;
+      } else {
+        clockEmbossPoints = new THREE.Points(nextGeometry, clockEmbossMaterial);
+        clockEmbossPoints.renderOrder = -4;
+        scene.add(clockEmbossPoints);
+      }
+      syncClockEmbossTransform();
+    };
+
+    const syncClockEmbossTransform = () => {
+      if (!clockEmbossPoints) return;
+
+      const controls = tuningRef.current;
+      clockEmbossPoints.position.set(
+        clockMesh.position.x,
+        clockMesh.position.y,
+        0,
+      );
+      clockEmbossPoints.rotation.set(0, 0, THREE.MathUtils.degToRad(controls.clockAngle));
+      clockEmbossPoints.scale.setScalar(clockMesh.scale.y);
     };
 
     const fitClockToViewport = () => {
@@ -588,6 +925,7 @@ export function DepthClockLab({
         visibleHeight * (CLOCK_BACKDROP_Y + controls.clockY),
         controls.clockDepth,
       );
+      syncClockEmbossTransform();
     };
 
     const rebuildPointCloud = (sampleStride: number) => {
@@ -649,14 +987,17 @@ export function DepthClockLab({
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(width, height, false);
+      const pixelRatio = renderer.getPixelRatio();
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      uniforms.uPixelRatio.value = renderer.getPixelRatio();
+      uniforms.uPixelRatio.value = pixelRatio;
+      clockEmbossUniforms.uPixelRatio.value = pixelRatio;
       uniforms.uViewportPointScale.value = clamp(
         Math.min(width, height) / POINT_SCALE_BASELINE,
         MIN_VIEWPORT_POINT_SCALE,
         MAX_VIEWPORT_POINT_SCALE,
       );
+      clockEmbossUniforms.uViewportPointScale.value = uniforms.uViewportPointScale.value;
       fitClockToViewport();
       fitCloudToViewport();
 
@@ -668,7 +1009,7 @@ export function DepthClockLab({
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(mount);
-    updateClockTexture();
+    updateClockTexture(0);
     resize();
 
     const updateCursorTarget = (event: PointerEvent) => {
@@ -692,19 +1033,29 @@ export function DepthClockLab({
       const elapsed = (performance.now() - startedAt) / 1000;
       const controls = tuningRef.current;
       uniforms.uTime.value = elapsed;
+      clockEmbossUniforms.uTime.value = elapsed;
       uniforms.uDepthScale.value = controls.depthScale;
       uniforms.uRippleLift.value = controls.rippleLift;
+      uniforms.uClockEmbossSize.value = controls.clockEmbossSize;
+      clockEmbossUniforms.uClockEmbossSize.value = controls.clockEmbossSize;
       uniforms.uPointOpacity.value = controls.pointOpacity;
       uniforms.uFarDetail.value = controls.farDetail;
       uniforms.uMaxBrightness.value = controls.maxBrightness;
       uniforms.uBaseColorBlend.value = controls.baseColorBlend;
       uniforms.uRippleColorBlend.value = controls.rippleColorBlend;
-      clockMaterial.opacity = controls.clockOpacity;
+      uniforms.uClockRipple.value = controls.clockRipple;
+      uniforms.uFogBands.value = controls.fogBands;
+      uniforms.uClockShadow.value = controls.clockShadow;
+      uniforms.uClockEmbossTint.value = controls.clockEmbossTint;
+      clockEmbossUniforms.uClockShadow.value = controls.clockShadow;
+      clockEmbossUniforms.uClockEmbossTint.value = controls.clockEmbossTint;
+      uniforms.uChromaticDepth.value = controls.chromaticDepth;
+      uniforms.uClockAngle.value = THREE.MathUtils.degToRad(controls.clockAngle);
       if (activeCanvasBlur !== controls.canvasBlur) {
         activeCanvasBlur = controls.canvasBlur;
         renderer.domElement.style.filter = `blur(${activeCanvasBlur}px)`;
       }
-      updateClockTexture();
+      updateClockTexture(elapsed);
       cursorLagTarget.lerp(cursorTarget, CURSOR_TARGET_EASE);
       cursorCurrent.lerp(cursorLagTarget, CURSOR_CAMERA_EASE);
       camera.position.x =
@@ -725,10 +1076,16 @@ export function DepthClockLab({
       if (points) {
         points.rotation.y = Math.sin(elapsed * 0.12) * 0.09;
         points.rotation.x = -0.055 + Math.cos(elapsed * 0.1) * 0.025;
+        const pointScale = Math.max(points.scale.x, 0.0001);
+        uniforms.uClockBounds.value.set(
+          (clockMesh.position.x - points.position.x) / pointScale,
+          (clockMesh.position.y - points.position.y) / pointScale,
+          clockMesh.scale.x / pointScale / 2,
+          clockMesh.scale.y / pointScale / 2,
+        );
+        uniforms.uClockDepth.value = (clockMesh.position.z - points.position.z) / pointScale;
       }
-
-      clockMesh.lookAt(camera.position);
-      clockMesh.rotateZ(THREE.MathUtils.degToRad(controls.clockAngle));
+      syncClockEmbossTransform();
 
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(render);
@@ -745,8 +1102,12 @@ export function DepthClockLab({
         scene.remove(points);
         points.geometry.dispose();
       }
+      if (clockEmbossPoints) {
+        scene.remove(clockEmbossPoints);
+        clockEmbossPoints.geometry.dispose();
+      }
       material.dispose();
-      scene.remove(clockMesh);
+      clockEmbossMaterial.dispose();
       clockMesh.geometry.dispose();
       clockMaterial.dispose();
       clockTexture.dispose();
@@ -793,7 +1154,6 @@ export function DepthClockLab({
         <div className="absolute inset-8 overflow-hidden rounded-[2.75rem] bg-[#080a0d] shadow-[0_30px_120px_rgba(0,0,0,0.55),0_8px_32px_rgba(151,196,213,0.1)] sm:inset-10 sm:rounded-[3.5rem] lg:inset-14 lg:rounded-[4.25rem]">
           <div ref={mountRef} className="absolute inset-0" />
           <DepthAtmosphere />
-          {liquidGlass ? <DepthLiquidGlassLayer /> : null}
         </div>
         {controlsHidden ? (
           <button
@@ -900,17 +1260,17 @@ function DepthClockControls({
       step: 0.01,
     },
     {
+      key: "clockRipple",
+      label: "Clock ripple",
+      min: 0,
+      max: 1.4,
+      step: 0.01,
+    },
+    {
       key: "cursorTilt",
       label: "Cursor tilt",
       min: 0,
       max: 2,
-      step: 0.01,
-    },
-    {
-      key: "clockOpacity",
-      label: "Clock",
-      min: 0,
-      max: 1.4,
       step: 0.01,
     },
     {
@@ -950,18 +1310,45 @@ function DepthClockControls({
       step: 0.01,
     },
     {
-      key: "clockHue",
-      label: "Clock hue",
-      min: 0,
-      max: 360,
-      step: 1,
-      format: (value) => `${value.toFixed(0)}deg`,
-    },
-    {
       key: "clockSize",
       label: "Clock size",
       min: 0.35,
       max: 1.3,
+      step: 0.01,
+    },
+    {
+      key: "fogBands",
+      label: "Fog bands",
+      min: 0,
+      max: 1.2,
+      step: 0.01,
+    },
+    {
+      key: "clockShadow",
+      label: "Emboss shade",
+      min: 0,
+      max: 1.4,
+      step: 0.01,
+    },
+    {
+      key: "clockEmbossTint",
+      label: "Emboss tint",
+      min: 0,
+      max: 1.4,
+      step: 0.01,
+    },
+    {
+      key: "clockEmbossSize",
+      label: "Emboss size",
+      min: 0,
+      max: 1.8,
+      step: 0.01,
+    },
+    {
+      key: "chromaticDepth",
+      label: "Depth tint",
+      min: 0,
+      max: 1.2,
       step: 0.01,
     },
     {
@@ -1089,55 +1476,5 @@ function DepthAtmosphere() {
         }}
       />
     </div>
-  );
-}
-
-function DepthLiquidGlassLayer() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 z-[12] rounded-[inherit]"
-    >
-      <DepthLiquidGlassSurface />
-    </div>
-  );
-}
-
-function DepthLiquidGlassSurface() {
-  return (
-    <>
-      <span
-        className="absolute inset-0 rounded-[inherit]"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.01) 38%, rgba(27,53,39,0.04) 68%, rgba(255,255,255,0.035))",
-          boxShadow:
-            "inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 90px rgba(255,255,255,0.055), inset 0 0 150px rgba(12,28,20,0.08)",
-        }}
-      />
-      <span
-        className="absolute inset-0 rounded-[inherit] opacity-70"
-        style={{
-          background:
-            "radial-gradient(circle at 18% 12%, rgba(255,255,255,0.26), transparent 34%), radial-gradient(circle at 82% 92%, rgba(15,38,29,0.14), transparent 38%)",
-          mixBlendMode: "soft-light",
-        }}
-      />
-      <span
-        className="absolute inset-0 rounded-[inherit] opacity-80"
-        style={{
-          background:
-            "linear-gradient(100deg, transparent 7%, rgba(255,255,255,0.18) 16%, transparent 28%, transparent 70%, rgba(16,34,20,0.12) 84%, transparent 94%)",
-          mixBlendMode: "overlay",
-        }}
-      />
-      <span
-        className="absolute inset-0 rounded-[inherit]"
-        style={{
-          boxShadow:
-            "inset 0 12px 42px rgba(255,255,255,0.14), inset 0 -18px 54px rgba(16,34,20,0.1), inset 20px 0 70px rgba(255,255,255,0.08), inset -20px 0 70px rgba(16,34,20,0.08)",
-        }}
-      />
-    </>
   );
 }
