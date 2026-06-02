@@ -18,6 +18,12 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Depth clock",
     entries: [
       {
+        slug: "depth-clock-v2",
+        version: "v2",
+        title: "Depth point-cloud clock glass",
+        note: "The depth-map particle clock with the liquid glass surface layered over the canvas.",
+      },
+      {
         slug: "depth-clock",
         version: "v1",
         title: "Depth point-cloud clock",
@@ -29,9 +35,9 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Gradient animation",
     entries: [
       {
-        slug: "gradient-ripples-v4",
-        version: "v4",
-        title: "Chromatic clock clean",
+        slug: "clock-1",
+        version: "clock-1",
+        title: "Clock 1",
         note: "A clean landscape glass clock composition without the title, controls, or frame counter.",
       },
       {

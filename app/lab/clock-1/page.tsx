@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { GradientRipplesLab } from "@/components/lab/gradient-ripples";
 
 export const metadata: Metadata = {
-  title: "Chromatic Clock V4",
+  title: "Clock 1",
   description: "A clean glass clock over a slow sage chromatic field.",
   openGraph: {
-    title: "Chromatic Clock V4",
+    title: "Clock 1",
     description: "A clean glass clock over a slow sage chromatic field.",
     images: [
       {
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Chromatic Clock V4",
+    title: "Clock 1",
     description: "A clean glass clock over a slow sage chromatic field.",
     images: ["/lab/gradient-ripples-v4-og.jpg"],
   },
   robots: { index: false, follow: false },
 };
 
-export default function GradientRipplesV4Page() {
+export default function Clock1Page() {
   return <GradientRipplesLab variant="v4" />;
 }

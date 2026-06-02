@@ -208,6 +208,7 @@ type ParticleCloud = {
 type DepthClockProps = {
   depthImageSrc?: string;
   originalImageSrc?: string;
+  liquidGlass?: boolean;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -427,6 +428,7 @@ function paintClockTexture(
 export function DepthClockLab({
   depthImageSrc = DEPTH_IMAGE_SRC,
   originalImageSrc = ORIGINAL_IMAGE_SRC,
+  liquidGlass = false,
 }: DepthClockProps) {
   const mainRef = useRef<HTMLElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -791,6 +793,7 @@ export function DepthClockLab({
         <div className="absolute inset-8 overflow-hidden rounded-[2.75rem] bg-[#080a0d] shadow-[0_30px_120px_rgba(0,0,0,0.55),0_8px_32px_rgba(151,196,213,0.1)] sm:inset-10 sm:rounded-[3.5rem] lg:inset-14 lg:rounded-[4.25rem]">
           <div ref={mountRef} className="absolute inset-0" />
           <DepthAtmosphere />
+          {liquidGlass ? <DepthLiquidGlassLayer /> : null}
         </div>
         {controlsHidden ? (
           <button
@@ -1086,5 +1089,55 @@ function DepthAtmosphere() {
         }}
       />
     </div>
+  );
+}
+
+function DepthLiquidGlassLayer() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[12] rounded-[inherit]"
+    >
+      <DepthLiquidGlassSurface />
+    </div>
+  );
+}
+
+function DepthLiquidGlassSurface() {
+  return (
+    <>
+      <span
+        className="absolute inset-0 rounded-[inherit]"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.01) 38%, rgba(27,53,39,0.04) 68%, rgba(255,255,255,0.035))",
+          boxShadow:
+            "inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 90px rgba(255,255,255,0.055), inset 0 0 150px rgba(12,28,20,0.08)",
+        }}
+      />
+      <span
+        className="absolute inset-0 rounded-[inherit] opacity-70"
+        style={{
+          background:
+            "radial-gradient(circle at 18% 12%, rgba(255,255,255,0.26), transparent 34%), radial-gradient(circle at 82% 92%, rgba(15,38,29,0.14), transparent 38%)",
+          mixBlendMode: "soft-light",
+        }}
+      />
+      <span
+        className="absolute inset-0 rounded-[inherit] opacity-80"
+        style={{
+          background:
+            "linear-gradient(100deg, transparent 7%, rgba(255,255,255,0.18) 16%, transparent 28%, transparent 70%, rgba(16,34,20,0.12) 84%, transparent 94%)",
+          mixBlendMode: "overlay",
+        }}
+      />
+      <span
+        className="absolute inset-0 rounded-[inherit]"
+        style={{
+          boxShadow:
+            "inset 0 12px 42px rgba(255,255,255,0.14), inset 0 -18px 54px rgba(16,34,20,0.1), inset 20px 0 70px rgba(255,255,255,0.08), inset -20px 0 70px rgba(16,34,20,0.08)",
+        }}
+      />
+    </>
   );
 }
