@@ -24,6 +24,7 @@ import { RockVoteTable } from "@/components/rock-bench/RockVoteTable";
 import { MobileHeader } from "@/components/ui/mobile-header";
 import { getRockBenchData } from "@/lib/rockBenchData";
 import { cn } from "@/lib/utils";
+import { MdxPostEditor } from "@/components/dev/MdxPostEditor";
 
 type Anchor = {
   href: string;
@@ -202,6 +203,9 @@ export default async function PostPage({
           </nav>
         </aside>
         <div className="lg:max-w-3xl">
+          {process.env.NODE_ENV === "development" ? (
+            <MdxPostEditor slug={slug} title={post.title} />
+          ) : null}
           <header className="mb-8">
           <time className="text-sm text-muted-foreground">{post.date}</time>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">

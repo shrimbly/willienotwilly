@@ -1,0 +1,114 @@
+---
+title: "The Project Wiki"
+date: "July 2026"
+summary: "A focused, agent-maintained knowledge base for one long-running goal."
+publishedTime: "2026-07-18T00:00:00+12:00"
+unlisted: true
+keywords:
+  - coding agents
+  - agent memory
+  - project wiki
+  - Claude Code
+  - Codex
+  - knowledge management
+  - agentic design
+---
+I've been building [the project wiki](https://github.com/shrimbly/project-wiki). It's an agent-first knowledge base for projects, and it stays up to date as you work. It might be the single most helpful productivity tool I use.
+
+![The project wiki Astro viewer showing a neighbourhood in the knowledge graph](/images/project-wiki/knowledge-graph.png)
+
+Feed it project documents, meeting transcripts, design files, websites, research, and brain dumps. The agent captures the source material, organizes it into a cross-linked wiki, and keeps that understanding current as the project changes.
+
+It gives a coding agent durable project context across sessions without trying to become a second brain for your whole life.
+
+<h2 id="why-the-project-wiki">Why wiki?</h2>
+
+This project is based on [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f), which proposes a persistent, LLM-maintained layer of interlinked Markdown between you and the raw sources. Unlike RAG, which reconstructs knowledge at query time, the wiki accumulates it. Each new source and useful answer updates the existing synthesis, connections, and contradictions.
+
+This was quickly adopted by the 'second brain' crowd, some going to drastic lengths to build complex systems that document their whole lives in great detail. To me, this sounds awfully boring and makes me wonder what these people are like in conversation. Building an all-encompassing personal Alexandria for my work or life felt like a task I'd soon abandon.
+
+When I started a complex project shortly after joining ComfyUI, I saw a way to use the concept more narrowly. I was tasked with designing the long-term information architecture for the product. There were many (so many) existing Notion documents, meeting transcripts, permission models, and Figma designs that were relevant to the work. It was a huge amount of context for me to take in personally. Using an LLM wiki allowed me to focus on one area of the project at a time. My confidence in my coding agents' awareness of existing decisions meant I could move much faster, and my own work was self-documenting.
+
+So, I built the approach into a boilerplate and now I boot a new wiki for every meaningful piece of work I take on.
+
+Not a single wiki for all of my work. It's one wiki per major project, and everything inside the wiki has to be relevant to that goal. That boundary reduces noise and makes it easier for the agent to build a coherent understanding of what has happened, what has been decided, and what still needs work.
+
+<h2 id="how-it-works">How it works</h2>
+
+The repository has three layers:
+
+```text
+sources/       faithful captures of the original material
+wiki/          the agent-maintained synthesis
+AGENTS.md      the schema and operating instructions
+```
+
+`sources/` preserves what each document, meeting, or design actually said. Sources keep their origin and fetched date, and remain mostly immutable.
+
+`wiki/` contains the current understanding of the project: entities, concepts, decisions, diagrams, references, and open questions. Every claim links back to its supporting sources.
+
+`AGENTS.md` and `CLAUDE.md` tell the agent how to maintain the system: how to ingest material, separate evidence from interpretation, handle conflicts, answer questions, and keep pages consistent.
+
+The operating loop is straightforward:
+
+1. **Capture:** Fetch new material and store a faithful source copy.
+2. **Synthesize:** Update every wiki page affected by the new information.
+3. **Query:** Answer questions from the wiki, falling back to sources when necessary.
+4. **Keep the answer:** File useful new analysis back into the wiki.
+5. **Lint:** Check for contradictions, stale claims, unsupported assertions, missing links, and resolved questions.
+
+By adding the wiki to a coding agent's session as I work (`--add-dir path/to/wiki`), the system instructions for the wiki take effect and the project becomes self-documenting.
+
+The wiki improves as it is used. New decisions and sources add information; questions also expose missing connections and weak assumptions.
+
+<h2 id="this-is-not-rag">"Why not use Notion/whatever MCP?"</h2>
+
+We use Notion at Comfy; it is the canonical documentation for our work, so I have heard this question a lot. Feel free to mentally replace the word 'Notion' below with whatever documentation tool you're using.
+
+1. Notion is for humans. Documents in Notion may not always be written by people, but they are ultimately written to be **read** by people. The wiki isn't. Decision pages and change logs can be exhaustive in detail or highly granular. Useful for agents, noise for people.
+2. I want full freedom. The agent has explicit commands to write and edit documents frequently. I don't want to be worried about my agent running roughshod over the entire company's documentation when I'm 800k tokens deep in a Claude bender.
+3. I do, but at the right time. The project wiki has a skill to distill the important findings of the work and publish them to Notion. The wiki is not a separate and competing source for documentation; it's the tool that will make the final documentation better.
+
+<h2 id="viewer-and-annotations">Viewer and annotations</h2>
+
+The files on disk are primarily for the agent, so the project wiki includes a local Astro viewer for humans. It provides generated navigation, search, live reload, rendered Mermaid diagrams, and a knowledge graph for exploring the whole wiki or a selected page's neighbourhood.
+
+It also supports inline annotations. Highlight any passage in the viewer and add a comment; the annotation is stored in the repository for the agent to read during the next session.
+
+<LocalVideo src="/videos/project-wiki/annotation.mp4" caption="Highlighting a passage and leaving an annotation in the local viewer." />
+
+I use annotations to correct bad attribution, challenge conclusions, flag important details, and ask for follow-up research. The agent handles the high-volume organization while I review the understanding it produces.
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+Install the starter skill globally:
+
+```bash
+npx skills add https://github.com/shrimbly/project-wiki --skill new-project-wiki
+```
+
+Then:
+
+1. Run `/new-project-wiki` from a coding-agent session. Your agent will fork the wiki boilerplate into a sibling repo.
+2. Describe the project, its goal, its audience, and the expected deliverable.
+3. Give it the available source material. Start with the documents and decisions that define the work.
+4. When starting a new session, add the fork to your coding agent's context. In Claude Code: `claude --add-dir 'path/to/wiki'`. This loads the wiki's instructions so the agent keeps it current.
+5. Ask questions instead of trying to read the whole tree yourself.
+6. Monitor the overview and open questions pages in the Astro viewer. They usually contain the most relevant information for human review and are where annotations are most useful.
+
+When you start a new session, add the wiki to your coding agent's context. In Claude Code: `claude --add-dir 'path/to/your/wiki'`. Your agent will automatically keep the wiki up to date as you work.
+
+The included skills cover the ongoing workflow:
+
+* `/wiki-ingest` adds new source material.
+* `/wiki-query` answers questions and preserves useful analysis.
+* `/wiki-research` investigates gaps in the current understanding.
+* `/wiki-lint` finds drift and contradictions.
+* `/wiki-diagram` creates and maintains project diagrams.
+* `/wiki-publish` turns the useful core into a concise Notion document.
+
+Do not start by trying to design the perfect taxonomy. Give the agent real material and let the structure emerge from the project.
+
+That's it.
+
+[The project wiki is available on GitHub](https://github.com/shrimbly/project-wiki) under the MIT licence.

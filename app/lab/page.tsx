@@ -18,6 +18,18 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
     project: "Depth clock",
     entries: [
       {
+        slug: "depth-clock-v4",
+        version: "v4",
+        title: "Depth dither clock",
+        note: "A depth-map particle clock where each sample becomes animated ordered dither cells with preserved z-depth.",
+      },
+      {
+        slug: "depth-clock-v3",
+        version: "v3",
+        title: "Depth clock upload",
+        note: "Upload an image, generate a Depth Anything V2 map through Comfy Cloud, and rebuild the point-cloud clock from the result.",
+      },
+      {
         slug: "depth-clock-v2",
         version: "v2",
         title: "Depth point-cloud clock particles",

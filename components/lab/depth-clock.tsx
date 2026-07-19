@@ -8,6 +8,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 const DEPTH_IMAGE_SRC = "/lab/depth-clock/bladerunner-depth.png";
@@ -29,6 +30,17 @@ const POINT_RANDOM_SIZE = 0.75;
 const POINT_SCALE_BASELINE = 760;
 const MIN_VIEWPORT_POINT_SCALE = 0.5;
 const MAX_VIEWPORT_POINT_SCALE = 1.25;
+const DITHER_SAMPLE_STRIDE_BONUS = 10;
+const DITHER_BAYER_8 = [
+  0, 48, 12, 60, 3, 51, 15, 63,
+  32, 16, 44, 28, 35, 19, 47, 31,
+  8, 56, 4, 52, 11, 59, 7, 55,
+  40, 24, 36, 20, 43, 27, 39, 23,
+  2, 50, 14, 62, 1, 49, 13, 61,
+  34, 18, 46, 30, 33, 17, 45, 29,
+  10, 58, 6, 54, 9, 57, 5, 53,
+  42, 26, 38, 22, 41, 25, 37, 21,
+] as const;
 const MIN_ALPHA = 0.16;
 const MAX_ALPHA = 0.88;
 const ORIGINAL_COLOR_BLEND = 0.92;
@@ -63,6 +75,7 @@ type TuningControls = {
   rippleLift: number;
   clockRipple: number;
   cursorTilt: number;
+  cloudDepth: number;
   clockDepth: number;
   clockX: number;
   clockY: number;
@@ -74,6 +87,9 @@ type TuningControls = {
   clockEmbossTint: number;
   clockEmbossSize: number;
   chromaticDepth: number;
+  ditherCell: number;
+  ditherCrawl: number;
+  ditherDensity: number;
   canvasBlur: number;
 };
 
@@ -87,25 +103,51 @@ const DEFAULT_TUNING: TuningControls = {
   rippleLift: 0.12,
   clockRipple: 0.62,
   cursorTilt: 1.69,
+  cloudDepth: 0,
   clockDepth: -2.84,
   clockX: 0.19,
   clockY: -0.2,
   clockAngle: 0,
   clockGlow: 0.29,
   clockSize: 0.49,
-  fogBands: 0.42,
+  fogBands: 0,
   clockShadow: 1.4,
   clockEmbossTint: 1.05,
   clockEmbossSize: 0.77,
-  chromaticDepth: 1.2,
+  chromaticDepth: 0,
+  ditherCell: 1.18,
+  ditherCrawl: 0.12,
+  ditherDensity: 0.84,
   canvasBlur: 1.13,
 };
+
+type CloudRenderMode = "points" | "dither";
+
+function initialTuningForMode(cloudRenderMode: CloudRenderMode): TuningControls {
+  if (cloudRenderMode !== "dither") {
+    return { ...DEFAULT_TUNING };
+  }
+
+  return {
+    ...DEFAULT_TUNING,
+    pointOpacity: 0.74,
+    farDetail: 0.55,
+    maxBrightness: 0.62,
+    ditherCell: 1.18,
+    ditherCrawl: 0.05,
+    ditherDensity: 0.82,
+    canvasBlur: 0.35,
+  };
+}
 
 const VERTEX_SHADER = `
 attribute float aAlpha;
 attribute float aSize;
 attribute float aPhase;
 attribute float aDepth;
+attribute float aDitherRank;
+attribute float aDitherTone;
+attribute vec2 aDitherOffset;
 attribute vec3 aPhotoColor;
 
 uniform float uTime;
@@ -115,6 +157,8 @@ uniform float uDepthScale;
 uniform float uRippleLift;
 uniform float uClockEmbossSize;
 uniform float uClockRipple;
+uniform float uCloudDepth;
+uniform float uDitherCell;
 uniform sampler2D uClockMap;
 uniform vec4 uClockBounds;
 uniform float uClockAngle;
@@ -128,6 +172,9 @@ varying float vDepth;
 varying float vAlpha;
 varying float vClockMask;
 varying float vBehindClock;
+varying float vDitherRank;
+varying float vDitherTone;
+varying float vDitherWave;
 
 float colorRipple(vec2 center, float offset, vec2 fieldPosition) {
   float cycle = 7.4;
@@ -191,6 +238,8 @@ void main() {
   vFieldPosition = position.xy;
   vDepth = aDepth;
   vAlpha = aAlpha;
+  vDitherRank = aDitherRank;
+  vDitherTone = aDitherTone;
   vClockMask = clockMaskAt(position.xy);
 
   vec3 displaced = position;
@@ -207,12 +256,17 @@ void main() {
   displaced.z *= uDepthScale;
   displaced.z += zLift * uRippleLift;
   displaced.z += clockChangeRipple(position.xy) * uClockRipple * 0.42;
-  vBehindClock = smoothstep(0.02, 0.34, uClockDepth - displaced.z);
 
-  vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+  vec4 worldPosition = modelMatrix * vec4(displaced, 1.0);
+  worldPosition.z += uCloudDepth;
+  vBehindClock = smoothstep(0.02, 0.34, uClockDepth - worldPosition.z);
+  vDitherWave = 0.5 + 0.5 * sin(uTime * 0.44 + aPhase + position.x * 1.9 + position.y * 1.35);
+
+  vec4 mvPosition = viewMatrix * worldPosition;
   gl_Position = projectionMatrix * mvPosition;
   gl_PointSize =
     aSize *
+    max(uDitherCell, 1.0) *
     uViewportPointScale *
     uPixelRatio *
     (4.8 / max(-mvPosition.z, 0.1));
@@ -233,6 +287,8 @@ uniform float uFogBands;
 uniform float uClockShadow;
 uniform float uClockEmbossTint;
 uniform float uChromaticDepth;
+uniform float uDitherCrawl;
+uniform float uDitherDensity;
 uniform vec3 uNearDepthTint;
 uniform vec3 uFarDepthTint;
 uniform vec4 uClockRipples[6];
@@ -244,6 +300,9 @@ varying float vDepth;
 varying float vAlpha;
 varying float vClockMask;
 varying float vBehindClock;
+varying float vDitherRank;
+varying float vDitherTone;
+varying float vDitherWave;
 
 float colorRipple(vec2 center, float offset) {
   float cycle = 7.4;
@@ -281,8 +340,21 @@ float clockChangeRipple() {
 
 void main() {
   vec2 p = gl_PointCoord - vec2(0.5);
-  float d = length(p);
-  float disk = 1.0 - smoothstep(0.34, 0.5, d);
+  float ditherMode = step(0.001, uDitherCrawl + abs(uDitherDensity - 1.0));
+  vec2 pixelCoord = (floor(gl_PointCoord * 6.0) + 0.5) / 6.0 - vec2(0.5);
+  vec2 shapePoint = mix(p, pixelCoord, ditherMode * 0.18);
+  float d = length(shapePoint);
+  float roundDisk = 1.0 - smoothstep(0.34, 0.5, d);
+  float angle = floor(vDitherRank * 8.0) * 0.785398 + 0.18 * sin(vDitherWave * 6.283);
+  float s = sin(angle);
+  float c = cos(angle);
+  vec2 rotatedPoint = mat2(c, -s, s, c) * shapePoint;
+  float capsuleDistance =
+    length(vec2(max(abs(rotatedPoint.x) - 0.18, 0.0), rotatedPoint.y * 1.85));
+  float capsule = 1.0 - smoothstep(0.23, 0.37, capsuleDistance);
+  float dot = 1.0 - smoothstep(0.28, 0.46, d);
+  float ditherShape = mix(dot, capsule, smoothstep(0.28, 0.82, vDitherTone));
+  float disk = mix(roundDisk, ditherShape, ditherMode);
   float core = 1.0 - smoothstep(0.0, 0.36, d);
   float colorReveal = max(
     colorRipple(vec2(-2.45, -1.08), 0.0),
@@ -325,13 +397,25 @@ void main() {
   color *= 1.0 - shadowVolume * 0.54;
   color += vec3(0.03, 0.12, 0.15) * shadow * farMask;
 
+  float ditherBrightnessCap = max(uMaxBrightness, 0.68);
+  float brightnessCap = mix(uMaxBrightness, ditherBrightnessCap, ditherMode);
   float peak = max(max(color.r, color.g), color.b);
-  if (peak > uMaxBrightness) {
-    color *= uMaxBrightness / peak;
+  if (peak > brightnessCap) {
+    color *= brightnessCap / peak;
   }
   color = mix(color, clockBaseTint, tintMask * uClockEmbossTint * 0.055);
 
   float alpha = vAlpha * (1.0 + farMask * uFarDetail * 1.35) * uPointOpacity;
+  float foregroundDetail = pow(clamp(vDepth, 0.0, 1.0), 1.7);
+  float ditherExposure = clamp(
+    vDitherTone * (0.38 + uDitherDensity * 0.92) + foregroundDetail * 0.22,
+    0.0,
+    1.0
+  );
+  ditherExposure += (vDitherWave - 0.5) * uDitherCrawl * 0.14;
+  float ditherGate = smoothstep(vDitherRank - 0.035, vDitherRank + 0.035, ditherExposure);
+  color *= mix(1.0, mix(0.78, 1.24, max(vDitherTone, foregroundDetail * 0.72)), ditherMode);
+  alpha *= mix(1.0, max(ditherGate, foregroundDetail * 0.34), ditherMode);
   alpha *= 1.0 + fogAmount * 0.45;
   alpha *= 1.0 + clockRipple * 0.12;
   alpha *= 1.0 - shadowVolume * 0.34;
@@ -411,6 +495,8 @@ type DepthClockProps = {
   depthImageSrc?: string;
   originalImageSrc?: string;
   startControlsHidden?: boolean;
+  cloudRenderMode?: CloudRenderMode;
+  overlay?: ReactNode;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -455,6 +541,7 @@ async function buildParticleCloud(
   depthImageSrc: string,
   originalImageSrc?: string,
   sampleStride = SMALL_VIEWPORT_SAMPLE_STRIDE,
+  cloudRenderMode: CloudRenderMode = "points",
 ): Promise<ParticleCloud> {
   const [depthImage, originalImage] = await Promise.all([
     loadImage(depthImageSrc),
@@ -472,6 +559,9 @@ async function buildParticleCloud(
   const alphas: number[] = [];
   const sizes: number[] = [];
   const phases: number[] = [];
+  const ditherRanks: number[] = [];
+  const ditherTones: number[] = [];
+  const ditherOffsets: number[] = [];
   const nearTintTotals = new THREE.Vector3();
   const farTintTotals = new THREE.Vector3();
   let nearTintWeight = 0;
@@ -495,24 +585,19 @@ async function buildParticleCloud(
       const py = (0.5 - y / Math.max(height - 1, 1)) * cloudHeight;
       const pz = (depth - 0.5) * DEPTH_RANGE + (random - 0.5) * 0.04;
 
-      positions.push(
-        px + (random - 0.5) * 0.012,
-        py + (hash2(y, x) - 0.5) * 0.012,
-        pz,
-      );
-
       const depthRed = mix(0.22, 0.98, depth);
       const depthGreen = mix(0.27, 0.97, depth);
       const depthBlue = mix(0.32, 1, depth);
-      colors.push(depthRed, depthGreen, depthBlue);
-      depths.push(depth);
-
+      let photoRed = depthRed;
+      let photoGreen = depthGreen;
+      let photoBlue = depthBlue;
+      let sourceLuma = depth;
       if (colorData) {
         const source = colorData.data;
         const sourceRed = source[pixel] / 255;
         const sourceGreen = source[pixel + 1] / 255;
         const sourceBlue = source[pixel + 2] / 255;
-        const sourceLuma = sourceRed * 0.299 + sourceGreen * 0.587 + sourceBlue * 0.114;
+        sourceLuma = sourceRed * 0.299 + sourceGreen * 0.587 + sourceBlue * 0.114;
         const colorWeight = smoothstep(0.035, 0.34, sourceLuma);
         const nearWeight = Math.pow(depth, 1.85) * colorWeight;
         const farWeight = Math.pow(1 - depth, 1.35) * colorWeight;
@@ -526,31 +611,62 @@ async function buildParticleCloud(
         farTintTotals.z += sourceBlue * farWeight;
         farTintWeight += farWeight;
 
-        photoColors.push(
-          clamp(
-            mix(depthRed, sourceRed, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
-            0,
-            1,
-          ),
-          clamp(
-            mix(depthGreen, sourceGreen, ORIGINAL_COLOR_BLEND) +
-              DEPTH_COLOR_LIFT * depth,
-            0,
-            1,
-          ),
-          clamp(
-            mix(depthBlue, sourceBlue, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
-            0,
-            1,
-          ),
+        photoRed = clamp(
+          mix(depthRed, sourceRed, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
+          0,
+          1,
         );
-      } else {
-        photoColors.push(depthRed, depthGreen, depthBlue);
+        photoGreen = clamp(
+          mix(depthGreen, sourceGreen, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
+          0,
+          1,
+        );
+        photoBlue = clamp(
+          mix(depthBlue, sourceBlue, ORIGINAL_COLOR_BLEND) + DEPTH_COLOR_LIFT * depth,
+          0,
+          1,
+        );
       }
 
-      alphas.push(mix(MIN_ALPHA, MAX_ALPHA, depth) * mix(0.52, 1, edgeFade));
-      sizes.push(BASE_POINT_SIZE + depth * NEAR_POINT_BOOST + random * POINT_RANDOM_SIZE);
-      phases.push(random * Math.PI * 2);
+      const gridX = Math.floor(x / sampleStride) % 8;
+      const gridY = Math.floor(y / sampleStride) % 8;
+      const rank = (DITHER_BAYER_8[gridY * 8 + gridX] + 0.5) / 64;
+      const foregroundToneLift =
+        cloudRenderMode === "dither" ? Math.pow(depth, 1.55) * 0.24 : 0;
+      const tone = clamp(
+        sourceLuma * 0.58 + depth * 0.42 + foregroundToneLift,
+        0,
+        1,
+      );
+      const liftedTone = Math.pow(tone, 0.72);
+      const quantizedTone =
+        cloudRenderMode === "dither"
+          ? clamp(Math.floor((liftedTone + rank * 0.08) * 5) / 4, 0, 1)
+          : tone;
+
+      const jitterAmount = cloudRenderMode === "dither" ? 0.0015 : 0.012;
+      positions.push(
+        px + (random - 0.5) * jitterAmount,
+        py + (hash2(y, x) - 0.5) * jitterAmount,
+        pz,
+      );
+      colors.push(depthRed, depthGreen, depthBlue);
+      photoColors.push(photoRed, photoGreen, photoBlue);
+      depths.push(depth);
+      alphas.push(
+        cloudRenderMode === "dither"
+          ? mix(0.42, 1.08, quantizedTone) * mix(0.58, 1, edgeFade)
+          : mix(MIN_ALPHA, MAX_ALPHA, depth) * mix(0.52, 1, edgeFade),
+      );
+      sizes.push(
+        cloudRenderMode === "dither"
+          ? mix(3.2, 10.4, quantizedTone) + random * 0.32
+          : BASE_POINT_SIZE + depth * NEAR_POINT_BOOST + random * POINT_RANDOM_SIZE,
+      );
+      phases.push((random + rank) * Math.PI * 2);
+      ditherOffsets.push(0, 0);
+      ditherRanks.push(cloudRenderMode === "dither" ? rank : 0);
+      ditherTones.push(cloudRenderMode === "dither" ? quantizedTone : 1);
     }
   }
 
@@ -568,6 +684,18 @@ async function buildParticleCloud(
   geometry.setAttribute("aAlpha", new THREE.Float32BufferAttribute(alphas, 1));
   geometry.setAttribute("aSize", new THREE.Float32BufferAttribute(sizes, 1));
   geometry.setAttribute("aPhase", new THREE.Float32BufferAttribute(phases, 1));
+  geometry.setAttribute(
+    "aDitherOffset",
+    new THREE.Float32BufferAttribute(ditherOffsets, 2),
+  );
+  geometry.setAttribute(
+    "aDitherRank",
+    new THREE.Float32BufferAttribute(ditherRanks, 1),
+  );
+  geometry.setAttribute(
+    "aDitherTone",
+    new THREE.Float32BufferAttribute(ditherTones, 1),
+  );
   geometry.computeBoundingSphere();
 
   const nearDepthTint = colorData
@@ -729,13 +857,16 @@ export function DepthClockLab({
   depthImageSrc = DEPTH_IMAGE_SRC,
   originalImageSrc = ORIGINAL_IMAGE_SRC,
   startControlsHidden = false,
+  cloudRenderMode = "points",
+  overlay,
 }: DepthClockProps) {
+  const initialTuning = initialTuningForMode(cloudRenderMode);
   const mainRef = useRef<HTMLElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const tuningRef = useRef(DEFAULT_TUNING);
+  const tuningRef = useRef(initialTuning);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsHidden, setControlsHidden] = useState(startControlsHidden);
-  const [tuning, setTuning] = useState<TuningControls>(DEFAULT_TUNING);
+  const [tuning, setTuning] = useState<TuningControls>(initialTuning);
 
   useEffect(() => {
     tuningRef.current = tuning;
@@ -813,6 +944,10 @@ export function DepthClockLab({
       uDepthScale: { value: tuningRef.current.depthScale },
       uRippleLift: { value: tuningRef.current.rippleLift },
       uClockEmbossSize: { value: tuningRef.current.clockEmbossSize },
+      uCloudDepth: { value: tuningRef.current.cloudDepth },
+      uDitherCell: {
+        value: cloudRenderMode === "dither" ? tuningRef.current.ditherCell : 0,
+      },
       uPointOpacity: { value: tuningRef.current.pointOpacity },
       uFarDetail: { value: tuningRef.current.farDetail },
       uMaxBrightness: { value: tuningRef.current.maxBrightness },
@@ -823,6 +958,12 @@ export function DepthClockLab({
       uClockShadow: { value: tuningRef.current.clockShadow },
       uClockEmbossTint: { value: tuningRef.current.clockEmbossTint },
       uChromaticDepth: { value: tuningRef.current.chromaticDepth },
+      uDitherCrawl: {
+        value: cloudRenderMode === "dither" ? tuningRef.current.ditherCrawl : 0,
+      },
+      uDitherDensity: {
+        value: cloudRenderMode === "dither" ? tuningRef.current.ditherDensity : 1,
+      },
       uNearDepthTint: { value: new THREE.Vector3(1, 0.72, 0.54) },
       uFarDepthTint: { value: new THREE.Vector3(0.45, 0.9, 1) },
       uClockMap: { value: null as THREE.Texture | null },
@@ -994,7 +1135,12 @@ export function DepthClockLab({
       buildVersion += 1;
       const version = buildVersion;
 
-      buildParticleCloud(depthImageSrc, originalImageSrc, sampleStride)
+      buildParticleCloud(
+        depthImageSrc,
+        originalImageSrc,
+        sampleStride,
+        cloudRenderMode,
+      )
         .then(({
           geometry,
           sourceAspect: loadedSourceAspect,
@@ -1069,7 +1215,9 @@ export function DepthClockLab({
       fitClockToViewport();
       fitCloudToViewport();
 
-      const nextSampleStride = sampleStrideForViewport(width, height);
+      const nextSampleStride =
+        sampleStrideForViewport(width, height) +
+        (cloudRenderMode === "dither" ? DITHER_SAMPLE_STRIDE_BONUS : 0);
       if (nextSampleStride !== activeSampleStride) {
         rebuildPointCloud(nextSampleStride);
       }
@@ -1105,6 +1253,9 @@ export function DepthClockLab({
       uniforms.uDepthScale.value = controls.depthScale;
       uniforms.uRippleLift.value = controls.rippleLift;
       uniforms.uClockEmbossSize.value = controls.clockEmbossSize;
+      uniforms.uCloudDepth.value = controls.cloudDepth;
+      uniforms.uDitherCell.value =
+        cloudRenderMode === "dither" ? controls.ditherCell : 0;
       clockEmbossUniforms.uClockEmbossSize.value = controls.clockEmbossSize;
       uniforms.uPointOpacity.value = controls.pointOpacity;
       uniforms.uFarDetail.value = controls.farDetail;
@@ -1118,6 +1269,10 @@ export function DepthClockLab({
       clockEmbossUniforms.uClockShadow.value = controls.clockShadow;
       clockEmbossUniforms.uClockEmbossTint.value = controls.clockEmbossTint;
       uniforms.uChromaticDepth.value = controls.chromaticDepth;
+      uniforms.uDitherCrawl.value =
+        cloudRenderMode === "dither" ? controls.ditherCrawl : 0;
+      uniforms.uDitherDensity.value =
+        cloudRenderMode === "dither" ? controls.ditherDensity : 1;
       uniforms.uClockAngle.value = THREE.MathUtils.degToRad(controls.clockAngle);
       if (activeCanvasBlur !== controls.canvasBlur) {
         activeCanvasBlur = controls.canvasBlur;
@@ -1151,7 +1306,7 @@ export function DepthClockLab({
           clockMesh.scale.x / pointScale / 2,
           clockMesh.scale.y / pointScale / 2,
         );
-        uniforms.uClockDepth.value = (clockMesh.position.z - points.position.z) / pointScale;
+        uniforms.uClockDepth.value = clockMesh.position.z;
       }
       syncClockEmbossTransform();
 
@@ -1182,7 +1337,7 @@ export function DepthClockLab({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [depthImageSrc, originalImageSrc]);
+  }, [depthImageSrc, originalImageSrc, cloudRenderMode]);
 
   const toggleFullscreen = async () => {
     if (!mainRef.current) return;
@@ -1235,6 +1390,7 @@ export function DepthClockLab({
         ) : (
           <DepthClockControls
             tuning={tuning}
+            cloudRenderMode={cloudRenderMode}
             onChange={(key, value) =>
               setTuning((current) => ({ ...current, [key]: value }))
             }
@@ -1242,6 +1398,7 @@ export function DepthClockLab({
             onReset={() => setTuning(DEFAULT_TUNING)}
           />
         )}
+        {overlay}
       </div>
       <button
         type="button"
@@ -1261,11 +1418,13 @@ export function DepthClockLab({
 
 function DepthClockControls({
   tuning,
+  cloudRenderMode,
   onChange,
   onHide,
   onReset,
 }: {
   tuning: TuningControls;
+  cloudRenderMode: CloudRenderMode;
   onChange: (key: keyof TuningControls, value: number) => void;
   onHide: () => void;
   onReset: () => void;
@@ -1334,10 +1493,48 @@ function DepthClockControls({
       max: 1.4,
       step: 0.01,
     },
+    ...(cloudRenderMode === "dither"
+      ? ([
+          {
+            key: "ditherCell",
+            label: "Dither cell",
+            min: 0.15,
+            max: 3,
+            step: 0.01,
+          },
+          {
+            key: "ditherCrawl",
+            label: "Dither crawl",
+            min: 0,
+            max: 1,
+            step: 0.01,
+          },
+          {
+            key: "ditherDensity",
+            label: "Dither density",
+            min: 0.05,
+            max: 1,
+            step: 0.01,
+          },
+        ] satisfies {
+          key: keyof TuningControls;
+          label: string;
+          min: number;
+          max: number;
+          step: number;
+        }[])
+      : []),
     {
       key: "cursorTilt",
       label: "Cursor tilt",
       min: 0,
+      max: 2,
+      step: 0.01,
+    },
+    {
+      key: "cloudDepth",
+      label: "Cloud z",
+      min: -4,
       max: 2,
       step: 0.01,
     },
@@ -1385,13 +1582,6 @@ function DepthClockControls({
       step: 0.01,
     },
     {
-      key: "fogBands",
-      label: "Fog bands",
-      min: 0,
-      max: 1.2,
-      step: 0.01,
-    },
-    {
       key: "clockShadow",
       label: "Emboss shade",
       min: 0,
@@ -1410,13 +1600,6 @@ function DepthClockControls({
       label: "Emboss size",
       min: 0,
       max: 1.8,
-      step: 0.01,
-    },
-    {
-      key: "chromaticDepth",
-      label: "Depth tint",
-      min: 0,
-      max: 1.2,
       step: 0.01,
     },
     {
