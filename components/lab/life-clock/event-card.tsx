@@ -3,7 +3,13 @@
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { TOKENS, type ClockEvent, type EventCertainty } from "./types";
+import {
+  TOKENS,
+  TONE_COLOR,
+  eventTone,
+  type ClockEvent,
+  type EventCertainty,
+} from "./types";
 
 const CARD_W = 260;
 const OFFSET = 14;
@@ -168,11 +174,18 @@ export function EventCard({
             width: 5,
             height: 5,
             flex: "none",
-            backgroundColor: TOKENS.event,
+            // Matches the marker: amber records, azure predictions, violet
+            // crossroads — a crossroad reads hollow (outline), the rest solid.
+            backgroundColor: shown.crossroad
+              ? "transparent"
+              : TONE_COLOR[eventTone(shown)],
+            boxShadow: shown.crossroad
+              ? `inset 0 0 0 1px ${TONE_COLOR.crossroad}`
+              : undefined,
           }}
         />
         <span style={{ color: TOKENS.textDim }}>
-          {CERTAINTY_LABEL[shown.certainty]}
+          {shown.crossroad ? "CROSSROAD" : CERTAINTY_LABEL[shown.certainty]}
         </span>
       </div>
 

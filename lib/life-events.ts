@@ -322,6 +322,27 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     }
   }
 
+  // Crossroads — the moments a life could have forked. Recorded facts, but
+  // rendered apart from the ordinary records: hovering one lifts everything
+  // downstream, from the fork to now, as the consequence it set in motion.
+  const crossroads = profile.crossroads ?? [];
+  crossroads.forEach((crossroad, i) => {
+    const at = parseDob(crossroad.date, now);
+    if (at === null) return;
+    const suffix = crossroads.length > 1 ? `-${i}` : "";
+    events.push({
+      id: `crossroad${suffix}`,
+      label: capFirst(crossroad.label || "A crossroads"),
+      date: at,
+      detail: crossroad.detail,
+      basis: "A FORK IN THE PATH — RECORDED",
+      certainty: "record",
+      crossroad: true,
+      rangeStart: earlier(at, now),
+      rangeEnd: later(at, now),
+    });
+  });
+
   const halfway = new Date(dob.getTime() + (expectancy / 2) * MS_PER_YEAR);
   events.push({
     id: "halfway",

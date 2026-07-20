@@ -98,6 +98,11 @@ export interface HudProps {
   mode: "author" | "custom";
   /** First-use hint variant; null hides it. Parent owns timing + dismissal. */
   hint: "scroll" | "pinch" | null;
+  /** Whether the profile carries places — gates the PLACES toggle entirely. */
+  placesAvailable: boolean;
+  /** Whether the PLACES overlay is currently on. */
+  placesOn: boolean;
+  onTogglePlaces: () => void;
   onSelectView: (view: ViewIndex) => void;
   onCalibrate: () => void;
   ref?: Ref<HudHandle>;
@@ -109,6 +114,9 @@ export function LifeClockHud({
   expectancyYears,
   mode,
   hint,
+  placesAvailable,
+  placesOn,
+  onTogglePlaces,
   onSelectView,
   onCalibrate,
   ref,
@@ -406,6 +414,30 @@ export function LifeClockHud({
       )}
     </button>
   );
+
+  // PLACES overlay toggle — offered only when the profile carries places.
+  const placesToggle = placesAvailable ? (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={placesOn}
+      onClick={onTogglePlaces}
+      aria-label="Toggle where-I've-lived overlay"
+      className={`group pointer-events-auto border transition-colors duration-[120ms] ${FOCUS_RING} ${
+        placesOn
+          ? "border-[var(--lc-text)]"
+          : "border-[var(--lc-hairline-strong)] hover:border-[var(--lc-text)]"
+      }`}
+      style={{ ...LABEL_METRICS, padding: "4px 10px" }}
+    >
+      <span
+        className={placesOn ? undefined : DIM_GROUP_TEXT}
+        style={placesOn ? { color: TOKENS.text } : undefined}
+      >
+        PLACES
+      </span>
+    </button>
+  ) : null;
 
   const desktopLadder = (
     <div
@@ -714,10 +746,20 @@ export function LifeClockHud({
           <span>[0] NOW</span>
           <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
           <span>[C] CALIBRATE</span>
+          {placesAvailable ? (
+            <>
+              <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
+              <span>[P] PLACES</span>
+            </>
+          ) : null}
         </div>
-        <div className="mt-3">{chip}</div>
+        <div className="mt-3 flex items-center gap-2">
+          {placesToggle}
+          {chip}
+        </div>
       </div>
-      <div className="absolute bottom-[44px] right-[max(10px,env(safe-area-inset-right))] sm:hidden">
+      <div className="absolute bottom-[44px] right-[max(10px,env(safe-area-inset-right))] flex items-center gap-2 sm:hidden">
+        {placesToggle}
         {chip}
       </div>
 

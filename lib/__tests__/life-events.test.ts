@@ -7,7 +7,7 @@ import {
   survivalProbability,
 } from "@/lib/life-events";
 import { MS_PER_YEAR, type LifeProfile, type RelatedPerson } from "@/lib/life-clock";
-import type { ClockEvent } from "@/components/lab/life-clock/types";
+import { eventTone, type ClockEvent } from "@/components/lab/life-clock/types";
 
 const NOW = new Date(2026, 6, 20, 12, 0, 0);
 
@@ -232,6 +232,56 @@ describe("buildEvents — omission", () => {
     );
     expect(byId(events, "partner-majority").label).toContain("my partner");
     expect(byId(events, "child-18").label).toBe("My child turns 18");
+  });
+});
+
+describe("buildEvents — crossroads", () => {
+  const withCrossroad: LifeProfile = {
+    ...AUTHOR,
+    crossroads: [
+      { label: "the fork", date: "2008-11-15", detail: "everything downstream." },
+    ],
+  };
+  const events = buildEvents(withCrossroad, NOW);
+  const x = byId(events, "crossroad");
+
+  it("emits a flagged, dated record", () => {
+    expect(x.crossroad).toBe(true);
+    expect(x.certainty).toBe("record");
+    expect(ymd(x.date)).toBe("2008-11-15");
+  });
+
+  it("capitalises the label and keeps the detail verbatim", () => {
+    expect(x.label).toBe("The fork");
+    expect(x.detail).toBe("everything downstream.");
+  });
+
+  it("highlights from the fork to now — everything downstream", () => {
+    expect(ymd(x.rangeStart!)).toBe("2008-11-15");
+    expect(x.rangeEnd!.getTime()).toBe(NOW.getTime());
+  });
+
+  it("wears the crossroad tone", () => {
+    expect(eventTone(x)).toBe("crossroad");
+  });
+
+  it("suffixes ids when there is more than one", () => {
+    const ids = buildEvents(
+      {
+        ...AUTHOR,
+        crossroads: [
+          { label: "a", date: "2005-01-01", detail: "x" },
+          { label: "b", date: "2007-01-01", detail: "y" },
+        ],
+      },
+      NOW,
+    ).map((e) => e.id);
+    expect(ids).toContain("crossroad-0");
+    expect(ids).toContain("crossroad-1");
+  });
+
+  it("emits none for a profile without crossroads", () => {
+    expect(buildEvents(AUTHOR, NOW).some((e) => e.crossroad)).toBe(false);
   });
 });
 

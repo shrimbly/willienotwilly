@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   PERCENT_DECIMALS,
@@ -29,10 +29,12 @@ import {
   markZoomHintSeen,
 } from "@/lib/life-clock-storage";
 import { buildEvents } from "@/lib/life-events";
+import { buildPlaceBands, type PlaceBand } from "@/lib/life-places";
 
 import { LifeClockCalibration } from "./calibration";
 import { EventCard } from "./event-card";
 import { LifeClockHud } from "./hud";
+import { PlacesLegend } from "./places-legend";
 import {
   buildLayout,
   computeMorphEnvelope,
@@ -48,6 +50,7 @@ import {
   VIEW_LIFE,
   VIEW_NAMES,
   VIEW_YEAR,
+  eventTone,
   pulseAlpha,
   type AxisSpec,
   type ClockEvent,
@@ -68,6 +71,8 @@ const INTRO_DIVE_MS = 1_350;
 const AXIS_FADE_TAU_MS = 80;
 const EVENT_HOVER_RADIUS_PX = 16;
 const EVENT_HOVER_TAU_MS = 90;
+const PLACES_FADE_TAU_MS = 140;
+const MS_PER_DAY = 86_400_000;
 
 interface StageMetrics {
   mobile: boolean;
@@ -164,6 +169,10 @@ export function LifeClockLab() {
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [calOpen, setCalOpen] = useState(false);
   const [hint, setHint] = useState<"scroll" | "pinch" | null>(null);
+  // PLACES overlay: on/off, plus the resting view (the legend shows only once
+  // settled in LIFE). Both change on user action, never per frame.
+  const [placesOn, setPlacesOn] = useState(false);
+  const [restView, setRestView] = useState<ViewIndex>(VIEW_DAY);
   // Hovered life-event readout. Changes on pointer move, not per frame.
   const [hovered, setHovered] = useState<{
     event: ClockEvent;
@@ -193,10 +202,23 @@ export function LifeClockLab() {
   const calOpenRef = useRef(calOpen);
   const openCalibrationRef = useRef<() => void>(() => {});
   const zoomRef = useRef<ZoomMachine | null>(null);
+  const placesOnRef = useRef(placesOn);
+  const togglePlacesRef = useRef<() => void>(() => {});
+
+  // Bands drive the legend; also gate whether the PLACES control is offered.
+  const placeBands = useMemo<PlaceBand[]>(
+    () => (profile ? buildPlaceBands(profile, new Date()) : []),
+    [profile],
+  );
+  const placesAvailable = placeBands.length > 0;
 
   useEffect(() => {
     calOpenRef.current = calOpen;
   }, [calOpen]);
+
+  useEffect(() => {
+    placesOnRef.current = placesOn;
+  }, [placesOn]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -257,9 +279,52 @@ export function LifeClockLab() {
           index: cellFor(event.date),
           rangeStart: event.rangeStart ? cellFor(event.rangeStart) : -1,
           rangeEnd: event.rangeEnd ? cellFor(event.rangeEnd) : -1,
+          tone: eventTone(event),
         }))
         .filter((marker) => marker.index >= 0);
       renderer.setEventMarkers(markers);
+    };
+
+    // Places resolve to per-cell tint the same way markers resolve to indices:
+    // through the LIFE layout's own date math, recomputed on every rebuild.
+    const bands = profile ? buildPlaceBands(profile, new Date()) : [];
+    const onGridIndex = (
+      cellFor: (d: Date) => number,
+      date: Date,
+      dir: 1 | -1,
+    ): number => {
+      // Nudge day-by-day toward the grid: a band edge before birth / after the
+      // expectancy row (or on a ghost week) still resolves to the nearest cell.
+      let t = date.getTime();
+      for (let k = 0; k < 420; k++) {
+        const idx = cellFor(new Date(t));
+        if (idx >= 0) return idx;
+        t += dir * MS_PER_DAY;
+      }
+      return -1;
+    };
+    const resolvePlaceTints = (life: ViewLayout | null) => {
+      if (!life?.cellIndexForDate || bands.length === 0) {
+        renderer.setLifePlaceTints(null);
+        return;
+      }
+      const cellFor = life.cellIndexForDate.bind(life);
+      const tints = new Float32Array(life.cellCount * 4);
+      for (const band of bands) {
+        let i0 = onGridIndex(cellFor, band.start, 1);
+        let i1 = onGridIndex(cellFor, band.end, -1);
+        if (i0 < 0 || i1 < 0) continue;
+        if (i1 < i0) [i0, i1] = [i1, i0];
+        const [r, g, b] = band.rgb;
+        for (let i = i0; i <= i1; i++) {
+          const o = i * 4;
+          tints[o] = r;
+          tints[o + 1] = g;
+          tints[o + 2] = b;
+          tints[o + 3] = 1;
+        }
+      }
+      renderer.setLifePlaceTints(tints);
     };
 
     const buildAll = (now: Date) => {
@@ -273,6 +338,7 @@ export function LifeClockLab() {
       }
       for (let v = maxView + 1; v < 4; v++) layouts[v] = null;
       resolveMarkers(layouts[VIEW_LIFE]);
+      resolvePlaceTints(layouts[VIEW_LIFE]);
     };
 
     const renderer = new LifeClockRenderer(canvas);
@@ -302,6 +368,7 @@ export function LifeClockLab() {
     let slotClickAtMs = 0;
     let hoveredId: string | null = null;
     let hoverAmount = 0;
+    let placesAmount = 0;
     const transition = { from: -1, to: -1 };
 
     const restingSlotHit = (clientX: number, clientY: number): boolean => {
@@ -373,6 +440,7 @@ export function LifeClockLab() {
             clearHover();
           }
           syncAxis();
+          setRestView(zoom.restingView);
           if (zoom.restingView === VIEW_DAY) armHint();
         },
         onLimit: (dir) => {
@@ -390,6 +458,19 @@ export function LifeClockLab() {
     );
     zoom.attach(canvas);
     zoomRef.current = zoom;
+
+    // Toggling PLACES on carries the view to LIFE (where the bands live); the
+    // ref lets the imperative frame loop read the state without a re-render.
+    const togglePlaces = () => {
+      if (bands.length === 0) return;
+      const turningOn = !placesOnRef.current;
+      placesOnRef.current = turningOn;
+      setPlacesOn(turningOn);
+      if (turningOn && !(zoom.isAtRest && zoom.restingView === VIEW_LIFE)) {
+        zoom.jumpTo(VIEW_LIFE, Date.now());
+      }
+    };
+    togglePlacesRef.current = togglePlaces;
 
     // First-run choreography: dive LIFE → DAY once, then always mount at DAY.
     if (profile && !hasSeenIntro()) {
@@ -467,6 +548,7 @@ export function LifeClockLab() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (calOpenRef.current) return;
       if (e.key === "c" || e.key === "C") openCalibrationRef.current();
+      if (e.key === "p" || e.key === "P") togglePlaces();
     };
     canvas.addEventListener("click", onSlotClick);
     canvas.addEventListener("pointermove", onPointerMove);
@@ -574,6 +656,13 @@ export function LifeClockLab() {
           ? { markers, hoveredId, hoverAmount }
           : null;
 
+      // Places overlay only reads on the LIFE grid; ease it out on the way in
+      // and out so toggling (or zooming away) crossfades rather than snaps.
+      const placesTarget = placesOnRef.current && lifeShown ? 1 : 0;
+      placesAmount +=
+        (placesTarget - placesAmount) * Math.min(1, dt / PLACES_FADE_TAU_MS);
+      if (Math.abs(placesTarget - placesAmount) < 0.005) placesAmount = placesTarget;
+
       let morphFrame: MorphFrame;
       if (!morphing) {
         morphFrame = {
@@ -589,6 +678,7 @@ export function LifeClockLab() {
           rubberScale: zoom.rubberScale,
           reducedMotion: isReduced,
           events: eventsFrame,
+          placesAmount,
         };
       } else {
         const parentLayout = layouts[renderParent]!;
@@ -612,6 +702,7 @@ export function LifeClockLab() {
             rubberScale: 1,
             reducedMotion: true,
             events: eventsFrame,
+            placesAmount,
           };
         } else {
           const env = computeMorphEnvelope(p);
@@ -639,6 +730,7 @@ export function LifeClockLab() {
             rubberScale: 1,
             reducedMotion: false,
             events: eventsFrame,
+            placesAmount,
           };
         }
       }
@@ -787,12 +879,20 @@ export function LifeClockLab() {
           expectancyYears={expectancyYears}
           mode={isAuthor ? "author" : "custom"}
           hint={hint}
+          placesAvailable={placesAvailable}
+          placesOn={placesOn}
+          onTogglePlaces={() => togglePlacesRef.current()}
           onSelectView={(view) => {
             if (!calOpenRef.current) {
               zoomRef.current?.jumpTo(view, Date.now());
             }
           }}
           onCalibrate={() => openCalibrationRef.current()}
+        />
+        <PlacesLegend
+          bands={placeBands}
+          visible={placesOn && restView === VIEW_LIFE}
+          reducedMotion={reducedMotion}
         />
       </div>
       <EventCard
@@ -808,6 +908,9 @@ export function LifeClockLab() {
           // Author mode maps a fresh life; custom mode edits the stored one.
           profile={isAuthor ? null : profile}
           onComplete={(next) => {
+            // A recalibration lands back at DAY; the overlay (which may no
+            // longer have places) starts off.
+            setPlacesOn(false);
             setProfile(next);
             setCalOpen(false);
           }}
@@ -817,6 +920,7 @@ export function LifeClockLab() {
               ? undefined
               : () => {
                   clearProfile();
+                  setPlacesOn(false);
                   setProfile(DEFAULT_PROFILE);
                   setCalOpen(false);
                 }

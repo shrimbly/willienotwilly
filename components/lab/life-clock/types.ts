@@ -148,6 +148,8 @@ export interface MorphFrame {
   reducedMotion: boolean;
   /** Life-event markers + hover state; null outside the LIFE view. */
   events: EventFrame | null;
+  /** 0..1 eased strength of the PLACES overlay (life-location bands). */
+  placesAmount: number;
 }
 
 /**
@@ -166,6 +168,8 @@ export interface ClockEvent {
   /** How it was derived — formula or source, rendered dim. */
   basis: string;
   certainty: EventCertainty;
+  /** A life-forking moment — rendered in the crossroad accent, hollow. */
+  crossroad?: boolean;
   /** Span the event refers to; highlighted on hover. Omit for a point event. */
   rangeStart?: Date;
   rangeEnd?: Date;
@@ -179,6 +183,8 @@ export interface EventMarker {
   /** Inclusive cell range to highlight on hover; -1/-1 for point events. */
   rangeStart: number;
   rangeEnd: number;
+  /** Accent the marker (and its hover range) wears. */
+  tone: EventTone;
 }
 
 export interface EventFrame {
@@ -207,11 +213,37 @@ export const TOKENS = {
   textDim: "#7A827F",
   textFaint: "#464B4A",
   live: "#63E2B7",
-  // Second accent, annotation only: marks life events on the LIFE grid.
-  // Warm against the mint so a marker never reads as the live position.
+  // Event accents, annotation only, on the LIFE grid. A complementary pair
+  // split by hue at matched saturation/lightness: `event` is the warm amber of
+  // things that HAPPENED (records); `eventPredict` its cool azure complement,
+  // for things the model PREDICTS. Both stay clear of the mint live position.
   event: "#F2913D",
+  eventPredict: "#3D92F2",
+  // Crossroads — the rare moments a life could have forked. A third accent
+  // (violet), distinct from both event tones and the mint, rendered hollow.
+  crossroad: "#B47CFF",
   easeOut: "cubic-bezier(0.16, 1, 0.3, 1)",
 } as const;
+
+/**
+ * Which accent an event wears. Records are warm (they happened), predictions
+ * cool (they might), crossroads violet (they could have changed everything).
+ */
+export type EventTone = "record" | "predict" | "crossroad";
+
+export function eventTone(e: {
+  certainty: EventCertainty;
+  crossroad?: boolean;
+}): EventTone {
+  if (e.crossroad) return "crossroad";
+  return e.certainty === "record" ? "record" : "predict";
+}
+
+export const TONE_COLOR: Record<EventTone, string> = {
+  record: TOKENS.event,
+  predict: TOKENS.eventPredict,
+  crossroad: TOKENS.crossroad,
+};
 
 /** Pulse waveform: u = fractional part of the wall-clock second. */
 export function pulseAlpha(u: number): number {

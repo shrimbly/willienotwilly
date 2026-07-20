@@ -8,12 +8,13 @@ import * as THREE from "three";
 
 import type {
   EventMarker,
+  EventTone,
   LayerTransform,
   MorphFrame,
   Rect,
   ViewLayout,
 } from "./types";
-import { TOKENS, VIEW_LIFE } from "./types";
+import { TOKENS, TONE_COLOR, VIEW_LIFE } from "./types";
 
 const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
@@ -43,6 +44,14 @@ const COLOR_LIVE = rawColor(TOKENS.live);
 const COLOR_TEXT = rawColor(TOKENS.text);
 const COLOR_EVENT = rawColor(TOKENS.event);
 
+// Per-tone accent colours, resolved once (records warm, predictions cool,
+// crossroads violet). Keyed by EventTone for O(1) marker + hover-range lookup.
+const TONE_RGB: Record<EventTone, THREE.Color> = {
+  record: rawColor(TONE_COLOR.record),
+  predict: rawColor(TONE_COLOR.predict),
+  crossroad: rawColor(TONE_COLOR.crossroad),
+};
+
 const HAIRLINE_A = 0.09;
 const HAIRLINE_STRONG_A = 0.22;
 const CROSSHAIR_A = 0.22;
@@ -59,13 +68,16 @@ const CELL_VERT = /* glsl */ `
   attribute vec4 aRect;
   attribute float aCellIndex;
   attribute float aInSlot;
+  attribute vec4 aPlaceTint;
   varying float vCellIndex;
   varying float vInSlot;
   varying float vLocalX;
+  varying vec4 vPlace;
   void main() {
     vCellIndex = aCellIndex;
     vInSlot = aInSlot;
     vLocalX = position.x;
+    vPlace = aPlaceTint;
     vec2 inner = max(aRect.zw - vec2(uGap), aRect.zw * 0.2);
     vec2 p = aRect.xy + (aRect.zw - inner) * 0.5 + position.xy * inner;
     vec2 screen = uOffset + uScale * p;
@@ -93,9 +105,11 @@ const CELL_FRAG = /* glsl */ `
   uniform float uRangeStart;
   uniform float uRangeEnd;
   uniform float uRangeAmount;
+  uniform float uPlaceAmount;
   varying float vCellIndex;
   varying float vInSlot;
   varying float vLocalX;
+  varying vec4 vPlace;
 
   float hash01(float i) {
     return fract(sin(i * 12.9898) * 43758.5453);
@@ -115,12 +129,17 @@ const CELL_FRAG = /* glsl */ `
     } else {
       color = uEmpty;
     }
-    // Range highlight: warm lift, tint plus a small additive term so the dark
+    // Places overlay: tint the cell toward its location band. A moderate mix
+    // plus a small additive term so lived (bright) and unlived (dark) cells
+    // both take the hue while staying distinguishable. Under the hover range.
+    float pa = vPlace.a * clamp(uPlaceAmount, 0.0, 1.0);
+    color = mix(color, vPlace.rgb, 0.30 * pa) + vPlace.rgb * 0.06 * pa;
+    // Range highlight: accent lift, tint plus a small additive term so the dark
     // unlived cells rise as much as the bright lived ones.
     float inRange =
       step(uRangeStart - 0.5, vCellIndex) * step(vCellIndex, uRangeEnd + 0.5);
     float lift = inRange * uRangeAmount;
-    color = mix(color, uEvent, 0.20 * lift) + uEvent * 0.07 * lift;
+    color = mix(color, uEvent, 0.22 * lift) + uEvent * 0.07 * lift;
     float alpha = mix(uLayerOpacity, uSlotOpacity, vInSlot);
     if (alpha < 0.003) discard;
     gl_FragColor = vec4(color, alpha);
@@ -167,13 +186,19 @@ const MARKER_VERT = /* glsl */ `
   uniform float uBreath;
   attribute vec4 aRect;
   attribute float aSlot;
+  attribute vec3 aTint;
+  attribute float aKind;
   varying vec2 vOffset;
   varying float vCoreR;
   varying float vHaloR;
   varying float vHot;
+  varying vec3 vTint;
+  varying float vKind;
   void main() {
     float hot = uHoverAmount * (1.0 - step(0.5, abs(aSlot - uHoverSlot)));
     vHot = hot;
+    vTint = aTint;
+    vKind = aKind;
     // Square in screen px: anisotropic layer scale would otherwise oval the dot.
     float cell = min(aRect.z * uScale.x, aRect.w * uScale.y);
     float grow = mix(1.0, ${MARKER_HOVER_SCALE.toFixed(2)}, hot) * uBreath;
@@ -193,31 +218,44 @@ const MARKER_VERT = /* glsl */ `
 
 const MARKER_FRAG = /* glsl */ `
   precision highp float;
-  uniform vec3 uColor;
   uniform vec3 uDark;
   uniform float uOpacity;
   varying vec2 vOffset;
   varying float vCoreR;
   varying float vHaloR;
   varying float vHot;
+  varying vec3 vTint;
+  varying float vKind;
   void main() {
     if (vHaloR < 0.25) discard;
     float d = length(vOffset);
     if (d > vHaloR) discard;
     float aa = max(0.6, vCoreR * 0.6);
-    float core = 1.0 - smoothstep(vCoreR - aa, vCoreR + aa, d);
-    // Dark annulus: without it the dot vanishes against elapsed (bright) cells.
-    float ringOuter = vCoreR * 1.85;
-    float ring = (1.0 - core) * (1.0 - smoothstep(ringOuter - aa, ringOuter + aa, d));
+    float hot = mix(1.0, 1.55, vHot);
     float halo = 1.0 - d / vHaloR;
     halo *= halo;
-    float hot = mix(1.0, 1.55, vHot);
-    float aCore = 0.62 * core * hot;
     float aHalo = 0.22 * halo * hot;
-    float aRing = 0.55 * ring;
-    float a = aCore + aHalo + aRing;
+
+    // Filled dot (records & predictions): bright core + dark contrast annulus.
+    float core = 1.0 - smoothstep(vCoreR - aa, vCoreR + aa, d);
+    float ringOuter = vCoreR * 1.85;
+    float darkRing =
+      (1.0 - core) * (1.0 - smoothstep(ringOuter - aa, ringOuter + aa, d));
+
+    // Crossroad (vKind = 1): a hollow coloured ring — a gate, not a point.
+    float xR = vCoreR * 1.5;
+    float xW = max(0.9, vCoreR * 0.5);
+    float xRing = 1.0 - smoothstep(xW - aa, xW + aa, abs(d - xR));
+
+    float coreTerm = mix(core, 0.0, vKind);
+    float ringTerm = mix(0.0, xRing, vKind);
+    float darkTerm = mix(darkRing, 0.0, vKind);
+
+    float aInk = 0.62 * (coreTerm + ringTerm) * hot;
+    float aDark = 0.55 * darkTerm;
+    float a = aInk + aHalo + aDark;
     if (a < 0.003) discard;
-    vec3 premul = uColor * (aCore + aHalo) + uDark * aRing;
+    vec3 premul = vTint * (aInk + aHalo) + uDark * aDark;
     // Fade markers with their LIFE layer so they crossfade during the morph
     // instead of popping in over a still-fading grid.
     gl_FragColor = vec4(premul / max(a, 1e-4), min(a, 0.95) * uOpacity);
@@ -231,6 +269,8 @@ interface CellLayer {
   rects: THREE.InstancedBufferAttribute;
   indices: THREE.InstancedBufferAttribute;
   inSlot: THREE.InstancedBufferAttribute;
+  /** Per-cell place-band tint (rgb + membership in .a); PLACES overlay. */
+  placeTints: THREE.InstancedBufferAttribute;
   layout: ViewLayout | null;
 }
 
@@ -263,9 +303,15 @@ export class LifeClockRenderer {
   private markerMaterial: THREE.ShaderMaterial;
   private markerRects: THREE.InstancedBufferAttribute;
   private markerSlots: THREE.InstancedBufferAttribute;
+  private markerTints: THREE.InstancedBufferAttribute;
+  private markerKinds: THREE.InstancedBufferAttribute;
   private markers: EventMarker[] = [];
   private markerById = new Map<string, EventMarker>();
   private markerSlotById = new Map<string, number>();
+  // Per-cell place tint for the LIFE grid, index-aligned to the LIFE layout.
+  // Owned by the caller (life-clock.tsx), replayed into whichever cell layer
+  // currently holds LIFE on every setLayer / setLifePlaceTints.
+  private lifePlaceTints: Float32Array | null = null;
   private quad = quadGeometry();
   private frameRect: Rect = { x: 0, y: 0, w: 1, h: 1 };
   private width = 1;
@@ -302,10 +348,22 @@ export class LifeClockRenderer {
       new Float32Array(MARKER_CAPACITY),
       1,
     );
+    this.markerTints = new THREE.InstancedBufferAttribute(
+      new Float32Array(MARKER_CAPACITY * 3),
+      3,
+    );
+    this.markerKinds = new THREE.InstancedBufferAttribute(
+      new Float32Array(MARKER_CAPACITY),
+      1,
+    );
     this.markerRects.setUsage(THREE.DynamicDrawUsage);
     this.markerSlots.setUsage(THREE.DynamicDrawUsage);
+    this.markerTints.setUsage(THREE.DynamicDrawUsage);
+    this.markerKinds.setUsage(THREE.DynamicDrawUsage);
     this.markerGeometry.setAttribute("aRect", this.markerRects);
     this.markerGeometry.setAttribute("aSlot", this.markerSlots);
+    this.markerGeometry.setAttribute("aTint", this.markerTints);
+    this.markerGeometry.setAttribute("aKind", this.markerKinds);
     this.markerGeometry.instanceCount = 0;
     this.markerMaterial = new THREE.ShaderMaterial({
       vertexShader: MARKER_VERT,
@@ -317,7 +375,6 @@ export class LifeClockRenderer {
         uHoverSlot: { value: -1 },
         uHoverAmount: { value: 0 },
         uBreath: { value: 1 },
-        uColor: { value: COLOR_EVENT },
         uDark: { value: rawColor(TOKENS.bg) },
         uOpacity: { value: 1 },
       },
@@ -374,12 +431,18 @@ export class LifeClockRenderer {
       new Float32Array(CELL_CAPACITY),
       1,
     );
+    const placeTints = new THREE.InstancedBufferAttribute(
+      new Float32Array(CELL_CAPACITY * 4),
+      4,
+    );
     rects.setUsage(THREE.DynamicDrawUsage);
     indices.setUsage(THREE.DynamicDrawUsage);
     inSlot.setUsage(THREE.DynamicDrawUsage);
+    placeTints.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aRect", rects);
     geometry.setAttribute("aCellIndex", indices);
     geometry.setAttribute("aInSlot", inSlot);
+    geometry.setAttribute("aPlaceTint", placeTints);
     geometry.instanceCount = 0;
 
     const material = new THREE.ShaderMaterial({
@@ -399,10 +462,11 @@ export class LifeClockRenderer {
         uCommitAge: { value: -1 },
         uLayerOpacity: { value: 1 },
         uSlotOpacity: { value: 1 },
-        uEvent: { value: COLOR_EVENT },
+        uEvent: { value: COLOR_EVENT.clone() },
         uRangeStart: { value: -1 },
         uRangeEnd: { value: -1 },
         uRangeAmount: { value: 0 },
+        uPlaceAmount: { value: 0 },
       },
       transparent: true,
       depthTest: false,
@@ -413,7 +477,16 @@ export class LifeClockRenderer {
     mesh.renderOrder = renderOrder;
     mesh.visible = false;
     this.scene.add(mesh);
-    return { mesh, geometry, material, rects, indices, inSlot, layout: null };
+    return {
+      mesh,
+      geometry,
+      material,
+      rects,
+      indices,
+      inSlot,
+      placeTints,
+      layout: null,
+    };
   }
 
   setViewport(w: number, h: number, dpr: number): void {
@@ -481,6 +554,7 @@ export class LifeClockRenderer {
     layer.indices.needsUpdate = true;
     layer.inSlot.needsUpdate = true;
     layer.geometry.instanceCount = n;
+    this.applyPlaceTints(layer);
 
     // Gap: pitch/10, whole device pixels, min 1 device px; 0 when cells are
     // too small for a gap to read (boundaries carried by grain instead).
@@ -512,6 +586,30 @@ export class LifeClockRenderer {
     this.rebuildMarkers();
   }
 
+  /**
+   * Store the per-cell LIFE place tint (rgb + membership, index-aligned to the
+   * LIFE layout) and replay it into whichever cell layer currently holds LIFE.
+   * null clears the overlay. The 0..1 fade is a separate per-frame uniform.
+   */
+  setLifePlaceTints(tints: Float32Array | null): void {
+    this.lifePlaceTints = tints;
+    if (this.child.layout?.view === VIEW_LIFE) this.applyPlaceTints(this.child);
+    if (this.parent.layout?.view === VIEW_LIFE) this.applyPlaceTints(this.parent);
+  }
+
+  private applyPlaceTints(layer: CellLayer): void {
+    const layout = layer.layout;
+    const n = layout ? Math.min(layout.cellCount, CELL_CAPACITY) : 0;
+    const arr = layer.placeTints.array as Float32Array;
+    const tints = this.lifePlaceTints;
+    if (layout && layout.view === VIEW_LIFE && tints && tints.length >= n * 4) {
+      arr.set(tints.subarray(0, n * 4));
+    } else if (n > 0) {
+      arr.fill(0, 0, n * 4);
+    }
+    layer.placeTints.needsUpdate = true;
+  }
+
   private lifeLayer(): CellLayer | null {
     if (this.child.layout?.view === VIEW_LIFE) return this.child;
     if (this.parent.layout?.view === VIEW_LIFE) return this.parent;
@@ -528,6 +626,8 @@ export class LifeClockRenderer {
     }
     const rects = this.markerRects.array as Float32Array;
     const slots = this.markerSlots.array as Float32Array;
+    const tints = this.markerTints.array as Float32Array;
+    const kinds = this.markerKinds.array as Float32Array;
     let n = 0;
     for (const m of this.markers) {
       if (n >= MARKER_CAPACITY) break;
@@ -539,11 +639,19 @@ export class LifeClockRenderer {
       rects[o + 2] = r.w;
       rects[o + 3] = r.h;
       slots[n] = n;
+      const color = TONE_RGB[m.tone];
+      const t = n * 3;
+      tints[t] = color.r;
+      tints[t + 1] = color.g;
+      tints[t + 2] = color.b;
+      kinds[n] = m.tone === "crossroad" ? 1 : 0;
       this.markerSlotById.set(m.id, n);
       n++;
     }
     this.markerRects.needsUpdate = true;
     this.markerSlots.needsUpdate = true;
+    this.markerTints.needsUpdate = true;
+    this.markerKinds.needsUpdate = true;
     this.markerGeometry.instanceCount = n;
   }
 
@@ -557,14 +665,19 @@ export class LifeClockRenderer {
     let rangeStart = -1;
     let rangeEnd = -1;
     let rangeAmount = 0;
+    // The hover range takes the hovered marker's own accent, so highlighting a
+    // prediction glows azure, a record amber, a crossroad violet.
+    let hoverColor = COLOR_EVENT;
     if (ev && ev.hoveredId) {
       const m = this.markerById.get(ev.hoveredId);
+      if (m) hoverColor = TONE_RGB[m.tone];
       if (m && m.rangeStart >= 0 && m.rangeEnd >= m.rangeStart) {
         rangeStart = m.rangeStart;
         rangeEnd = m.rangeEnd;
         rangeAmount = Math.max(0, Math.min(1, ev.hoverAmount));
       }
     }
+    const placesAmount = Math.max(0, Math.min(1, frame.placesAmount));
 
     const applyLayer = (
       layer: CellLayer,
@@ -599,6 +712,10 @@ export class LifeClockRenderer {
       u.uRangeStart.value = isLife ? rangeStart : -1;
       u.uRangeEnd.value = isLife ? rangeEnd : -1;
       u.uRangeAmount.value = isLife ? rangeAmount : 0;
+      (u.uEvent.value as THREE.Color).copy(hoverColor);
+      // Non-LIFE cells carry aPlaceTint.a = 0, so this is a no-op off the LIFE
+      // grid — safe to set unconditionally.
+      u.uPlaceAmount.value = placesAmount;
     };
 
     applyLayer(this.child, frame.child, null);

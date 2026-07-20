@@ -7,7 +7,9 @@ import {
   daysInMonth,
   parseDob,
   type Exercise,
+  type LifeCrossroad,
   type LifePeople,
+  type LifePlace,
   type LifeProfile,
   type Region,
   type RelatedPerson,
@@ -56,6 +58,26 @@ export const DEFAULT_PROFILE: LifeProfile = {
       { label: "Mum", dob: "1959-01-01", sex: "female" },
     ],
   },
+  // Where in the world, in order. Contiguous: Wellington runs on until the
+  // 2019 travelling stint, and Auckland is open-ended (up to now).
+  places: [
+    { label: "Wairarapa", start: "1991-02-17", end: "2009-02-28" },
+    { label: "Wellington", start: "2009-02-28", end: "2019-01-01" },
+    { label: "Travelling", start: "2019-01-01", end: "2019-03-01" },
+    { label: "London", start: "2019-03-01", end: "2021-02-13" },
+    { label: "Auckland", start: "2021-02-13" },
+  ],
+  crossroads: [
+    {
+      label: "The exam that redirected me",
+      date: "2008-11-15",
+      detail:
+        "At 17 I got the news I'd failed an exam, and it changed which " +
+        "university I went to. Without it I'd never have met my wife, made " +
+        "the friends I have, or built the career I did. Nearly everything " +
+        "since traces back through this one week.",
+    },
+  ],
   author: true,
   demo: false,
   savedAt: "2026-07-20T00:00:00.000Z",
@@ -165,9 +187,63 @@ export function validateProfile(
     exercise: obj.exercise,
     region: obj.region,
     people: obj.v === 2 ? validatePeople(obj.people, now) : undefined,
+    places: obj.v === 2 ? validatePlaces(obj.places, now) : undefined,
+    crossroads: obj.v === 2 ? validateCrossroads(obj.crossroads, now) : undefined,
     demo,
     savedAt,
   };
+}
+
+/**
+ * Places are decoration like relationships: a malformed entry costs only its
+ * own band. An entry needs a label and a parseable start; a bad/absent end is
+ * dropped (treated as ongoing). Empty result collapses to undefined.
+ */
+function validatePlaces(raw: unknown, now: Date): LifePlace[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: LifePlace[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const obj = entry as Record<string, unknown>;
+    if (typeof obj.label !== "string" || obj.label.trim() === "") continue;
+    const start = validateDateString(obj.start, now);
+    if (start === undefined) continue;
+    const place: LifePlace = { label: clampLabel(obj.label), start };
+    const end = validateDateString(obj.end, now);
+    if (end !== undefined) place.end = end;
+    out.push(place);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * Crossroads need a label, a parseable date, and a non-empty detail — the
+ * counterfactual is the whole point, so an entry without one is dropped.
+ */
+function validateCrossroads(
+  raw: unknown,
+  now: Date,
+): LifeCrossroad[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: LifeCrossroad[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const obj = entry as Record<string, unknown>;
+    if (typeof obj.label !== "string" || obj.label.trim() === "") continue;
+    if (typeof obj.detail !== "string" || obj.detail.trim() === "") continue;
+    const date = validateDateString(obj.date, now);
+    if (date === undefined) continue;
+    out.push({
+      label: obj.label.trim().slice(0, 60),
+      date,
+      detail: obj.detail.trim().slice(0, 400),
+    });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /**

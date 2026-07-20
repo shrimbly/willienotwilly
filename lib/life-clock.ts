@@ -65,6 +65,32 @@ export interface LifePeople {
   parents?: RelatedPerson[];
 }
 
+/**
+ * A place lived, as a half-open span on the life timeline. `end` omitted means
+ * "up to now". Drives the PLACES overlay bands on the LIFE grid.
+ */
+export interface LifePlace {
+  /** Short label for the legend, e.g. "Wellington". */
+  label: string;
+  /** "YYYY-MM-DD" — arrival. */
+  start: string;
+  /** "YYYY-MM-DD" — departure; omitted = still there. */
+  end?: string;
+}
+
+/**
+ * A crossroads — a dated moment where the life could have forked, with the
+ * counterfactual that makes it one. Rendered as a distinct violet marker.
+ */
+export interface LifeCrossroad {
+  /** Short label, e.g. "The exam that redirected me". */
+  label: string;
+  /** "YYYY-MM-DD" — when the fork happened. */
+  date: string;
+  /** The what-if: what this moment set in motion, or foreclosed. */
+  detail: string;
+}
+
 export interface LifeProfile {
   v: 2;
   /** "YYYY-MM-DD", validated real calendar date, 1900-01-01..today */
@@ -75,6 +101,10 @@ export interface LifeProfile {
   region: Region;
   /** Relationships driving the life-event markers; absent = none. */
   people?: LifePeople;
+  /** Places lived, for the PLACES overlay; absent = no overlay offered. */
+  places?: LifePlace[];
+  /** Life-forking moments, rendered as crossroad markers; absent = none. */
+  crossroads?: LifeCrossroad[];
   /** true only for the hardcoded author profile; never persisted. */
   author?: boolean;
   /** true when created by SKIP — renderer shows the DEMO badge */

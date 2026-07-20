@@ -449,6 +449,71 @@ describe("validateProfile", () => {
     const p = makeProfile({ demo: true });
     expect(validateProfile(p, NOW)).toEqual(p);
   });
+
+  it("keeps valid places and crossroads on a v:2 payload", () => {
+    const result = validateProfile(
+      makeProfile({
+        places: [{ label: "Here", start: "2000-01-01", end: "2005-01-01" }],
+        crossroads: [
+          { label: "Fork", date: "2001-06-01", detail: "changed it" },
+        ],
+      }),
+      NOW,
+    );
+    expect(result!.places).toEqual([
+      { label: "Here", start: "2000-01-01", end: "2005-01-01" },
+    ]);
+    expect(result!.crossroads).toEqual([
+      { label: "Fork", date: "2001-06-01", detail: "changed it" },
+    ]);
+  });
+
+  it("drops individually invalid place and crossroad entries", () => {
+    const result = validateProfile(
+      makeProfile({
+        places: [
+          { label: "", start: "2000-01-01" },
+          { label: "Ghost", start: "not-a-date" },
+          { label: "Keep", start: "2000-01-01", end: "bad" },
+          "nope",
+        ],
+        crossroads: [
+          { label: "No date", detail: "x" },
+          { label: "No detail", date: "2001-01-01" },
+          { label: "Keep", date: "2002-01-01", detail: "kept" },
+        ],
+      } as unknown as Partial<LifeProfile>),
+      NOW,
+    );
+    // A bad end is dropped (treated as ongoing), not fatal to the entry.
+    expect(result!.places).toEqual([{ label: "Keep", start: "2000-01-01" }]);
+    expect(result!.crossroads).toEqual([
+      { label: "Keep", date: "2002-01-01", detail: "kept" },
+    ]);
+  });
+
+  it("collapses absent or fully-invalid places/crossroads to undefined", () => {
+    expect(validateProfile(makeProfile(), NOW)!.places).toBeUndefined();
+    expect(validateProfile(makeProfile(), NOW)!.crossroads).toBeUndefined();
+    expect(
+      validateProfile(
+        makeProfile({ places: [] as unknown as never }),
+        NOW,
+      )!.places,
+    ).toBeUndefined();
+  });
+
+  it("ignores places/crossroads carried on a v:1 payload", () => {
+    const legacy = {
+      ...makeProfile(),
+      v: 1,
+      places: [{ label: "X", start: "2000-01-01" }],
+      crossroads: [{ label: "Y", date: "2000-01-01", detail: "z" }],
+    };
+    const result = validateProfile(legacy, NOW);
+    expect(result!.places).toBeUndefined();
+    expect(result!.crossroads).toBeUndefined();
+  });
 });
 
 describe("loadProfile (mocked window)", () => {
@@ -524,6 +589,20 @@ describe("DEFAULT_PROFILE", () => {
     const { author: _author, ...expected } = DEFAULT_PROFILE;
     void _author;
     expect(validateProfile(DEFAULT_PROFILE, then)).toEqual(expected);
+  });
+
+  it("carries the author's five places and one crossroad", () => {
+    expect(DEFAULT_PROFILE.places!.map((p) => p.label)).toEqual([
+      "Wairarapa",
+      "Wellington",
+      "Travelling",
+      "London",
+      "Auckland",
+    ]);
+    // Auckland is open-ended (still there).
+    expect(DEFAULT_PROFILE.places![4].end).toBeUndefined();
+    expect(DEFAULT_PROFILE.crossroads).toHaveLength(1);
+    expect(DEFAULT_PROFILE.crossroads![0].date).toBe("2008-11-15");
   });
 
   it("has parents aged 68 and 67 on 2026-07-20", () => {
