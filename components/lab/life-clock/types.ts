@@ -195,6 +195,30 @@ export interface EventFrame {
   hoverAmount: number;
 }
 
+/**
+ * Normalised payload for the hover readout — produced from either a ClockEvent
+ * or a place band, so the card renders one shape. Carries its own anchor so the
+ * exit fade holds the last position instead of snapping to the top-left.
+ */
+export interface HoverCardInfo {
+  /** Stable identity; the card only re-derives its content when this changes. */
+  key: string;
+  /** Swatch colour (hex). */
+  swatch: string;
+  /** Outline swatch instead of filled (crossroads, places). */
+  hollow: boolean;
+  /** Category label: "RECORD" | "ESTIMATE" | "PROBABILITY" | "CROSSROAD" | "PLACE". */
+  kind: string;
+  /** Dim line under the kind (date + relative, or years + span). */
+  dateLine: string;
+  title: string;
+  detail: string;
+  basis: string;
+  /** Anchor in layout px, relative to the clock container. */
+  x: number;
+  y: number;
+}
+
 /** Axis gutters (px) reserved beside the grid for DOM graduation labels. */
 export const AXIS_LEFT_GUTTER = 32;
 export const AXIS_TOP_GUTTER = 18;

@@ -20,7 +20,6 @@ const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
 const MARKER_CAPACITY = 64;
 const COMMIT_FLASH_S = 0.3;
-const MARKER_BREATH_S = 4.2;
 
 /**
  * Raw sRGB components. These shaders write gl_FragColor directly with no
@@ -170,12 +169,11 @@ const LINE_FRAG = /* glsl */ `
   }
 `;
 
-// Marker quad spans 4 cell widths so the hovered halo (1.76 cell radii, plus
-// the breathing scale) never clips against the instance quad's edge.
-const MARKER_SPAN = 4.0;
-const MARKER_CORE_R = 0.16; // cell widths, at rest
-const MARKER_HALO_R = 0.8; // cell widths, at rest -> 1.6x cell overall
-const MARKER_HOVER_SCALE = 2.2;
+// Crisp flat markers — no halo, no glow. The quad spans ~1.8 cells so the
+// hover-scaled dot plus its thin dark outline never clip the instance quad.
+const MARKER_SPAN = 1.8;
+const MARKER_DOT_R = 0.22; // cell widths, at rest
+const MARKER_HOVER_SCALE = 1.7;
 
 const MARKER_VERT = /* glsl */ `
   uniform vec2 uViewport;
@@ -183,14 +181,12 @@ const MARKER_VERT = /* glsl */ `
   uniform vec2 uScale;
   uniform float uHoverSlot;
   uniform float uHoverAmount;
-  uniform float uBreath;
   attribute vec4 aRect;
   attribute float aSlot;
   attribute vec3 aTint;
   attribute float aKind;
   varying vec2 vOffset;
-  varying float vCoreR;
-  varying float vHaloR;
+  varying float vR;
   varying float vHot;
   varying vec3 vTint;
   varying float vKind;
@@ -201,9 +197,8 @@ const MARKER_VERT = /* glsl */ `
     vKind = aKind;
     // Square in screen px: anisotropic layer scale would otherwise oval the dot.
     float cell = min(aRect.z * uScale.x, aRect.w * uScale.y);
-    float grow = mix(1.0, ${MARKER_HOVER_SCALE.toFixed(2)}, hot) * uBreath;
-    vCoreR = cell * ${MARKER_CORE_R.toFixed(3)} * grow;
-    vHaloR = cell * ${MARKER_HALO_R.toFixed(3)} * grow;
+    float grow = mix(1.0, ${MARKER_HOVER_SCALE.toFixed(2)}, hot);
+    vR = cell * ${MARKER_DOT_R.toFixed(3)} * grow;
     vOffset = (position.xy - 0.5) * ${MARKER_SPAN.toFixed(1)} * cell;
     vec2 center = uOffset + uScale * (aRect.xy + aRect.zw * 0.5);
     vec2 screen = center + vOffset;
@@ -221,44 +216,38 @@ const MARKER_FRAG = /* glsl */ `
   uniform vec3 uDark;
   uniform float uOpacity;
   varying vec2 vOffset;
-  varying float vCoreR;
-  varying float vHaloR;
+  varying float vR;
   varying float vHot;
   varying vec3 vTint;
   varying float vKind;
   void main() {
-    if (vHaloR < 0.25) discard;
+    if (vR < 0.25) discard;
     float d = length(vOffset);
-    if (d > vHaloR) discard;
-    float aa = max(0.6, vCoreR * 0.6);
-    float hot = mix(1.0, 1.55, vHot);
-    float halo = 1.0 - d / vHaloR;
-    halo *= halo;
-    float aHalo = 0.22 * halo * hot;
+    // Edge softness is one device pixel: anti-aliasing, not blur.
+    float aa = clamp(vR * 0.28, 0.75, 1.5);
+    float ow = max(1.0, vR * 0.26); // thin dark outline, for contrast
 
-    // Filled dot (records & predictions): bright core + dark contrast annulus.
-    float core = 1.0 - smoothstep(vCoreR - aa, vCoreR + aa, d);
-    float ringOuter = vCoreR * 1.85;
-    float darkRing =
-      (1.0 - core) * (1.0 - smoothstep(ringOuter - aa, ringOuter + aa, d));
+    // Records / predictions: a solid disc with a dark rim.
+    float disc = 1.0 - smoothstep(vR - aa, vR + aa, d);
+    float discEdge = (1.0 - smoothstep(vR + ow - aa, vR + ow + aa, d)) * (1.0 - disc);
 
-    // Crossroad (vKind = 1): a hollow coloured ring — a gate, not a point.
-    float xR = vCoreR * 1.5;
-    float xW = max(0.9, vCoreR * 0.5);
-    float xRing = 1.0 - smoothstep(xW - aa, xW + aa, abs(d - xR));
+    // Crossroad (vKind = 1): a hollow ring — a gate, not a point. The centre
+    // stays transparent so the underlying cell reads through.
+    float hw = max(1.0, vR * 0.34);
+    float rd = abs(d - vR);
+    float ring = 1.0 - smoothstep(hw - aa, hw + aa, rd);
+    float ringEdge = (1.0 - smoothstep(hw + ow - aa, hw + ow + aa, rd)) * (1.0 - ring);
 
-    float coreTerm = mix(core, 0.0, vKind);
-    float ringTerm = mix(0.0, xRing, vKind);
-    float darkTerm = mix(darkRing, 0.0, vKind);
+    float ink = mix(disc, ring, vKind);
+    float edge = mix(discEdge, ringEdge, vKind);
+    if (ink + edge < 0.003) discard;
 
-    float aInk = 0.62 * (coreTerm + ringTerm) * hot;
-    float aDark = 0.55 * darkTerm;
-    float a = aInk + aHalo + aDark;
-    if (a < 0.003) discard;
-    vec3 premul = vTint * (aInk + aHalo) + uDark * aDark;
-    // Fade markers with their LIFE layer so they crossfade during the morph
-    // instead of popping in over a still-fading grid.
-    gl_FragColor = vec4(premul / max(a, 1e-4), min(a, 0.95) * uOpacity);
+    float aInk = ink * mix(0.92, 1.0, vHot);
+    float aEdge = edge * 0.6;
+    float a = aInk + aEdge;
+    vec3 premul = vTint * aInk + uDark * aEdge;
+    // Fade with the LIFE layer so markers crossfade during the morph.
+    gl_FragColor = vec4(premul / max(a, 1e-4), min(a, 1.0) * uOpacity);
   }
 `;
 
@@ -317,7 +306,6 @@ export class LifeClockRenderer {
   private width = 1;
   private height = 1;
   private dpr = 1;
-  private startedMs = 0;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -328,8 +316,6 @@ export class LifeClockRenderer {
       powerPreference: "high-performance",
     });
     this.renderer.setClearColor(COLOR_BG, 1);
-
-    this.startedMs = performance.now();
 
     this.parent = this.makeCellLayer(0);
     this.child = this.makeCellLayer(1);
@@ -374,7 +360,6 @@ export class LifeClockRenderer {
         uScale: { value: new THREE.Vector2(1, 1) },
         uHoverSlot: { value: -1 },
         uHoverAmount: { value: 0 },
-        uBreath: { value: 1 },
         uDark: { value: rawColor(TOKENS.bg) },
         uOpacity: { value: 1 },
       },
@@ -771,13 +756,6 @@ export class LifeClockRenderer {
     u.uHoverSlot.value = slot;
     u.uHoverAmount.value = Math.max(0, Math.min(1, ev.hoverAmount));
     u.uOpacity.value = data.opacity;
-    if (frame.reducedMotion) {
-      u.uBreath.value = 1;
-    } else {
-      const t = (performance.now() - this.startedMs) / 1000;
-      u.uBreath.value =
-        1 + 0.05 * (0.5 + 0.5 * Math.sin((t * 2 * Math.PI) / MARKER_BREATH_S));
-    }
   }
 
   // -- line layer ------------------------------------------------------------

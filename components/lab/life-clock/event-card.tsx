@@ -3,13 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import {
-  TOKENS,
-  TONE_COLOR,
-  eventTone,
-  type ClockEvent,
-  type EventCertainty,
-} from "./types";
+import { TOKENS, type HoverCardInfo } from "./types";
 
 const CARD_W = 260;
 const OFFSET = 14;
@@ -39,12 +33,6 @@ const VALUE_STYLE: CSSProperties = {
   color: TOKENS.text,
   // User-supplied labels are interpolated unbounded; break rather than spill.
   overflowWrap: "anywhere",
-};
-
-const CERTAINTY_LABEL: Record<EventCertainty, string> = {
-  record: "RECORD",
-  estimate: "ESTIMATE",
-  probability: "PROBABILITY",
 };
 
 const MS_PER_DAY = 86_400_000;
@@ -94,41 +82,41 @@ export function formatRelative(date: Date, now: Date): string {
   return future ? `IN ${span}` : `${span} AGO`;
 }
 
-export interface EventCardProps {
-  event: ClockEvent | null;
-  /** Marker centre in layout px, relative to the clock container. */
-  x: number;
-  y: number;
+export interface HoverCardProps {
+  info: HoverCardInfo | null;
   viewportW: number;
   viewportH: number;
   reducedMotion: boolean;
 }
 
-export function EventCard({
-  event,
-  x,
-  y,
+/**
+ * The hover readout — one card for both life events and places. Position lives
+ * inside `info`, so during the exit fade the retained `shown` still carries its
+ * anchor; the card never snaps to the top-left as it fades out.
+ */
+export function HoverCard({
+  info,
   viewportW,
   viewportH,
   reducedMotion,
-}: EventCardProps) {
-  // The card outlives `event` by one fade so the exit is not a content pop.
+}: HoverCardProps) {
+  // The card outlives `info` by one fade so the exit is not a content pop.
   // Content is adjusted during render (React's documented derived-state
   // pattern); only the delayed clear runs from a timer.
-  const [shown, setShown] = useState<ClockEvent | null>(event);
+  const [shown, setShown] = useState<HoverCardInfo | null>(info);
   const [height, setHeight] = useState(ESTIMATED_H);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  if (event !== null && event !== shown) setShown(event);
-  const visible = event !== null;
+  if (info !== null && info !== shown) setShown(info);
+  const visible = info !== null;
 
   useEffect(() => {
-    if (event !== null || shown === null) return;
+    if (info !== null || shown === null) return;
     const timer = window.setTimeout(
       () => setShown(null),
       reducedMotion ? 0 : FADE_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [event, shown, reducedMotion]);
+  }, [info, shown, reducedMotion]);
 
   useLayoutEffect(() => {
     const node = cardRef.current;
@@ -137,6 +125,9 @@ export function EventCard({
 
   if (!shown) return null;
 
+  // Anchor comes from the retained card, not a live prop — this is what keeps
+  // the fading card in place instead of jumping to (0, 0).
+  const { x, y } = shown;
   const flipX = x + OFFSET + CARD_W > viewportW - EDGE;
   const rawLeft = flipX ? x - OFFSET - CARD_W : x + OFFSET;
   const left = Math.max(EDGE, Math.min(rawLeft, viewportW - EDGE - CARD_W));
@@ -144,8 +135,6 @@ export function EventCard({
   const flipY = y + OFFSET + height > viewportH - EDGE;
   const rawTop = flipY ? y - OFFSET - height : y + OFFSET;
   const top = Math.max(EDGE, Math.min(rawTop, viewportH - EDGE - height));
-
-  const now = new Date();
 
   return (
     <div
@@ -174,30 +163,22 @@ export function EventCard({
             width: 5,
             height: 5,
             flex: "none",
-            // Matches the marker: amber records, azure predictions, violet
-            // crossroads — a crossroad reads hollow (outline), the rest solid.
-            backgroundColor: shown.crossroad
-              ? "transparent"
-              : TONE_COLOR[eventTone(shown)],
-            boxShadow: shown.crossroad
-              ? `inset 0 0 0 1px ${TONE_COLOR.crossroad}`
+            // Filled swatch for solid markers; an outline for hollow ones
+            // (crossroads, places), matching how they render on the grid.
+            backgroundColor: shown.hollow ? "transparent" : shown.swatch,
+            boxShadow: shown.hollow
+              ? `inset 0 0 0 1px ${shown.swatch}`
               : undefined,
           }}
         />
-        <span style={{ color: TOKENS.textDim }}>
-          {shown.crossroad ? "CROSSROAD" : CERTAINTY_LABEL[shown.certainty]}
-        </span>
+        <span style={{ color: TOKENS.textDim }}>{shown.kind}</span>
       </div>
 
       <div style={{ ...LABEL_METRICS, marginTop: 8, color: TOKENS.textDim }}>
-        {formatEventDate(shown.date)}
-        <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
-        <span style={{ color: TOKENS.textFaint }}>
-          {formatRelative(shown.date, now)}
-        </span>
+        {shown.dateLine}
       </div>
 
-      <div style={{ ...VALUE_STYLE, marginTop: 2 }}>{shown.label}</div>
+      <div style={{ ...VALUE_STYLE, marginTop: 2 }}>{shown.title}</div>
 
       <p
         style={{
@@ -213,20 +194,22 @@ export function EventCard({
         {shown.detail}
       </p>
 
-      <p
-        style={{
-          ...LABEL_METRICS,
-          marginTop: 10,
-          paddingTop: 8,
-          borderTop: `1px solid ${TOKENS.hairline}`,
-          color: TOKENS.textFaint,
-          overflowWrap: "anywhere",
-        }}
-      >
-        {shown.basis}
-      </p>
+      {shown.basis ? (
+        <p
+          style={{
+            ...LABEL_METRICS,
+            marginTop: 10,
+            paddingTop: 8,
+            borderTop: `1px solid ${TOKENS.hairline}`,
+            color: TOKENS.textFaint,
+            overflowWrap: "anywhere",
+          }}
+        >
+          {shown.basis}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export { EventCard as LifeClockEventCard };
+export { HoverCard as LifeClockHoverCard };

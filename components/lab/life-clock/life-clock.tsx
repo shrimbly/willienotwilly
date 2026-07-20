@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  MS_PER_YEAR,
   PERCENT_DECIMALS,
   formatClock,
   formatDate,
@@ -17,6 +18,7 @@ import {
   getYearProgress,
   isoWeek,
   isoWeekYear,
+  parseDob,
   type LifeProfile,
 } from "@/lib/life-clock";
 import {
@@ -29,12 +31,11 @@ import {
   markZoomHintSeen,
 } from "@/lib/life-clock-storage";
 import { buildEvents } from "@/lib/life-events";
-import { buildPlaceBands, type PlaceBand } from "@/lib/life-places";
+import { buildPlaceBands, placeYears, type PlaceBand } from "@/lib/life-places";
 
 import { LifeClockCalibration } from "./calibration";
-import { EventCard } from "./event-card";
+import { HoverCard, formatEventDate, formatRelative } from "./event-card";
 import { LifeClockHud } from "./hud";
-import { PlacesLegend } from "./places-legend";
 import {
   buildLayout,
   computeMorphEnvelope,
@@ -50,11 +51,13 @@ import {
   VIEW_LIFE,
   VIEW_NAMES,
   VIEW_YEAR,
+  TONE_COLOR,
   eventTone,
   pulseAlpha,
   type AxisSpec,
   type ClockEvent,
   type EventMarker,
+  type HoverCardInfo,
   type HudFrameFields,
   type HudHandle,
   type MorphFrame,
@@ -73,6 +76,12 @@ const EVENT_HOVER_RADIUS_PX = 16;
 const EVENT_HOVER_TAU_MS = 90;
 const PLACES_FADE_TAU_MS = 140;
 const MS_PER_DAY = 86_400_000;
+
+const CERTAINTY_LABEL = {
+  record: "RECORD",
+  estimate: "ESTIMATE",
+  probability: "PROBABILITY",
+} as const;
 
 interface StageMetrics {
   mobile: boolean;
@@ -169,16 +178,10 @@ export function LifeClockLab() {
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [calOpen, setCalOpen] = useState(false);
   const [hint, setHint] = useState<"scroll" | "pinch" | null>(null);
-  // PLACES overlay: on/off, plus the resting view (the legend shows only once
-  // settled in LIFE). Both change on user action, never per frame.
+  // PLACES overlay on/off. Changes on user action, never per frame.
   const [placesOn, setPlacesOn] = useState(false);
-  const [restView, setRestView] = useState<ViewIndex>(VIEW_DAY);
-  // Hovered life-event readout. Changes on pointer move, not per frame.
-  const [hovered, setHovered] = useState<{
-    event: ClockEvent;
-    x: number;
-    y: number;
-  } | null>(null);
+  // Hover readout (event or place). Changes on pointer move, not per frame.
+  const [hovered, setHovered] = useState<HoverCardInfo | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   // Only for keeping the event card on screen; updated on resize, not per frame.
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
@@ -288,6 +291,10 @@ export function LifeClockLab() {
     // Places resolve to per-cell tint the same way markers resolve to indices:
     // through the LIFE layout's own date math, recomputed on every rebuild.
     const bands = profile ? buildPlaceBands(profile, new Date()) : [];
+    const dobDate = profile ? parseDob(profile.dob, new Date()) : null;
+    // cell index → band index (or -1), index-aligned to the LIFE layout, for
+    // hover hit-testing. Rebuilt alongside the tint on every layout rebuild.
+    let placeCellBand: Int16Array | null = null;
     const onGridIndex = (
       cellFor: (d: Date) => number,
       date: Date,
@@ -305,15 +312,17 @@ export function LifeClockLab() {
     };
     const resolvePlaceTints = (life: ViewLayout | null) => {
       if (!life?.cellIndexForDate || bands.length === 0) {
+        placeCellBand = null;
         renderer.setLifePlaceTints(null);
         return;
       }
       const cellFor = life.cellIndexForDate.bind(life);
       const tints = new Float32Array(life.cellCount * 4);
-      for (const band of bands) {
+      const cellBand = new Int16Array(life.cellCount).fill(-1);
+      bands.forEach((band, bi) => {
         let i0 = onGridIndex(cellFor, band.start, 1);
         let i1 = onGridIndex(cellFor, band.end, -1);
-        if (i0 < 0 || i1 < 0) continue;
+        if (i0 < 0 || i1 < 0) return;
         if (i1 < i0) [i0, i1] = [i1, i0];
         const [r, g, b] = band.rgb;
         for (let i = i0; i <= i1; i++) {
@@ -322,8 +331,10 @@ export function LifeClockLab() {
           tints[o + 1] = g;
           tints[o + 2] = b;
           tints[o + 3] = 1;
+          cellBand[i] = bi; // a later stay wins the shared boundary week
         }
-      }
+      });
+      placeCellBand = cellBand;
       renderer.setLifePlaceTints(tints);
     };
 
@@ -367,6 +378,9 @@ export function LifeClockLab() {
     let pendingRollover = false;
     let slotClickAtMs = 0;
     let hoveredId: string | null = null;
+    // Identity of whatever the card currently shows (event id or place cell),
+    // so the card only re-renders when the target actually changes.
+    let hoverKey: string | null = null;
     let hoverAmount = 0;
     let placesAmount = 0;
     const transition = { from: -1, to: -1 };
@@ -440,7 +454,6 @@ export function LifeClockLab() {
             clearHover();
           }
           syncAxis();
-          setRestView(zoom.restingView);
           if (zoom.restingView === VIEW_DAY) armHint();
         },
         onLimit: (dir) => {
@@ -523,27 +536,123 @@ export function LifeClockLab() {
       return best;
     };
 
-    const setHover = (hit: ReturnType<typeof eventHitTest>) => {
-      const nextId = hit ? hit.id : null;
-      if (nextId === hoveredId) return;
-      hoveredId = nextId;
-      setHovered(hit ? { event: hit.event, x: hit.x, y: hit.y } : null);
-    };
-    // A layout rebuild invalidates the hovered marker's pixel position; drop
-    // the card until the pointer re-establishes a hit.
-    const clearHover = () => {
-      if (hoveredId === null) return;
-      hoveredId = null;
-      setHovered(null);
+    // Which place band a cell in the LIFE grid belongs to, by hit-testing the
+    // pointer against cell rects (identity transform at rest in LIFE). Only
+    // cells inside a band return a hit — future/empty cells read as null.
+    const placeHitTest = (clientX: number, clientY: number) => {
+      if (!placesOnRef.current) return null;
+      if (!zoom.isAtRest || zoom.restingView !== VIEW_LIFE) return null;
+      const life = layouts[VIEW_LIFE];
+      if (!life || !placeCellBand) return null;
+      const rect = container.getBoundingClientRect();
+      const px = clientX - rect.left;
+      const py = clientY - rect.top;
+      for (let i = 0; i < life.cellCount; i++) {
+        const c = life.cellRect(i);
+        if (px >= c.x && px <= c.x + c.w && py >= c.y && py <= c.y + c.h) {
+          const bi = placeCellBand[i];
+          if (bi < 0) return null;
+          return {
+            band: bands[bi],
+            cellIndex: i,
+            x: c.x + c.w / 2,
+            y: c.y + c.h / 2,
+          };
+        }
+      }
+      return null;
     };
 
-    const onPointerMove = (e: PointerEvent) => {
-      const hit = eventHitTest(e.clientX, e.clientY);
-      setHover(hit);
-      canvas.style.cursor =
-        hit || restingSlotHit(e.clientX, e.clientY) ? "pointer" : "default";
+    const eventInfo = (
+      hit: NonNullable<ReturnType<typeof eventHitTest>>,
+    ): HoverCardInfo => {
+      const e = hit.event;
+      return {
+        key: `event:${e.id}`,
+        swatch: TONE_COLOR[eventTone(e)],
+        hollow: e.crossroad === true,
+        kind: e.crossroad ? "CROSSROAD" : CERTAINTY_LABEL[e.certainty],
+        dateLine: `${formatEventDate(e.date)} · ${formatRelative(e.date, new Date())}`,
+        title: e.label,
+        detail: e.detail,
+        basis: e.basis,
+        x: hit.x,
+        y: hit.y,
+      };
     };
-    const onPointerLeave = () => setHover(null);
+
+    const placeInfo = (
+      hit: NonNullable<ReturnType<typeof placeHitTest>>,
+    ): HoverCardInfo => {
+      const { band } = hit;
+      const now = new Date();
+      const durMs = band.end.getTime() - band.start.getTime();
+      const durYears = Math.round(durMs / MS_PER_YEAR);
+      const span =
+        durYears >= 1
+          ? `${durYears} YR`
+          : `${Math.max(1, Math.round(durMs / (MS_PER_DAY * 30)))} MO`;
+      const ageAt = (d: Date) =>
+        dobDate
+          ? Math.max(0, Math.floor((d.getTime() - dobDate.getTime()) / MS_PER_YEAR))
+          : null;
+      const a0 = ageAt(band.start);
+      const a1 = ageAt(band.ongoing ? now : band.end);
+      const detail =
+        a0 === null || a1 === null
+          ? band.ongoing
+            ? "Where I live now."
+            : "Where I lived."
+          : band.ongoing
+            ? `From age ${a0} to now — still here.`
+            : `From age ${a0} to ${a1}.`;
+      return {
+        key: `place:${hit.cellIndex}`,
+        swatch: band.hex,
+        hollow: true,
+        kind: "PLACE",
+        dateLine: `${placeYears(band)} · ${span}`,
+        title: band.label,
+        detail,
+        basis: "WHERE I'VE LIVED",
+        x: hit.x,
+        y: hit.y,
+      };
+    };
+
+    // Single entry point for the card + range highlight. `markerId` drives the
+    // renderer's range lift (events only); places pass null. Gated on identity
+    // so it only re-renders React when the target actually changes.
+    const applyHover = (info: HoverCardInfo | null, markerId: string | null) => {
+      const key = info ? info.key : null;
+      if (key === hoverKey && markerId === hoveredId) return;
+      hoverKey = key;
+      hoveredId = markerId;
+      setHovered(info);
+    };
+    // A layout rebuild invalidates the hovered target's pixel position; drop
+    // the card until the pointer re-establishes a hit.
+    const clearHover = () => applyHover(null, null);
+
+    const onPointerMove = (e: PointerEvent) => {
+      const evHit = eventHitTest(e.clientX, e.clientY);
+      if (evHit) {
+        applyHover(eventInfo(evHit), evHit.id);
+        canvas.style.cursor = "pointer";
+        return;
+      }
+      const plHit = placeHitTest(e.clientX, e.clientY);
+      if (plHit) {
+        applyHover(placeInfo(plHit), null);
+        canvas.style.cursor = "default";
+        return;
+      }
+      clearHover();
+      canvas.style.cursor = restingSlotHit(e.clientX, e.clientY)
+        ? "pointer"
+        : "default";
+    };
+    const onPointerLeave = () => clearHover();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (calOpenRef.current) return;
@@ -889,20 +998,13 @@ export function LifeClockLab() {
           }}
           onCalibrate={() => openCalibrationRef.current()}
         />
-        <PlacesLegend
-          bands={placeBands}
-          visible={placesOn && restView === VIEW_LIFE}
+        <HoverCard
+          info={hovered}
+          viewportW={viewport.w}
+          viewportH={viewport.h}
           reducedMotion={reducedMotion}
         />
       </div>
-      <EventCard
-        event={hovered?.event ?? null}
-        x={hovered?.x ?? 0}
-        y={hovered?.y ?? 0}
-        viewportW={viewport.w}
-        viewportH={viewport.h}
-        reducedMotion={reducedMotion}
-      />
       {booted && calOpen ? (
         <LifeClockCalibration
           // Author mode maps a fresh life; custom mode edits the stored one.

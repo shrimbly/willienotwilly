@@ -111,24 +111,31 @@ describe("cell counts", () => {
     expect(y2026.cellCount).toBeLessThanOrEqual(371);
   });
 
-  it("LIFE real-cell count equals the ISO week span dob→expectancy (ghosts excluded)", () => {
+  it("LIFE real-cell count sums uniform 52-week rows dob→expectancy", () => {
     const life = build(VIEW_LIFE);
     const dob = parseDob(PROFILE.dob, NOW);
     expect(dob).not.toBeNull();
     if (!dob) return;
     const expectancy = getExpectancyDate(PROFILE, NOW);
-    // Independent count: distinct ISO weeks from dob's week through the
-    // expectancy week, via Monday alignment.
-    const mondayOf = (d: Date) =>
-      new Date(d.getFullYear(), d.getMonth(), d.getDate() - (isoWeekday(d) - 1));
-    const expected =
-      Math.round(
-        (mondayOf(expectancy).getTime() - mondayOf(dob).getTime()) / MS_PER_WEEK,
-      ) + 1;
+    // Every full year row is exactly 52 columns; a 53rd ISO week folds in.
+    const WEEKS = 52;
+    const firstYear = isoWeekYear(dob);
+    const expYear = isoWeekYear(expectancy);
+    const lastYear = Math.max(expYear, isoWeekYear(NOW), firstYear);
+    const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
+    const expCol = Math.min(WEEKS - 1, isoWeek(expectancy) - 1);
+    let expected = 0;
+    for (let y = firstYear; y <= lastYear; y++) {
+      const start = y === firstYear ? dobCol : 0;
+      let end = WEEKS - 1;
+      if (y === expYear && y === lastYear) end = Math.min(WEEKS - 1, expCol);
+      if (end < start) end = start;
+      expected += end - start + 1;
+    }
     expect(life.cellCount).toBe(expected);
-    // Strictly fewer than a full 53-column block — ghosts are not instanced.
-    const yearRows = isoWeekYear(expectancy) - isoWeekYear(dob) + 1;
-    expect(life.cellCount).toBeLessThan(yearRows * 53);
+    // No row runs a box longer than another: at most 52 cells per year row.
+    const yearRows = lastYear - firstYear + 1;
+    expect(life.cellCount).toBeLessThanOrEqual(yearRows * WEEKS);
   });
 
   it("LIFE expectancy cell is the final instanced cell", () => {
@@ -355,16 +362,22 @@ describe("liveState across views", () => {
     expect(live.filled).toBe(live.index);
   });
 
-  it("LIFE: live index matches the dob-anchored week walk; frac mid-week", () => {
+  it("LIFE: live index matches the dob-anchored 52-week walk; frac mid-week", () => {
     const life = build(VIEW_LIFE);
     const dob = parseDob(PROFILE.dob, NOW);
     expect(dob).not.toBeNull();
     if (!dob) return;
-    const mondayOf = (d: Date) =>
-      new Date(d.getFullYear(), d.getMonth(), d.getDate() - (isoWeekday(d) - 1));
-    const expectedIndex = Math.round(
-      (mondayOf(NOW).getTime() - mondayOf(dob).getTime()) / MS_PER_WEEK,
-    );
+    const WEEKS = 52;
+    const firstYear = isoWeekYear(dob);
+    const nowYear = isoWeekYear(NOW);
+    const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
+    let expectedIndex = 0;
+    for (let y = firstYear; y < nowYear; y++) {
+      const start = y === firstYear ? dobCol : 0;
+      expectedIndex += WEEKS - start; // (51 - start + 1)
+    }
+    const nowStart = nowYear === firstYear ? dobCol : 0;
+    expectedIndex += Math.min(WEEKS - 1, isoWeek(NOW) - 1) - nowStart;
     const live = life.liveState(NOW);
     expect(live.index).toBe(expectedIndex);
     expect(live.frac).toBeCloseTo((3 + 0.5) / 7, 9);
@@ -405,23 +418,25 @@ describe("LIFE ghost cells", () => {
     expect(life.liveState(afterExpectancy).index).toBe(life.cellCount - 1);
   });
 
-  it("landscape: second block starts 57 col-units in, at the top row", () => {
+  it("landscape: second block starts 56 col-units in, at the top row", () => {
     const life = build(VIEW_LIFE);
     const dob = parseDob(PROFILE.dob, NOW);
     const expectancy = getExpectancyDate(PROFILE, NOW);
     expect(dob).not.toBeNull();
     if (!dob) return;
+    const WEEKS = 52;
     const firstYear = isoWeekYear(dob);
     const yearCount = isoWeekYear(expectancy) - firstYear + 1;
     const rowsPerBlock = Math.ceil(yearCount / 2);
-    // Index of the first cell in block 2: all rows of block 1.
-    let idx = weeksInIsoYear(firstYear) - (isoWeek(dob) - 1);
-    for (let r = 1; r < rowsPerBlock; r++) {
-      idx += weeksInIsoYear(firstYear + r);
-    }
+    // Index of the first cell in block 2: all rows of block 1, 52 cells each
+    // (row 0 shortened by the birth-week column).
+    const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
+    let idx = WEEKS - dobCol;
+    for (let r = 1; r < rowsPerBlock; r++) idx += WEEKS;
     const r = life.cellRect(idx);
+    // Block gutter is 4 cells → block 2 begins at 52 + 4 = 56 col-units.
     expect(
-      Math.abs(r.x - (life.gridRect.x + 57 * life.cellW)),
+      Math.abs(r.x - (life.gridRect.x + 56 * life.cellW)),
     ).toBeLessThan(F32_EPS);
     expect(Math.abs(r.y - life.gridRect.y)).toBeLessThan(F32_EPS);
   });

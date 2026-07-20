@@ -396,16 +396,20 @@ function buildLife(
   const lastYear = Math.max(expYear, isoWeekYear(now), firstYear);
   const yearCount = lastYear - firstYear + 1;
 
+  // Every year row is a uniform WEEKS columns, so no row runs a box longer
+  // than another: the occasional 53rd ISO week folds into the 52nd cell. 52
+  // is even, which keeps the grid reading as clean blocks.
+  const WEEKS = 52;
   const rowsPerBlock = landscape ? Math.ceil(yearCount / 2) : yearCount;
-  const blockStride = 53 + 4; // landscape block gutter = 4 cell widths
-  const cu = landscape ? 2 * 53 + 4 : 53;
+  const blockStride = WEEKS + 4; // landscape block gutter = 4 cell widths
+  const cu = landscape ? 2 * WEEKS + 4 : WEEKS;
   const rowGroup = 10; // decade gutter
   const rowGutter = 0.5;
   const ru = totalUnits(rowsPerBlock, rowGroup, rowGutter);
   const { gridRect, cellW, cellH } = fitGrid(area, cu, ru);
 
-  const dobCol = isoWeek(dob) - 1;
-  const expCol = isoWeek(expectancy) - 1;
+  const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
+  const expCol = Math.min(WEEKS - 1, isoWeek(expectancy) - 1);
 
   const rowStartCol = new Int32Array(yearCount);
   const rowEndCol = new Int32Array(yearCount);
@@ -414,7 +418,7 @@ function buildLife(
   for (let r = 0; r < yearCount; r++) {
     const y = firstYear + r;
     const start = r === 0 ? dobCol : 0;
-    let end = weeksInIsoYear(y) - 1;
+    let end = WEEKS - 1;
     if (y === expYear && y === lastYear) end = Math.min(end, expCol);
     if (end < start) end = start;
     rowStartCol[r] = start;
@@ -494,12 +498,12 @@ function buildLife(
       return { index, frac, filled: index };
     },
     // Exact instanced-cell index for a date, or -1 when its ISO week is not on
-    // the grid (before birth, after expectancy, or a ghost week). Unlike
-    // liveState this never clamps — an off-grid event must not pin to an edge.
+    // the grid (before birth or after expectancy). A 53rd ISO week folds into
+    // the 52nd column so a date there still resolves rather than dropping off.
     cellIndexForDate: (t: Date): number => {
       const r = isoWeekYear(t) - firstYear;
       if (r < 0 || r >= yearCount) return -1;
-      const c = isoWeek(t) - 1;
+      const c = Math.min(WEEKS - 1, isoWeek(t) - 1);
       if (c < rowStartCol[r] || c > rowEndCol[r]) return -1;
       return rowStartIndex[r] + (c - rowStartCol[r]);
     },
