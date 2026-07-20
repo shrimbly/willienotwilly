@@ -533,8 +533,11 @@ export function LifeClockCalibration({
       ] as const;
       for (const parent of inputs) {
         if (!parent.triple.valid) continue;
+        // The wizard has no parent-label field, so the label is always derived
+        // from the current sex chip — re-derive on edit too, or a flipped sex
+        // would keep a stale "my father"/"my mother" mismatch.
         parents.push({
-          label: people?.parents?.[parent.index]?.label ?? parentLabel(parent.sex),
+          label: parentLabel(parent.sex),
           dob: parent.triple.value,
           sex: parent.sex,
         });
