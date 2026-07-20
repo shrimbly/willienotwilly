@@ -52,7 +52,8 @@ import {
   VIEW_LIFE,
   VIEW_NAMES,
   VIEW_YEAR,
-  eventTone,
+  EVENT_SYMBOL,
+  eventSymbol,
   pulseAlpha,
   type AxisSpec,
   type ClockEvent,
@@ -272,8 +273,8 @@ export function LifeClockLab() {
 
     // Events resolve to cells through the LIFE layout's own index math, so the
     // mapping stays correct across rebuilds (resize, rollover, recalibration).
-    // The markers feed the renderer's hover-range lookup; the icon list (with
-    // cell-centre positions) drives the DOM icon overlay.
+    // The markers feed the renderer's hover-range lookup; the symbol list (with
+    // cell-centre positions) drives the DOM symbol overlay.
     const resolveMarkers = (life: ViewLayout | null) => {
       if (!life?.cellIndexForDate || events.length === 0) {
         markers = [];
@@ -281,7 +282,7 @@ export function LifeClockLab() {
         setMarkerIcons([]);
         return;
       }
-      // -1 when a date falls off the grid — the marker (and its icon) is then
+      // -1 when a date falls off the grid — the marker (and its symbol) is then
       // dropped rather than pinned to an edge cell.
       const cellFor = life.cellIndexForDate.bind(life);
       markers = events
@@ -290,13 +291,12 @@ export function LifeClockLab() {
           index: cellFor(event.date),
           rangeStart: event.rangeStart ? cellFor(event.rangeStart) : -1,
           rangeEnd: event.rangeEnd ? cellFor(event.rangeEnd) : -1,
-          tone: eventTone(event),
         }))
         .filter((marker) => marker.index >= 0);
       renderer.setEventMarkers(markers);
-      // Icons sit at cell centres, sized to the (square) cell; valid to read as
-      // screen px only at rest in LIFE, which is exactly when they show. `lived`
-      // (event before now) picks the ink so the mark contrasts with its cell.
+      // Symbols sit at cell centres, sized to the (square) cell; valid to read
+      // as screen px only at rest in LIFE, which is exactly when they show.
+      // `lived` (event before now) picks the ink so it contrasts with its cell.
       const nowMs = Date.now();
       setIconSize(life.cellW);
       setMarkerIcons(
@@ -305,7 +305,7 @@ export function LifeClockLab() {
           const ev = eventById.get(m.id);
           return {
             id: m.id,
-            icon: ev?.icon ?? "milestone",
+            symbol: ev ? eventSymbol(ev) : EVENT_SYMBOL.record,
             lived: ev ? ev.date.getTime() <= nowMs : false,
             x: c.x + c.w / 2,
             y: c.y + c.h / 2,

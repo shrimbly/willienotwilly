@@ -1,55 +1,18 @@
 "use client";
 
-import {
-  Activity,
-  Baby,
-  Cake,
-  DoorOpen,
-  Gem,
-  Heart,
-  HeartCrack,
-  HeartHandshake,
-  Hourglass,
-  Milestone,
-  Signpost,
-  UserRound,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react";
-
 import { TOKENS } from "./types";
 
-/** Lucide component per event icon key (see lib/life-events.ts). */
-const ICONS: Record<string, LucideIcon> = {
-  heart: Heart,
-  "heart-handshake": HeartHandshake,
-  gem: Gem,
-  baby: Baby,
-  "users-round": UsersRound,
-  cake: Cake,
-  "door-open": DoorOpen,
-  "heart-crack": HeartCrack,
-  "user-round": UserRound,
-  signpost: Signpost,
-  milestone: Milestone,
-  activity: Activity,
-  hourglass: Hourglass,
-};
-
-/** Below this cell size there isn't room for a legible icon — show a dot. */
-const MIN_CELL_PX = 11.5;
-/** Icon glyph as a fraction of the cell — a little padding inside the square. */
-const ICON_FILL = 0.72;
-// Grows with the cell beneath it (the renderer pops that cell in tandem).
+// Grows in step with the cell the renderer pops beneath it.
 const HOVER_SCALE = 1.7;
 // Monochrome, theme only. A marker on an elapsed (bright) cell is dark; on an
-// unlived (dark) cell it is light — so it reads either way without a backdrop.
+// unlived (dark) cell it is light — so the glyph reads either way, no backdrop.
 const INK_LIVED = TOKENS.bg;
 const INK_FUTURE = TOKENS.text;
 
 export interface MarkerIcon {
   id: string;
-  icon: string;
+  /** The glyph to draw — ● record, ○ estimate, ◐ probability, ◆ crossroad. */
+  symbol: string;
   /** true when the event's cell is already lived (a bright cell). */
   lived: boolean;
   /** Cell centre in layout px, relative to the clock container. */
@@ -59,7 +22,7 @@ export interface MarkerIcon {
 
 export interface MarkerIconsProps {
   icons: MarkerIcon[];
-  /** The (square) cell size in px — the box each marker must fit inside. */
+  /** The (square) cell size in px — the box each symbol sits inside. */
   size: number;
   /** Shown only once settled in LIFE; fades with the grid on a morph. */
   visible: boolean;
@@ -68,11 +31,10 @@ export interface MarkerIconsProps {
 }
 
 /**
- * The life-event markers, as Lucide icons pinned to their week cells on the
- * LIFE grid. Each glyph fits inside its cell; where the cell is too small to
- * read one, a dot stands in. Monochrome (theme dark/light, chosen so the mark
- * contrasts with its cell) — a DOM overlay with pointer-events off, so the
- * canvas underneath still hit-tests hovers.
+ * The life-event markers, as minimal ASCII-ish symbols pinned to their week
+ * cells on the LIFE grid — a DOM overlay with pointer-events off, so the canvas
+ * underneath still hit-tests hovers. The symbol grades the nature of the claim
+ * (see EVENT_SYMBOL); the card carries the specifics.
  */
 export function MarkerIcons({
   icons,
@@ -81,11 +43,9 @@ export function MarkerIcons({
   hoveredId,
   reducedMotion,
 }: MarkerIconsProps) {
-  // Icon (smaller than the cell) where there's room; a dot below that.
-  const showIcon = size >= MIN_CELL_PX;
-  const glyph = Math.max(8, Math.round(size * ICON_FILL));
-  const dot = Math.max(3, Math.round(size * 0.4));
-  const box = showIcon ? glyph : dot;
+  // Glyphs sit smaller than their em box, so the font size runs a touch over
+  // the cell to fill it without spilling.
+  const font = Math.max(6, Math.round(size * 1.05));
 
   return (
     <div
@@ -99,9 +59,7 @@ export function MarkerIcons({
       }}
     >
       {icons.map((m) => {
-        const Icon = ICONS[m.icon] ?? Milestone;
         const hot = m.id === hoveredId;
-        const ink = m.lived ? INK_LIVED : INK_FUTURE;
         return (
           <span
             key={m.id}
@@ -109,13 +67,17 @@ export function MarkerIcons({
               position: "absolute",
               left: m.x,
               top: m.y,
-              width: box,
-              height: box,
-              marginLeft: -box / 2,
-              marginTop: -box / 2,
-              display: "grid",
-              placeItems: "center",
-              color: ink,
+              width: size,
+              height: size,
+              marginLeft: -size / 2,
+              marginTop: -size / 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "var(--font-geist-mono), system-ui, sans-serif",
+              fontSize: font,
+              lineHeight: 1,
+              color: m.lived ? INK_LIVED : INK_FUTURE,
               // Grows in step with the cell the renderer pops beneath it.
               transform: hot ? `scale(${HOVER_SCALE})` : "scale(1)",
               transformOrigin: "center",
@@ -125,18 +87,7 @@ export function MarkerIcons({
               zIndex: hot ? 1 : 0,
             }}
           >
-            {showIcon ? (
-              <Icon size={glyph} strokeWidth={2.25} />
-            ) : (
-              <span
-                style={{
-                  width: dot,
-                  height: dot,
-                  borderRadius: "9999px",
-                  backgroundColor: ink,
-                }}
-              />
-            )}
+            {m.symbol}
           </span>
         );
       })}

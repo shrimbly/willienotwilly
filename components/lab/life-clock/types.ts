@@ -168,9 +168,7 @@ export interface ClockEvent {
   /** How it was derived — formula or source, rendered dim. */
   basis: string;
   certainty: EventCertainty;
-  /** Lucide icon key for the marker, e.g. "heart", "signpost". */
-  icon: string;
-  /** A life-forking moment — rendered in the crossroad accent, hollow. */
+  /** A life-forking moment — marked with the crossroad symbol. */
   crossroad?: boolean;
   /** Span the event refers to; highlighted on hover. Omit for a point event. */
   rangeStart?: Date;
@@ -185,8 +183,6 @@ export interface EventMarker {
   /** Inclusive cell range to highlight on hover; -1/-1 for point events. */
   rangeStart: number;
   rangeEnd: number;
-  /** Accent the marker (and its hover range) wears. */
-  tone: EventTone;
 }
 
 export interface EventFrame {
@@ -245,18 +241,22 @@ export const TOKENS = {
 } as const;
 
 /**
- * How an event is classified: a record (it happened), a prediction (it might),
- * or a crossroad (it could have changed everything). Markers are monochrome —
- * shape and the card's kind label carry this, not colour.
+ * The marker glyph, by the nature of the claim — matching the card's kind
+ * label. Solid → hollow → half dot grades certainty (fact, projection, odds);
+ * the diamond flags a fork. Monochrome; the ink adapts to the cell.
  */
-export type EventTone = "record" | "predict" | "crossroad";
+export const EVENT_SYMBOL = {
+  record: "●",
+  estimate: "○",
+  probability: "◐",
+  crossroad: "◆",
+} as const;
 
-export function eventTone(e: {
+export function eventSymbol(e: {
   certainty: EventCertainty;
   crossroad?: boolean;
-}): EventTone {
-  if (e.crossroad) return "crossroad";
-  return e.certainty === "record" ? "record" : "predict";
+}): string {
+  return e.crossroad ? EVENT_SYMBOL.crossroad : EVENT_SYMBOL[e.certainty];
 }
 
 /** Pulse waveform: u = fractional part of the wall-clock second. */

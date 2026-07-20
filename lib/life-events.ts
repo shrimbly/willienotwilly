@@ -138,7 +138,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   if (met) {
     events.push({
       id: "met",
-      icon: "heart",
       label: "The day we met",
       date: met,
       detail: `The day I met ${partner}. Everything since is on this side of it.`,
@@ -149,7 +148,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     });
     events.push({
       id: "partner-majority",
-      icon: "heart-handshake",
       label: `Longer with ${partner} than without`,
       date: mirror(dob, met),
       detail: `From this week, more of my life has been spent with ${partner} than without.`,
@@ -164,7 +162,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   if (married) {
     events.push({
       id: "married",
-      icon: "gem",
       label: "The day we married",
       date: married,
       detail: `The day I married ${partner}.`,
@@ -175,7 +172,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     });
     events.push({
       id: "married-longer",
-      icon: "gem",
       label: "Married longer than single",
       date: mirror(dob, married),
       detail:
@@ -197,7 +193,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
 
     events.push({
       id: `child-born${suffix}`,
-      icon: "baby",
       label: `${capFirst(who)} was born`,
       date: born,
       detail: `The day ${who} came into the world.`,
@@ -210,7 +205,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     const peers = addYears(born, CHILD_PEERS_YEARS);
     events.push({
       id: `child-peers${suffix}`,
-      icon: "users-round",
       label: `${capFirst(who)} picks friends over me`,
       date: peers,
       detail: `Around here ${who} starts turning to friends first, and I stop being the daily centre of their world.`,
@@ -222,7 +216,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
 
     events.push({
       id: `child-18${suffix}`,
-      icon: "cake",
       label: `${capFirst(who)} turns 18`,
       date: addYears(born, 18),
       detail: `${capFirst(who)} becomes an adult.`,
@@ -240,7 +233,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     );
     events.push({
       id: `child-leaves${suffix}`,
-      icon: "door-open",
       label: `${capFirst(who)} leaves home`,
       date: leaves,
       detail: `${capFirst(who)} likely moves out around now — ${spent}% of the years spent living at home are already behind us.`,
@@ -264,7 +256,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     if (oneHalf) {
       events.push({
         id: "parents-one-50",
-        icon: "heart-crack",
         label:
           parents.length > 1 ? "One parent likely gone" : "A parent likely gone",
         date: oneHalf,
@@ -284,7 +275,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       if (bothHalf) {
         events.push({
           id: "parents-both-50",
-          icon: "heart-crack",
           label: "Both parents likely gone",
           date: bothHalf,
           detail:
@@ -299,7 +289,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       if (bothNinety) {
         events.push({
           id: "parents-both-90",
-          icon: "heart-crack",
           label: "Almost certainly no parents",
           date: bothNinety,
           detail:
@@ -321,7 +310,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
         const date = addYears(dob, age);
         events.push({
           id: "parent-age-now",
-          icon: "user-round",
           label: `The age ${who} is now`,
           date,
           detail: `I turn ${age} — the age ${who} is right now.`,
@@ -344,7 +332,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     const suffix = crossroads.length > 1 ? `-${i}` : "";
     events.push({
       id: `crossroad${suffix}`,
-      icon: "signpost",
       label: capFirst(crossroad.label || "A crossroads"),
       date: at,
       detail: crossroad.detail,
@@ -359,7 +346,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const halfway = new Date(dob.getTime() + (expectancy / 2) * MS_PER_YEAR);
   events.push({
     id: "halfway",
-    icon: "milestone",
     label: "Halfway",
     date: halfway,
     detail: "The midpoint of my estimated span — as much behind me as ahead.",
@@ -372,7 +358,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const healthy = addYears(dob, HEALTHY_YEARS);
   events.push({
     id: "healthy-years",
-    icon: "activity",
     label: "My last good years",
     date: healthy,
     detail:
@@ -386,7 +371,6 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const end = new Date(dob.getTime() + expectancy * MS_PER_YEAR);
   events.push({
     id: "expectancy-end",
-    icon: "hourglass",
     label: "The estimate runs out",
     date: end,
     detail: "The end of my estimated span. The grid stops here.",

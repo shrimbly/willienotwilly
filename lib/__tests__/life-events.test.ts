@@ -7,7 +7,7 @@ import {
   survivalProbability,
 } from "@/lib/life-events";
 import { MS_PER_YEAR, type LifeProfile, type RelatedPerson } from "@/lib/life-clock";
-import { eventTone, type ClockEvent } from "@/components/lab/life-clock/types";
+import { eventSymbol, type ClockEvent } from "@/components/lab/life-clock/types";
 
 const NOW = new Date(2026, 6, 20, 12, 0, 0);
 
@@ -165,11 +165,10 @@ describe("buildEvents — author's default profile", () => {
     }
   });
 
-  it("gives every event a Lucide icon", () => {
-    for (const e of events) expect(e.icon.length).toBeGreaterThan(0);
-    expect(byId(events, "met").icon).toBe("heart");
-    expect(byId(events, "child-born").icon).toBe("baby");
-    expect(byId(events, "expectancy-end").icon).toBe("hourglass");
+  it("maps each event to its symbol by nature of claim", () => {
+    expect(eventSymbol(byId(events, "met"))).toBe("●"); // record
+    expect(eventSymbol(byId(events, "child-18"))).toBe("○"); // estimate
+    expect(eventSymbol(byId(events, "parents-one-50"))).toBe("◐"); // probability
   });
 
   it("highlights married time from the wedding, not from birth", () => {
@@ -268,9 +267,8 @@ describe("buildEvents — crossroads", () => {
     expect(x.rangeEnd!.getTime()).toBe(NOW.getTime());
   });
 
-  it("wears the crossroad tone and the signpost icon", () => {
-    expect(eventTone(x)).toBe("crossroad");
-    expect(x.icon).toBe("signpost");
+  it("wears the crossroad symbol", () => {
+    expect(eventSymbol(x)).toBe("◆");
   });
 
   it("suffixes ids when there is more than one", () => {
