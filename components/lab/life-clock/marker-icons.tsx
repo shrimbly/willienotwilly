@@ -1,13 +1,43 @@
 "use client";
 
-import { TOKENS } from "./types";
+import type { ReactNode } from "react";
+
+import { EVENT_SYMBOL, TOKENS } from "./types";
 
 // Grows in step with the cell the renderer pops beneath it.
 const HOVER_SCALE = 1.7;
+// Fraction of the (square) cell the symbol box occupies — a bit smaller so it
+// sits comfortably inside its cell.
+const SIZE_FRAC = 0.6;
 // Monochrome, theme only. A marker on an elapsed (bright) cell is dark; on an
 // unlived (dark) cell it is light — so the glyph reads either way, no backdrop.
 const INK_LIVED = TOKENS.bg;
 const INK_FUTURE = TOKENS.text;
+
+const R = 9; // circle radius in the 24-unit viewBox
+const SW = 3; // stroke width for hollow shapes
+const D = 9.5; // diamond half-diagonal
+
+// The four symbols as centred SVG shapes (currentColor = the adaptive ink):
+// ● record, ○ estimate, ◐ probability (left half filled), ◆ crossroad.
+const SHAPES: Record<string, ReactNode> = {
+  [EVENT_SYMBOL.record]: <circle cx="12" cy="12" r={R} fill="currentColor" />,
+  [EVENT_SYMBOL.estimate]: (
+    <circle cx="12" cy="12" r={R} fill="none" stroke="currentColor" strokeWidth={SW} />
+  ),
+  [EVENT_SYMBOL.probability]: (
+    <>
+      <circle cx="12" cy="12" r={R} fill="none" stroke="currentColor" strokeWidth={SW} />
+      <path d={`M12 ${12 - R} A${R} ${R} 0 0 0 12 ${12 + R} Z`} fill="currentColor" />
+    </>
+  ),
+  [EVENT_SYMBOL.crossroad]: (
+    <path
+      d={`M12 ${12 - D} L${12 + D} 12 L12 ${12 + D} L${12 - D} 12 Z`}
+      fill="currentColor"
+    />
+  ),
+};
 
 export interface MarkerIcon {
   id: string;
@@ -22,7 +52,7 @@ export interface MarkerIcon {
 
 export interface MarkerIconsProps {
   icons: MarkerIcon[];
-  /** The (square) cell size in px — the box each symbol sits inside. */
+  /** The (square) cell size in px. */
   size: number;
   /** Shown only once settled in LIFE; fades with the grid on a morph. */
   visible: boolean;
@@ -31,10 +61,11 @@ export interface MarkerIconsProps {
 }
 
 /**
- * The life-event markers, as minimal ASCII-ish symbols pinned to their week
- * cells on the LIFE grid — a DOM overlay with pointer-events off, so the canvas
- * underneath still hit-tests hovers. The symbol grades the nature of the claim
- * (see EVENT_SYMBOL); the card carries the specifics.
+ * The life-event markers, as minimal symbols pinned to their week cells on the
+ * LIFE grid — drawn as centred SVG shapes (not font glyphs, which sit off-centre
+ * and vary by fallback font). A DOM overlay with pointer-events off, so the
+ * canvas underneath still hit-tests hovers. The symbol grades the nature of the
+ * claim (see EVENT_SYMBOL); the card carries the specifics.
  */
 export function MarkerIcons({
   icons,
@@ -43,9 +74,7 @@ export function MarkerIcons({
   hoveredId,
   reducedMotion,
 }: MarkerIconsProps) {
-  // Glyphs sit smaller than their em box, so the font size runs a touch over
-  // the cell to fill it without spilling.
-  const font = Math.max(6, Math.round(size * 1.05));
+  const box = Math.max(5, Math.round(size * SIZE_FRAC));
 
   return (
     <div
@@ -67,16 +96,10 @@ export function MarkerIcons({
               position: "absolute",
               left: m.x,
               top: m.y,
-              width: size,
-              height: size,
-              marginLeft: -size / 2,
-              marginTop: -size / 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: "var(--font-geist-mono), system-ui, sans-serif",
-              fontSize: font,
-              lineHeight: 1,
+              width: box,
+              height: box,
+              marginLeft: -box / 2,
+              marginTop: -box / 2,
               color: m.lived ? INK_LIVED : INK_FUTURE,
               // Grows in step with the cell the renderer pops beneath it.
               transform: hot ? `scale(${HOVER_SCALE})` : "scale(1)",
@@ -87,7 +110,14 @@ export function MarkerIcons({
               zIndex: hot ? 1 : 0,
             }}
           >
-            {m.symbol}
+            <svg
+              width={box}
+              height={box}
+              viewBox="0 0 24 24"
+              style={{ display: "block" }}
+            >
+              {SHAPES[m.symbol] ?? SHAPES[EVENT_SYMBOL.record]}
+            </svg>
           </span>
         );
       })}
