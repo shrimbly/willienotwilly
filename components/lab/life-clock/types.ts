@@ -168,6 +168,8 @@ export interface ClockEvent {
   /** How it was derived — formula or source, rendered dim. */
   basis: string;
   certainty: EventCertainty;
+  /** Lucide icon key for the marker, e.g. "heart", "signpost". */
+  icon: string;
   /** A life-forking moment — rendered in the crossroad accent, hollow. */
   crossroad?: boolean;
   /** Span the event refers to; highlighted on hover. Omit for a point event. */

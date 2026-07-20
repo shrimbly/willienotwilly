@@ -165,6 +165,13 @@ describe("buildEvents — author's default profile", () => {
     }
   });
 
+  it("gives every event a Lucide icon", () => {
+    for (const e of events) expect(e.icon.length).toBeGreaterThan(0);
+    expect(byId(events, "met").icon).toBe("heart");
+    expect(byId(events, "child-born").icon).toBe("baby");
+    expect(byId(events, "expectancy-end").icon).toBe("hourglass");
+  });
+
   it("highlights married time from the wedding, not from birth", () => {
     const marriedLonger = byId(events, "married-longer");
     expect(marriedLonger.rangeStart?.toISOString()).toBe(
@@ -261,8 +268,9 @@ describe("buildEvents — crossroads", () => {
     expect(x.rangeEnd!.getTime()).toBe(NOW.getTime());
   });
 
-  it("wears the crossroad tone", () => {
+  it("wears the crossroad tone and the signpost icon", () => {
     expect(eventTone(x)).toBe("crossroad");
+    expect(x.icon).toBe("signpost");
   });
 
   it("suffixes ids when there is more than one", () => {

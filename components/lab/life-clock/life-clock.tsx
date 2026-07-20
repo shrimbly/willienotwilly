@@ -36,6 +36,7 @@ import { buildPlaceBands, placeYears, type PlaceBand } from "@/lib/life-places";
 import { LifeClockCalibration } from "./calibration";
 import { HoverCard, formatEventDate, formatRelative } from "./event-card";
 import { LifeClockHud } from "./hud";
+import { MarkerIcons, type MarkerIcon } from "./marker-icons";
 import {
   buildLayout,
   computeMorphEnvelope,
@@ -180,6 +181,11 @@ export function LifeClockLab() {
   const [hint, setHint] = useState<"scroll" | "pinch" | null>(null);
   // PLACES overlay on/off. Changes on user action, never per frame.
   const [placesOn, setPlacesOn] = useState(false);
+  // Life-event markers as Lucide icons, pinned to their cells. The list + size
+  // change only on a layout rebuild; `atRestLife` gates the fade.
+  const [markerIcons, setMarkerIcons] = useState<MarkerIcon[]>([]);
+  const [iconSize, setIconSize] = useState(16);
+  const [atRestLife, setAtRestLife] = useState(false);
   // Hover readout (event or place). Changes on pointer move, not per frame.
   const [hovered, setHovered] = useState<HoverCardInfo | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -267,13 +273,16 @@ export function LifeClockLab() {
 
     // Events resolve to cells through the LIFE layout's own index math, so the
     // mapping stays correct across rebuilds (resize, rollover, recalibration).
+    // The markers feed the renderer's hover-range lookup; the icon list (with
+    // cell-centre positions) drives the DOM icon overlay.
     const resolveMarkers = (life: ViewLayout | null) => {
       if (!life?.cellIndexForDate || events.length === 0) {
         markers = [];
         renderer.setEventMarkers(markers);
+        setMarkerIcons([]);
         return;
       }
-      // -1 when a date falls off the grid — the marker (and its card) is then
+      // -1 when a date falls off the grid — the marker (and its icon) is then
       // dropped rather than pinned to an edge cell.
       const cellFor = life.cellIndexForDate.bind(life);
       markers = events
@@ -286,6 +295,21 @@ export function LifeClockLab() {
         }))
         .filter((marker) => marker.index >= 0);
       renderer.setEventMarkers(markers);
+      // Icons sit at cell centres; valid to read as screen px only at rest in
+      // LIFE, which is exactly when the overlay is shown.
+      setIconSize(Math.max(12, Math.round(life.cellW * 1.35)));
+      setMarkerIcons(
+        markers.map((m) => {
+          const c = life.cellRect(m.index);
+          return {
+            id: m.id,
+            icon: eventById.get(m.id)?.icon ?? "milestone",
+            tone: m.tone,
+            x: c.x + c.w / 2,
+            y: c.y + c.h / 2,
+          };
+        }),
+      );
     };
 
     // Places resolve to per-cell tint the same way markers resolve to indices:
@@ -432,8 +456,11 @@ export function LifeClockLab() {
         onTransitionStart: (from, to) => {
           transition.from = from;
           transition.to = to;
-          if (hoveredId !== null) {
+          // Icons fade with the grid; a morph is starting, so leave rest-LIFE.
+          setAtRestLife(false);
+          if (hoveredId !== null || hoverKey !== null) {
             hoveredId = null;
+            hoverKey = null;
             setHovered(null);
           }
           setHint(null);
@@ -454,6 +481,8 @@ export function LifeClockLab() {
             clearHover();
           }
           syncAxis();
+          // Icons appear once settled in LIFE, and fade otherwise.
+          setAtRestLife(zoom.restingView === VIEW_LIFE);
           if (zoom.restingView === VIEW_DAY) armHint();
         },
         onLimit: (dir) => {
@@ -959,6 +988,8 @@ export function LifeClockLab() {
   }, [booted, profile]);
 
   const isAuthor = profile === null || profile.author === true;
+  const hoveredEventId =
+    hovered && hovered.key.startsWith("event:") ? hovered.key.slice(6) : null;
 
   return (
     <div
@@ -997,6 +1028,13 @@ export function LifeClockLab() {
             }
           }}
           onCalibrate={() => openCalibrationRef.current()}
+        />
+        <MarkerIcons
+          icons={markerIcons}
+          size={iconSize}
+          visible={atRestLife}
+          hoveredId={hoveredEventId}
+          reducedMotion={reducedMotion}
         />
         <HoverCard
           info={hovered}

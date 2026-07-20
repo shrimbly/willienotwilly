@@ -1,8 +1,8 @@
-// Three.js renderer for the Life Clock: two instanced-quad cell layers, an
-// instanced event-marker layer, plus a line layer (frame, corner ticks, slot
-// marker, crosshair, expectancy marker). Per-frame work is uniform updates and
-// one small line-buffer rewrite — cell and marker buffers rebuild only on
-// setLayer / setEventMarkers. No React.
+// Three.js renderer for the Life Clock: two instanced-quad cell layers plus a
+// line layer (frame, corner ticks, slot marker, crosshair, expectancy marker).
+// Event markers render as DOM icons (marker-icons.tsx); the renderer keeps only
+// their resolved cell ranges, to lift the hover span on the LIFE grid. Per-frame
+// work is uniform updates and one small line-buffer rewrite. No React.
 
 import * as THREE from "three";
 
@@ -18,7 +18,6 @@ import { TOKENS, TONE_COLOR, VIEW_LIFE } from "./types";
 
 const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
-const MARKER_CAPACITY = 64;
 const COMMIT_FLASH_S = 0.3;
 
 /**
@@ -169,88 +168,6 @@ const LINE_FRAG = /* glsl */ `
   }
 `;
 
-// Crisp flat markers — no halo, no glow. The quad spans ~1.8 cells so the
-// hover-scaled dot plus its thin dark outline never clip the instance quad.
-const MARKER_SPAN = 1.8;
-const MARKER_DOT_R = 0.22; // cell widths, at rest
-const MARKER_HOVER_SCALE = 1.7;
-
-const MARKER_VERT = /* glsl */ `
-  uniform vec2 uViewport;
-  uniform vec2 uOffset;
-  uniform vec2 uScale;
-  uniform float uHoverSlot;
-  uniform float uHoverAmount;
-  attribute vec4 aRect;
-  attribute float aSlot;
-  attribute vec3 aTint;
-  attribute float aKind;
-  varying vec2 vOffset;
-  varying float vR;
-  varying float vHot;
-  varying vec3 vTint;
-  varying float vKind;
-  void main() {
-    float hot = uHoverAmount * (1.0 - step(0.5, abs(aSlot - uHoverSlot)));
-    vHot = hot;
-    vTint = aTint;
-    vKind = aKind;
-    // Square in screen px: anisotropic layer scale would otherwise oval the dot.
-    float cell = min(aRect.z * uScale.x, aRect.w * uScale.y);
-    float grow = mix(1.0, ${MARKER_HOVER_SCALE.toFixed(2)}, hot);
-    vR = cell * ${MARKER_DOT_R.toFixed(3)} * grow;
-    vOffset = (position.xy - 0.5) * ${MARKER_SPAN.toFixed(1)} * cell;
-    vec2 center = uOffset + uScale * (aRect.xy + aRect.zw * 0.5);
-    vec2 screen = center + vOffset;
-    gl_Position = vec4(
-      screen.x / uViewport.x * 2.0 - 1.0,
-      1.0 - screen.y / uViewport.y * 2.0,
-      0.0,
-      1.0
-    );
-  }
-`;
-
-const MARKER_FRAG = /* glsl */ `
-  precision highp float;
-  uniform vec3 uDark;
-  uniform float uOpacity;
-  varying vec2 vOffset;
-  varying float vR;
-  varying float vHot;
-  varying vec3 vTint;
-  varying float vKind;
-  void main() {
-    if (vR < 0.25) discard;
-    float d = length(vOffset);
-    // Edge softness is one device pixel: anti-aliasing, not blur.
-    float aa = clamp(vR * 0.28, 0.75, 1.5);
-    float ow = max(1.0, vR * 0.26); // thin dark outline, for contrast
-
-    // Records / predictions: a solid disc with a dark rim.
-    float disc = 1.0 - smoothstep(vR - aa, vR + aa, d);
-    float discEdge = (1.0 - smoothstep(vR + ow - aa, vR + ow + aa, d)) * (1.0 - disc);
-
-    // Crossroad (vKind = 1): a hollow ring — a gate, not a point. The centre
-    // stays transparent so the underlying cell reads through.
-    float hw = max(1.0, vR * 0.34);
-    float rd = abs(d - vR);
-    float ring = 1.0 - smoothstep(hw - aa, hw + aa, rd);
-    float ringEdge = (1.0 - smoothstep(hw + ow - aa, hw + ow + aa, rd)) * (1.0 - ring);
-
-    float ink = mix(disc, ring, vKind);
-    float edge = mix(discEdge, ringEdge, vKind);
-    if (ink + edge < 0.003) discard;
-
-    float aInk = ink * mix(0.92, 1.0, vHot);
-    float aEdge = edge * 0.6;
-    float a = aInk + aEdge;
-    vec3 premul = vTint * aInk + uDark * aEdge;
-    // Fade with the LIFE layer so markers crossfade during the morph.
-    gl_FragColor = vec4(premul / max(a, 1e-4), min(a, 1.0) * uOpacity);
-  }
-`;
-
 interface CellLayer {
   mesh: THREE.Mesh;
   geometry: THREE.InstancedBufferGeometry;
@@ -287,16 +204,9 @@ export class LifeClockRenderer {
   private linePositions: THREE.BufferAttribute;
   private lineColors: THREE.BufferAttribute;
   private lineMaterial: THREE.ShaderMaterial;
-  private markerMesh: THREE.Mesh;
-  private markerGeometry: THREE.InstancedBufferGeometry;
-  private markerMaterial: THREE.ShaderMaterial;
-  private markerRects: THREE.InstancedBufferAttribute;
-  private markerSlots: THREE.InstancedBufferAttribute;
-  private markerTints: THREE.InstancedBufferAttribute;
-  private markerKinds: THREE.InstancedBufferAttribute;
-  private markers: EventMarker[] = [];
+  // Markers render as DOM icons; the renderer keeps only their resolved cell
+  // ranges, so a hover can lift the matching span on the LIFE grid.
   private markerById = new Map<string, EventMarker>();
-  private markerSlotById = new Map<string, number>();
   // Per-cell place tint for the LIFE grid, index-aligned to the LIFE layout.
   // Owned by the caller (life-clock.tsx), replayed into whichever cell layer
   // currently holds LIFE on every setLayer / setLifePlaceTints.
@@ -319,59 +229,6 @@ export class LifeClockRenderer {
 
     this.parent = this.makeCellLayer(0);
     this.child = this.makeCellLayer(1);
-
-    this.markerGeometry = new THREE.InstancedBufferGeometry();
-    this.markerGeometry.index = this.quad.index;
-    this.markerGeometry.setAttribute(
-      "position",
-      this.quad.getAttribute("position"),
-    );
-    this.markerRects = new THREE.InstancedBufferAttribute(
-      new Float32Array(MARKER_CAPACITY * 4),
-      4,
-    );
-    this.markerSlots = new THREE.InstancedBufferAttribute(
-      new Float32Array(MARKER_CAPACITY),
-      1,
-    );
-    this.markerTints = new THREE.InstancedBufferAttribute(
-      new Float32Array(MARKER_CAPACITY * 3),
-      3,
-    );
-    this.markerKinds = new THREE.InstancedBufferAttribute(
-      new Float32Array(MARKER_CAPACITY),
-      1,
-    );
-    this.markerRects.setUsage(THREE.DynamicDrawUsage);
-    this.markerSlots.setUsage(THREE.DynamicDrawUsage);
-    this.markerTints.setUsage(THREE.DynamicDrawUsage);
-    this.markerKinds.setUsage(THREE.DynamicDrawUsage);
-    this.markerGeometry.setAttribute("aRect", this.markerRects);
-    this.markerGeometry.setAttribute("aSlot", this.markerSlots);
-    this.markerGeometry.setAttribute("aTint", this.markerTints);
-    this.markerGeometry.setAttribute("aKind", this.markerKinds);
-    this.markerGeometry.instanceCount = 0;
-    this.markerMaterial = new THREE.ShaderMaterial({
-      vertexShader: MARKER_VERT,
-      fragmentShader: MARKER_FRAG,
-      uniforms: {
-        uViewport: { value: new THREE.Vector2(1, 1) },
-        uOffset: { value: new THREE.Vector2(0, 0) },
-        uScale: { value: new THREE.Vector2(1, 1) },
-        uHoverSlot: { value: -1 },
-        uHoverAmount: { value: 0 },
-        uDark: { value: rawColor(TOKENS.bg) },
-        uOpacity: { value: 1 },
-      },
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-    });
-    this.markerMesh = new THREE.Mesh(this.markerGeometry, this.markerMaterial);
-    this.markerMesh.frustumCulled = false;
-    this.markerMesh.renderOrder = 3;
-    this.markerMesh.visible = false;
-    this.scene.add(this.markerMesh);
 
     this.lineGeometry = new THREE.BufferGeometry();
     this.linePositions = new THREE.BufferAttribute(
@@ -484,7 +341,6 @@ export class LifeClockRenderer {
     this.child.material.uniforms.uViewport.value = vp;
     this.parent.material.uniforms.uViewport.value = vp;
     this.lineMaterial.uniforms.uViewport.value = vp;
-    this.markerMaterial.uniforms.uViewport.value = vp;
   }
 
   setFrameRect(rect: Rect): void {
@@ -498,7 +354,6 @@ export class LifeClockRenderer {
     if (!layout) {
       layer.mesh.visible = false;
       layer.geometry.instanceCount = 0;
-      this.rebuildMarkers();
       return;
     }
     const n = Math.min(layout.cellCount, CELL_CAPACITY);
@@ -551,8 +406,6 @@ export class LifeClockRenderer {
     layer.material.uniforms.uGap.value = gap;
     layer.material.uniforms.uEmpty.value =
       layout.view === VIEW_LIFE ? COLOR_EMPTY_OPEN : COLOR_EMPTY;
-
-    this.rebuildMarkers();
   }
 
   getLayerLayout(slot: "child" | "parent"): ViewLayout | null {
@@ -560,15 +413,13 @@ export class LifeClockRenderer {
   }
 
   /**
-   * Store the event markers and rebuild the marker instance buffers against
-   * whichever layer currently holds the LIFE layout. Safe to call before any
-   * layout exists — setLayer replays it.
+   * Store the event markers' resolved cell ranges by id. The dots themselves
+   * render as DOM icons; the renderer keeps this only so a hover can lift the
+   * matching span (and tint it in the marker's own accent).
    */
   setEventMarkers(markers: EventMarker[]): void {
-    this.markers = markers;
     this.markerById.clear();
     for (const m of markers) this.markerById.set(m.id, m);
-    this.rebuildMarkers();
   }
 
   /**
@@ -595,50 +446,6 @@ export class LifeClockRenderer {
     layer.placeTints.needsUpdate = true;
   }
 
-  private lifeLayer(): CellLayer | null {
-    if (this.child.layout?.view === VIEW_LIFE) return this.child;
-    if (this.parent.layout?.view === VIEW_LIFE) return this.parent;
-    return null;
-  }
-
-  private rebuildMarkers(): void {
-    this.markerSlotById.clear();
-    const layout = this.lifeLayer()?.layout ?? null;
-    if (!layout) {
-      this.markerGeometry.instanceCount = 0;
-      this.markerMesh.visible = false;
-      return;
-    }
-    const rects = this.markerRects.array as Float32Array;
-    const slots = this.markerSlots.array as Float32Array;
-    const tints = this.markerTints.array as Float32Array;
-    const kinds = this.markerKinds.array as Float32Array;
-    let n = 0;
-    for (const m of this.markers) {
-      if (n >= MARKER_CAPACITY) break;
-      if (m.index < 0 || m.index >= layout.cellCount) continue;
-      const r = layout.cellRect(m.index);
-      const o = n * 4;
-      rects[o] = r.x;
-      rects[o + 1] = r.y;
-      rects[o + 2] = r.w;
-      rects[o + 3] = r.h;
-      slots[n] = n;
-      const color = TONE_RGB[m.tone];
-      const t = n * 3;
-      tints[t] = color.r;
-      tints[t + 1] = color.g;
-      tints[t + 2] = color.b;
-      kinds[n] = m.tone === "crossroad" ? 1 : 0;
-      this.markerSlotById.set(m.id, n);
-      n++;
-    }
-    this.markerRects.needsUpdate = true;
-    this.markerSlots.needsUpdate = true;
-    this.markerTints.needsUpdate = true;
-    this.markerKinds.needsUpdate = true;
-    this.markerGeometry.instanceCount = n;
-  }
 
   drawFrame(frame: MorphFrame): void {
     if (this.disposed) return;
@@ -710,52 +517,8 @@ export class LifeClockRenderer {
       frame.parent ? frame.parent.slotInteriorOpacity : null,
     );
 
-    this.applyMarkers(frame, rubber, cx, cy);
     this.writeLines(frame, rubber, cx, cy);
     this.renderer.render(this.scene, this.camera);
-  }
-
-  // -- event markers ---------------------------------------------------------
-
-  private applyMarkers(
-    frame: MorphFrame,
-    rubber: number,
-    cx: number,
-    cy: number,
-  ): void {
-    const ev = frame.events;
-    const layer = this.lifeLayer();
-    const data =
-      layer === null
-        ? null
-        : layer === this.child
-          ? frame.child
-          : frame.parent;
-    if (
-      !ev ||
-      !layer ||
-      !data ||
-      this.markerGeometry.instanceCount === 0 ||
-      data.opacity <= 0.003
-    ) {
-      this.markerMesh.visible = false;
-      return;
-    }
-    this.markerMesh.visible = true;
-    const u = this.markerMaterial.uniforms;
-    const sx = data.transform.scaleX * rubber;
-    const sy = data.transform.scaleY * rubber;
-    u.uScale.value.set(sx, sy);
-    u.uOffset.value.set(
-      cx * (1 - rubber) + rubber * data.transform.offsetX,
-      cy * (1 - rubber) + rubber * data.transform.offsetY,
-    );
-    const slot = ev.hoveredId
-      ? (this.markerSlotById.get(ev.hoveredId) ?? -1)
-      : -1;
-    u.uHoverSlot.value = slot;
-    u.uHoverAmount.value = Math.max(0, Math.min(1, ev.hoverAmount));
-    u.uOpacity.value = data.opacity;
   }
 
   // -- line layer ------------------------------------------------------------
@@ -935,8 +698,6 @@ export class LifeClockRenderer {
     this.parent.material.dispose();
     this.lineGeometry.dispose();
     this.lineMaterial.dispose();
-    this.markerGeometry.dispose();
-    this.markerMaterial.dispose();
     this.quad.dispose();
     this.renderer.dispose();
   }
