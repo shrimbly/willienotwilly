@@ -142,6 +142,13 @@ describe("cell counts", () => {
     const life = build(VIEW_LIFE);
     expect(life.expectancyIndex).toBe(life.cellCount - 1);
   });
+
+  it("LIFE cells are exact squares", () => {
+    expect(build(VIEW_LIFE).cellW).toBeCloseTo(build(VIEW_LIFE).cellH, 9);
+    // Also square in portrait, where the height axis constrains instead.
+    const portrait = build(VIEW_LIFE, { x: 0, y: 0, w: 600, h: 1200 });
+    expect(portrait.cellW).toBeCloseTo(portrait.cellH, 9);
+  });
 });
 
 describe("DAY row semantics (landscape row = 15 minutes)", () => {

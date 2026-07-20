@@ -75,16 +75,21 @@ interface FitResult {
 /**
  * Aspect-fit: fill both axes exactly while cellW/cellH stays inside
  * [CELL_ASPECT_MIN, CELL_ASPECT_MAX]; otherwise clamp the aspect and
- * letterbox (center) along the constrained axis.
+ * letterbox (center) along the constrained axis. With `square`, cells are
+ * forced to exact squares (cellW === cellH) and both axes letterbox as needed.
  */
-function fitGrid(area: Rect, cu: number, ru: number): FitResult {
+function fitGrid(area: Rect, cu: number, ru: number, square = false): FitResult {
   let cellW = area.w / cu;
   let cellH = area.h / ru;
-  const aspect = cellW / cellH;
-  if (aspect > CELL_ASPECT_MAX) {
-    cellW = cellH * CELL_ASPECT_MAX;
-  } else if (aspect < CELL_ASPECT_MIN) {
-    cellH = cellW / CELL_ASPECT_MIN;
+  if (square) {
+    cellW = cellH = Math.min(cellW, cellH);
+  } else {
+    const aspect = cellW / cellH;
+    if (aspect > CELL_ASPECT_MAX) {
+      cellW = cellH * CELL_ASPECT_MAX;
+    } else if (aspect < CELL_ASPECT_MIN) {
+      cellH = cellW / CELL_ASPECT_MIN;
+    }
   }
   const w = cellW * cu;
   const h = cellH * ru;
@@ -406,7 +411,8 @@ function buildLife(
   const rowGroup = 10; // decade gutter
   const rowGutter = 0.5;
   const ru = totalUnits(rowsPerBlock, rowGroup, rowGutter);
-  const { gridRect, cellW, cellH } = fitGrid(area, cu, ru);
+  // Life weeks read as a calendar grid — square cells, letterboxed to fit.
+  const { gridRect, cellW, cellH } = fitGrid(area, cu, ru, true);
 
   const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
   const expCol = Math.min(WEEKS - 1, isoWeek(expectancy) - 1);
