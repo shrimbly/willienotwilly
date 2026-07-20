@@ -15,6 +15,17 @@ type Iteration = {
 
 const ITERATIONS: { project: string; entries: Iteration[] }[] = [
   {
+    project: "Life clock",
+    entries: [
+      {
+        slug: "life-clock",
+        version: "v1",
+        title: "Life Clock",
+        note: "A zoomable monochrome time instrument — one pixel per five seconds of the day, zooming out through week and year to a whole life measured against an estimated span.",
+      },
+    ],
+  },
+  {
     project: "Depth clock",
     entries: [
       {
