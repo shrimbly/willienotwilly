@@ -81,6 +81,12 @@ export interface ViewLayout {
   liveState(now: Date): LiveState;
   /** Rect of one cell by time-order index (reads from `cells`). */
   cellRect(index: number): Rect;
+  /**
+   * Exact instanced-cell index for a date, or -1 if its cell is not on the
+   * grid. LIFE only (event marker placement); unlike liveState it never
+   * clamps. Absent on other views.
+   */
+  cellIndexForDate?(date: Date): number;
   /** Axis graduations for the DOM axis layer. */
   axis: AxisSpec;
   /**
@@ -140,6 +146,47 @@ export interface MorphFrame {
   /** Uniform extra scale applied to the whole scene (rubber-band lean). */
   rubberScale: number;
   reducedMotion: boolean;
+  /** Life-event markers + hover state; null outside the LIFE view. */
+  events: EventFrame | null;
+}
+
+/**
+ * A dated moment on the LIFE grid — either a recorded fact (met, married,
+ * born) or a derived prediction. Produced by lib/life-events.ts.
+ */
+export type EventCertainty = "record" | "estimate" | "probability";
+
+export interface ClockEvent {
+  id: string;
+  /** Short uppercase label, e.g. "MORE TIME TOGETHER THAN APART". */
+  label: string;
+  date: Date;
+  /** One sentence explaining what the moment is. */
+  detail: string;
+  /** How it was derived — formula or source, rendered dim. */
+  basis: string;
+  certainty: EventCertainty;
+  /** Span the event refers to; highlighted on hover. Omit for a point event. */
+  rangeStart?: Date;
+  rangeEnd?: Date;
+}
+
+/** An event resolved to cell indices in the current LIFE layout. */
+export interface EventMarker {
+  id: string;
+  /** Cell index of the event's own week; -1 if outside the grid. */
+  index: number;
+  /** Inclusive cell range to highlight on hover; -1/-1 for point events. */
+  rangeStart: number;
+  rangeEnd: number;
+}
+
+export interface EventFrame {
+  markers: EventMarker[];
+  /** id of the hovered marker, or null. */
+  hoveredId: string | null;
+  /** 0..1 eased hover strength, for the glow and range lift. */
+  hoverAmount: number;
 }
 
 /** Axis gutters (px) reserved beside the grid for DOM graduation labels. */
@@ -160,6 +207,9 @@ export const TOKENS = {
   textDim: "#7A827F",
   textFaint: "#464B4A",
   live: "#63E2B7",
+  // Second accent, annotation only: marks life events on the LIFE grid.
+  // Warm against the mint so a marker never reads as the live position.
+  event: "#F2913D",
   easeOut: "cubic-bezier(0.16, 1, 0.3, 1)",
 } as const;
 

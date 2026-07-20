@@ -31,9 +31,11 @@ import {
   isoWeekday,
   parseDob,
   weeksInIsoYear,
+  type LifePeople,
   type LifeProfile,
 } from "@/lib/life-clock";
 import {
+  DEFAULT_PROFILE,
   STORAGE_KEY,
   createDemoProfile,
   loadProfile,
@@ -42,9 +44,20 @@ import {
 
 const NOW = new Date(2026, 6, 19, 12, 0, 0, 0); // Sunday 2026-07-19 noon
 
+const PEOPLE: LifePeople = {
+  partnerLabel: "MY WIFE",
+  partnerMet: "2010-04-08",
+  partnerMarried: "2021-02-13",
+  children: [{ label: "MY SON", dob: "2023-10-30", sex: "male" }],
+  parents: [
+    { label: "DAD", dob: "1958-01-01", sex: "male" },
+    { label: "MUM", dob: "1959-01-01", sex: "female" },
+  ],
+};
+
 function makeProfile(overrides: Partial<LifeProfile> = {}): LifeProfile {
   return {
-    v: 1,
+    v: 2,
     dob: "1996-07-19",
     sex: "unspecified",
     smoking: "never",
@@ -356,11 +369,69 @@ describe("validateProfile", () => {
   });
 
   it("rejects wrong versions and bad fields", () => {
-    expect(validateProfile({ ...makeProfile(), v: 2 }, NOW)).toBeNull();
+    expect(validateProfile({ ...makeProfile(), v: 3 }, NOW)).toBeNull();
+    expect(validateProfile({ ...makeProfile(), v: 0 }, NOW)).toBeNull();
     expect(validateProfile(makeProfile({ dob: "2023-02-30" }), NOW)).toBeNull();
     expect(
       validateProfile({ ...makeProfile(), sex: "other" }, NOW),
     ).toBeNull();
+  });
+
+  it("migrates a valid v:1 payload to v:2 with no people block", () => {
+    const legacy = { ...makeProfile(), v: 1, people: PEOPLE };
+    const result = validateProfile(legacy, NOW);
+    expect(result).not.toBeNull();
+    expect(result!.v).toBe(2);
+    // v:1 never carried relationships; anything in that slot is not ours.
+    expect(result!.people).toBeUndefined();
+    expect(result!.dob).toBe("1996-07-19");
+  });
+
+  it("keeps a valid people block on a v:2 payload", () => {
+    const result = validateProfile(makeProfile({ people: PEOPLE }), NOW);
+    expect(result!.people).toEqual(PEOPLE);
+  });
+
+  it("drops individually invalid people entries without failing the profile", () => {
+    const result = validateProfile(
+      makeProfile({
+        people: {
+          partnerLabel: 42,
+          partnerMet: "2010-04-31",
+          partnerMarried: "2021-02-13",
+          children: [
+            { label: "SON", dob: "2023-10-30", sex: "male" },
+            { label: "GHOST", dob: "not-a-date" },
+            { label: "", dob: "2020-01-01" },
+            "nope",
+          ],
+          parents: [{ label: "DAD", dob: "1958-01-01", sex: "wolf" }],
+        },
+      } as unknown as Partial<LifeProfile>),
+      NOW,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.people).toEqual({
+      partnerMarried: "2021-02-13",
+      children: [{ label: "SON", dob: "2023-10-30", sex: "male" }],
+      parents: [{ label: "DAD", dob: "1958-01-01" }],
+    });
+  });
+
+  it("collapses an absent or fully invalid people block to undefined", () => {
+    expect(validateProfile(makeProfile(), NOW)!.people).toBeUndefined();
+    expect(
+      validateProfile(
+        makeProfile({ people: [] as unknown as never }),
+        NOW,
+      )!.people,
+    ).toBeUndefined();
+    expect(
+      validateProfile(
+        makeProfile({ people: { partnerMet: "1899-12-31" } }),
+        NOW,
+      )!.people,
+    ).toBeUndefined();
   });
 
   it("coerces missing demo/savedAt on an otherwise-valid profile", () => {
@@ -410,16 +481,16 @@ describe("loadProfile (mocked window)", () => {
     expect(store.has(STORAGE_KEY)).toBe(false);
   });
 
-  it("removes invalid v:1 payloads", () => {
+  it("removes invalid payloads", () => {
     withWindow();
     store.set(STORAGE_KEY, JSON.stringify(makeProfile({ dob: "2023-02-30" })));
     expect(loadProfile()).toBeNull();
     expect(store.has(STORAGE_KEY)).toBe(false);
   });
 
-  it("preserves v > 1 payloads untouched", () => {
+  it("preserves v > 2 payloads untouched", () => {
     withWindow();
-    const newer = JSON.stringify({ v: 2, future: true });
+    const newer = JSON.stringify({ v: 3, future: true });
     store.set(STORAGE_KEY, newer);
     expect(loadProfile()).toBeNull();
     expect(store.get(STORAGE_KEY)).toBe(newer);
@@ -427,8 +498,41 @@ describe("loadProfile (mocked window)", () => {
 
   it("loads a valid profile", () => {
     withWindow();
-    store.set(STORAGE_KEY, JSON.stringify(makeProfile()));
-    expect(loadProfile()).toEqual(makeProfile());
+    store.set(STORAGE_KEY, JSON.stringify(makeProfile({ people: PEOPLE })));
+    expect(loadProfile()).toEqual(makeProfile({ people: PEOPLE }));
+  });
+
+  it("migrates a stored v:1 profile to v:2 in memory", () => {
+    withWindow();
+    store.set(STORAGE_KEY, JSON.stringify({ ...makeProfile(), v: 1 }));
+    const loaded = loadProfile();
+    expect(loaded!.v).toBe(2);
+    expect(loaded!.people).toBeUndefined();
+    expect(store.has(STORAGE_KEY)).toBe(true);
+  });
+});
+
+describe("DEFAULT_PROFILE", () => {
+  const then = new Date(2026, 6, 20, 12, 0, 0, 0);
+
+  it("round-trips through validateProfile", () => {
+    expect(validateProfile(DEFAULT_PROFILE, then)).toEqual(DEFAULT_PROFILE);
+  });
+
+  it("has parents aged 68 and 67 on 2026-07-20", () => {
+    const ages = DEFAULT_PROFILE.people!.parents!.map((parent) =>
+      Math.floor(
+        (then.getTime() - parseDob(parent.dob, then)!.getTime()) / MS_PER_YEAR,
+      ),
+    );
+    expect(ages).toEqual([68, 67]);
+  });
+
+  it("estimates an 80.0 year span", () => {
+    expect(estimateExpectancyRaw(DEFAULT_PROFILE)).toBe(80);
+    expect(formatExpectancy(estimateExpectancy(DEFAULT_PROFILE, then))).toBe(
+      "80.0 YR",
+    );
   });
 });
 

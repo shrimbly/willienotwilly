@@ -37,7 +37,7 @@ const NOW = new Date(2026, 6, 16, 12, 0, 0, 0);
 
 // Demo-equivalent profile: expectancy 80.5 + 1 (weekly exercise) = 81.5.
 const PROFILE: LifeProfile = {
-  v: 1,
+  v: 2,
   dob: "1996-07-19",
   sex: "unspecified",
   smoking: "never",
@@ -384,6 +384,25 @@ describe("LIFE ghost cells", () => {
       Math.abs(first.x - (life.gridRect.x + dobCol * life.cellW)),
     ).toBeLessThan(F32_EPS);
     expect(Math.abs(first.y - life.gridRect.y)).toBeLessThan(F32_EPS);
+  });
+
+  it("cellIndexForDate returns -1 off-grid and never clamps to an edge", () => {
+    const life = build(VIEW_LIFE);
+    const dob = parseDob(PROFILE.dob, NOW);
+    const expectancy = getExpectancyDate(PROFILE, NOW);
+    expect(dob).not.toBeNull();
+    if (!dob) return;
+    const idx = life.cellIndexForDate!.bind(life);
+    // Birth week is the first instanced cell; expectancy week is the last.
+    expect(idx(dob)).toBe(0);
+    expect(idx(expectancy)).toBe(life.cellCount - 1);
+    // A week before birth and a week after expectancy are both off-grid — and
+    // must NOT clamp the way liveState does.
+    const beforeBirth = new Date(dob.getTime() - 8 * MS_PER_WEEK);
+    const afterExpectancy = new Date(expectancy.getTime() + 8 * MS_PER_WEEK);
+    expect(idx(beforeBirth)).toBe(-1);
+    expect(idx(afterExpectancy)).toBe(-1);
+    expect(life.liveState(afterExpectancy).index).toBe(life.cellCount - 1);
   });
 
   it("landscape: second block starts 57 col-units in, at the top row", () => {

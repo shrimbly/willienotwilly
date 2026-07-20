@@ -20,14 +20,17 @@ import {
   type LifeProfile,
 } from "@/lib/life-clock";
 import {
+  DEFAULT_PROFILE,
   hasSeenIntro,
   hasSeenZoomHint,
   loadProfile,
   markIntroSeen,
   markZoomHintSeen,
 } from "@/lib/life-clock-storage";
+import { buildEvents } from "@/lib/life-events";
 
 import { LifeClockCalibration } from "./calibration";
+import { EventCard } from "./event-card";
 import { LifeClockHud } from "./hud";
 import {
   buildLayout,
@@ -46,6 +49,8 @@ import {
   VIEW_YEAR,
   pulseAlpha,
   type AxisSpec,
+  type ClockEvent,
+  type EventMarker,
   type HudFrameFields,
   type HudHandle,
   type MorphFrame,
@@ -60,6 +65,8 @@ const HINT_DELAY_MS = 6_000;
 const INTRO_DWELL_MS = 500;
 const INTRO_DIVE_MS = 1_350;
 const AXIS_FADE_TAU_MS = 80;
+const EVENT_HOVER_RADIUS_PX = 16;
+const EVENT_HOVER_TAU_MS = 90;
 
 interface StageMetrics {
   mobile: boolean;
@@ -157,6 +164,15 @@ export function LifeClockLab() {
   const [calOpen, setCalOpen] = useState(false);
   const [calEdit, setCalEdit] = useState(false);
   const [hint, setHint] = useState<"scroll" | "pinch" | null>(null);
+  // Hovered life-event readout. Changes on pointer move, not per frame.
+  const [hovered, setHovered] = useState<{
+    event: ClockEvent;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  // Only for keeping the event card on screen; updated on resize, not per frame.
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
   const [axisState, setAxisState] = useState<{
     view: ViewIndex;
     axis: AxisSpec;
@@ -183,6 +199,14 @@ export function LifeClockLab() {
   }, [calOpen]);
 
   useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
     openCalibrationRef.current = () => {
       if (!calOpenRef.current && profile) {
         setCalEdit(true);
@@ -193,11 +217,10 @@ export function LifeClockLab() {
 
   useEffect(() => {
     // Client-only storage hydration: SSR renders the null-profile shell, then
-    // the first client effect swaps in the stored profile (two-pass render).
+    // the first client effect swaps in the stored profile. With no stored
+    // profile the clock shows the author's life rather than prompting.
     /* eslint-disable react-hooks/set-state-in-effect */
-    const stored = loadProfile();
-    setProfile(stored);
-    setCalOpen(stored === null);
+    setProfile(loadProfile() ?? DEFAULT_PROFILE);
     setBooted(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -216,6 +239,32 @@ export function LifeClockLab() {
     const layouts: (ViewLayout | null)[] = [null, null, null, null];
     const maxView: ViewIndex = profile ? VIEW_LIFE : VIEW_YEAR;
 
+    const events: ClockEvent[] = profile ? buildEvents(profile, new Date()) : [];
+    const eventById = new Map(events.map((e) => [e.id, e]));
+    let markers: EventMarker[] = [];
+
+    // Events resolve to cells through the LIFE layout's own index math, so the
+    // mapping stays correct across rebuilds (resize, rollover, recalibration).
+    const resolveMarkers = (life: ViewLayout | null) => {
+      if (!life?.cellIndexForDate || events.length === 0) {
+        markers = [];
+        renderer.setEventMarkers(markers);
+        return;
+      }
+      // -1 when a date falls off the grid — the marker (and its card) is then
+      // dropped rather than pinned to an edge cell.
+      const cellFor = life.cellIndexForDate.bind(life);
+      markers = events
+        .map((event) => ({
+          id: event.id,
+          index: cellFor(event.date),
+          rangeStart: event.rangeStart ? cellFor(event.rangeStart) : -1,
+          rangeEnd: event.rangeEnd ? cellFor(event.rangeEnd) : -1,
+        }))
+        .filter((marker) => marker.index >= 0);
+      renderer.setEventMarkers(markers);
+    };
+
     const buildAll = (now: Date) => {
       for (let v = 0; v <= maxView; v++) {
         layouts[v] = buildLayout({
@@ -226,13 +275,14 @@ export function LifeClockLab() {
         });
       }
       for (let v = maxView + 1; v < 4; v++) layouts[v] = null;
+      resolveMarkers(layouts[VIEW_LIFE]);
     };
-    buildAll(new Date());
 
     const renderer = new LifeClockRenderer(canvas);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setViewport(container.clientWidth, container.clientHeight, dpr);
     renderer.setFrameRect(metrics.gridArea);
+    buildAll(new Date());
 
     let dateKey = new Date().toDateString();
     let lastHour = new Date().getHours();
@@ -253,6 +303,8 @@ export function LifeClockLab() {
     let introActive = false;
     let pendingRollover = false;
     let slotClickAtMs = 0;
+    let hoveredId: string | null = null;
+    let hoverAmount = 0;
     const transition = { from: -1, to: -1 };
 
     const restingSlotHit = (clientX: number, clientY: number): boolean => {
@@ -302,6 +354,10 @@ export function LifeClockLab() {
         onTransitionStart: (from, to) => {
           transition.from = from;
           transition.to = to;
+          if (hoveredId !== null) {
+            hoveredId = null;
+            setHovered(null);
+          }
           setHint(null);
           window.clearTimeout(hintTimer);
           // The hint is consumed by USER zooms only — not the intro dive.
@@ -317,6 +373,7 @@ export function LifeClockLab() {
             buildAll(new Date());
             currentChild = -1;
             currentParent = -1;
+            clearHover();
           }
           syncAxis();
           if (zoom.restingView === VIEW_DAY) armHint();
@@ -360,11 +417,55 @@ export function LifeClockLab() {
         zoom.stepIn(slotClickAtMs);
       }
     };
-    const onPointerMove = (e: PointerEvent) => {
-      canvas.style.cursor = restingSlotHit(e.clientX, e.clientY)
-        ? "pointer"
-        : "default";
+    // Event markers are hit-tested in layout px: at rest in LIFE the layer
+    // transform is identity, so a cell centre is already its screen position.
+    const eventHitTest = (clientX: number, clientY: number) => {
+      if (!zoom.isAtRest || zoom.restingView !== VIEW_LIFE) return null;
+      const life = layouts[VIEW_LIFE];
+      if (!life || markers.length === 0) return null;
+      const rect = container.getBoundingClientRect();
+      const px = clientX - rect.left;
+      const py = clientY - rect.top;
+      let best: { event: ClockEvent; x: number; y: number; id: string } | null =
+        null;
+      let bestDist = EVENT_HOVER_RADIUS_PX;
+      for (const marker of markers) {
+        if (marker.index < 0) continue;
+        const event = eventById.get(marker.id);
+        if (!event) continue;
+        const cell = life.cellRect(marker.index);
+        const cx = cell.x + cell.w / 2;
+        const cy = cell.y + cell.h / 2;
+        const dist = Math.hypot(px - cx, py - cy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { event, x: cx, y: cy, id: marker.id };
+        }
+      }
+      return best;
     };
+
+    const setHover = (hit: ReturnType<typeof eventHitTest>) => {
+      const nextId = hit ? hit.id : null;
+      if (nextId === hoveredId) return;
+      hoveredId = nextId;
+      setHovered(hit ? { event: hit.event, x: hit.x, y: hit.y } : null);
+    };
+    // A layout rebuild invalidates the hovered marker's pixel position; drop
+    // the card until the pointer re-establishes a hit.
+    const clearHover = () => {
+      if (hoveredId === null) return;
+      hoveredId = null;
+      setHovered(null);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const hit = eventHitTest(e.clientX, e.clientY);
+      setHover(hit);
+      canvas.style.cursor =
+        hit || restingSlotHit(e.clientX, e.clientY) ? "pointer" : "default";
+    };
+    const onPointerLeave = () => setHover(null);
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (calOpenRef.current) return;
@@ -372,6 +473,7 @@ export function LifeClockLab() {
     };
     canvas.addEventListener("click", onSlotClick);
     canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerleave", onPointerLeave);
     window.addEventListener("keydown", onKeyDown);
 
     const frame = () => {
@@ -389,6 +491,7 @@ export function LifeClockLab() {
           buildAll(now);
           currentChild = -1;
           currentParent = -1;
+          clearHover();
           syncAxis();
         } else {
           pendingRollover = true;
@@ -465,6 +568,15 @@ export function LifeClockLab() {
           ? 0.65
           : pulseAlpha((nowMs % 1000) / 1000);
 
+      hoverAmount +=
+        ((hoveredId ? 1 : 0) - hoverAmount) *
+        Math.min(1, dt / EVENT_HOVER_TAU_MS);
+      const lifeShown = renderChild === VIEW_LIFE || renderParent === VIEW_LIFE;
+      const eventsFrame =
+        lifeShown && markers.length > 0
+          ? { markers, hoveredId, hoverAmount }
+          : null;
+
       let morphFrame: MorphFrame;
       if (!morphing) {
         morphFrame = {
@@ -479,6 +591,7 @@ export function LifeClockLab() {
           commitAge,
           rubberScale: zoom.rubberScale,
           reducedMotion: isReduced,
+          events: eventsFrame,
         };
       } else {
         const parentLayout = layouts[renderParent]!;
@@ -501,6 +614,7 @@ export function LifeClockLab() {
             commitAge: -1,
             rubberScale: 1,
             reducedMotion: true,
+            events: eventsFrame,
           };
         } else {
           const env = computeMorphEnvelope(p);
@@ -527,6 +641,7 @@ export function LifeClockLab() {
             commitAge: -1,
             rubberScale: 1,
             reducedMotion: false,
+            events: eventsFrame,
           };
         }
       }
@@ -590,12 +705,14 @@ export function LifeClockLab() {
       const w = container.clientWidth;
       const h = container.clientHeight;
       if (w < 2 || h < 2) return;
+      setViewport({ w, h });
       metrics = computeMetrics(w, h);
       renderer.setViewport(w, h, Math.min(window.devicePixelRatio || 1, 2));
       renderer.setFrameRect(metrics.gridArea);
       buildAll(new Date());
       currentChild = -1;
       currentParent = -1;
+      clearHover();
       syncAxis();
     });
     resizeObserver.observe(container);
@@ -633,6 +750,7 @@ export function LifeClockLab() {
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("click", onSlotClick);
       canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("keydown", onKeyDown);
       resizeObserver.disconnect();
       dprQuery?.removeEventListener("change", onDprChange);
@@ -680,6 +798,14 @@ export function LifeClockLab() {
           onCalibrate={() => openCalibrationRef.current()}
         />
       </div>
+      <EventCard
+        event={hovered?.event ?? null}
+        x={hovered?.x ?? 0}
+        y={hovered?.y ?? 0}
+        viewportW={viewport.w}
+        viewportH={viewport.h}
+        reducedMotion={reducedMotion}
+      />
       {booted && calOpen ? (
         <LifeClockCalibration
           profile={profile}

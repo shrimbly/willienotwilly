@@ -493,6 +493,16 @@ function buildLife(
       const frac = (isoWeekday(t) - 1 + wallSeconds(t) / 86_400) / 7;
       return { index, frac, filled: index };
     },
+    // Exact instanced-cell index for a date, or -1 when its ISO week is not on
+    // the grid (before birth, after expectancy, or a ghost week). Unlike
+    // liveState this never clamps — an off-grid event must not pin to an edge.
+    cellIndexForDate: (t: Date): number => {
+      const r = isoWeekYear(t) - firstYear;
+      if (r < 0 || r >= yearCount) return -1;
+      const c = isoWeek(t) - 1;
+      if (c < rowStartCol[r] || c > rowEndCol[r]) return -1;
+      return rowStartIndex[r] + (c - rowStartCol[r]);
+    },
     cellRect: makeCellRect(cells),
     axis: {
       left,

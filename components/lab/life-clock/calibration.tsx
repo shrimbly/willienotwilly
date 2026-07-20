@@ -4,6 +4,7 @@ import type {
   ChangeEvent,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
+  RefObject,
 } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
@@ -13,8 +14,10 @@ import {
   formatExpectancy,
   parseDob,
   type Exercise,
+  type LifePeople,
   type LifeProfile,
   type Region,
+  type RelatedPerson,
   type Sex,
   type Smoking,
 } from "@/lib/life-clock";
@@ -98,6 +101,9 @@ const REGION_OPTIONS: ChoiceOption<Region>[] = [
   { value: "sub-saharan-africa", label: "SUB-SAHARAN AFRICA" },
   { value: "unspecified", label: "PREFER NOT TO SAY" },
 ];
+
+const DEFAULT_CHILD_LABEL = "MY CHILD";
+const DEFAULT_PARENT_LABELS = ["PARENT ONE", "PARENT TWO"] as const;
 
 function FieldLabel({
   index,
@@ -186,6 +192,145 @@ function ChipRow<T extends string>({
   );
 }
 
+interface DateTriple {
+  yyyy: string;
+  mm: string;
+  dd: string;
+  setYyyy: (v: string) => void;
+  setMm: (v: string) => void;
+  setDd: (v: string) => void;
+  /** "YYYY-MM-DD" — only meaningful when `valid`. */
+  value: string;
+  /** All three parts have their full width. */
+  filled: boolean;
+  valid: boolean;
+}
+
+function useDateTriple(initial: string | undefined): DateTriple {
+  const [yyyy, setYyyy] = useState(() => initial?.slice(0, 4) ?? "");
+  const [mm, setMm] = useState(() => initial?.slice(5, 7) ?? "");
+  const [dd, setDd] = useState(() => initial?.slice(8, 10) ?? "");
+  const value = `${yyyy}-${mm}-${dd}`;
+  const filled = yyyy.length === 4 && mm.length === 2 && dd.length === 2;
+  const valid = useMemo(
+    () => filled && parseDob(value, new Date()) !== null,
+    [value, filled],
+  );
+  return {
+    yyyy,
+    mm,
+    dd,
+    setYyyy,
+    setMm,
+    setDd,
+    value,
+    filled,
+    valid,
+  };
+}
+
+function DateFields({
+  labelId,
+  namePrefix,
+  triple,
+  birthAutoComplete = false,
+  yearRef,
+}: {
+  labelId: string;
+  namePrefix: string;
+  triple: DateTriple;
+  birthAutoComplete?: boolean;
+  yearRef?: RefObject<HTMLInputElement | null>;
+}) {
+  const localYearRef = useRef<HTMLInputElement>(null);
+  const firstRef = yearRef ?? localYearRef;
+  const monthRef = useRef<HTMLInputElement>(null);
+  const dayRef = useRef<HTMLInputElement>(null);
+
+  const showError = triple.filled && !triple.valid;
+  const errorBorder = showError ? { borderColor: TOKENS.text } : null;
+
+  const handleYearChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
+    triple.setYyyy(digits);
+    if (digits.length === 4) monthRef.current?.focus();
+  };
+  const handleMonthChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const digits = event.target.value.replace(/\D/g, "").slice(0, 2);
+    triple.setMm(digits);
+    if (digits.length === 2) dayRef.current?.focus();
+  };
+  const handleDayChange = (event: ChangeEvent<HTMLInputElement>) => {
+    triple.setDd(event.target.value.replace(/\D/g, "").slice(0, 2));
+  };
+  const padOnBlur = (value: string, setter: (v: string) => void) => () => {
+    if (value.length === 1) setter(`0${value}`);
+  };
+
+  return (
+    <>
+      <div
+        role="group"
+        aria-labelledby={labelId}
+        className="mt-2 flex items-center gap-2"
+      >
+        <input
+          ref={firstRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete={birthAutoComplete ? "bday-year" : "off"}
+          placeholder="YYYY"
+          aria-label={`${namePrefix} year`}
+          aria-invalid={showError || undefined}
+          value={triple.yyyy}
+          onChange={handleYearChange}
+          className={DATE_INPUT_CLASS}
+          style={{ ...DATE_INPUT_STYLE, width: 56, ...errorBorder }}
+        />
+        <span aria-hidden style={{ color: TOKENS.textFaint }}>
+          -
+        </span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete={birthAutoComplete ? "bday-month" : "off"}
+          placeholder="MM"
+          aria-label={`${namePrefix} month`}
+          aria-invalid={showError || undefined}
+          value={triple.mm}
+          onChange={handleMonthChange}
+          onBlur={padOnBlur(triple.mm, triple.setMm)}
+          className={DATE_INPUT_CLASS}
+          style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
+        />
+        <span aria-hidden style={{ color: TOKENS.textFaint }}>
+          -
+        </span>
+        <input
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete={birthAutoComplete ? "bday-day" : "off"}
+          placeholder="DD"
+          aria-label={`${namePrefix} day`}
+          aria-invalid={showError || undefined}
+          value={triple.dd}
+          onChange={handleDayChange}
+          onBlur={padOnBlur(triple.dd, triple.setDd)}
+          className={DATE_INPUT_CLASS}
+          style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
+        />
+      </div>
+      {showError ? (
+        <p role="alert" style={{ ...LABEL_METRICS, color: TOKENS.text, marginTop: 8 }}>
+          {DOB_ERROR}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 export interface CalibrationProps {
   profile: LifeProfile | null;
   onComplete: (profile: LifeProfile) => void;
@@ -200,28 +345,32 @@ export function LifeClockCalibration({
   editMode,
 }: CalibrationProps) {
   const baseId = useId();
-  const [yyyy, setYyyy] = useState(() => (profile ? profile.dob.slice(0, 4) : ""));
-  const [mm, setMm] = useState(() => (profile ? profile.dob.slice(5, 7) : ""));
-  const [dd, setDd] = useState(() => (profile ? profile.dob.slice(8, 10) : ""));
+  const dobTriple = useDateTriple(profile?.dob);
   const [sex, setSex] = useState<Sex>(profile?.sex ?? "unspecified");
   const [smoking, setSmoking] = useState<Smoking>(profile?.smoking ?? "never");
   const [exercise, setExercise] = useState<Exercise>(profile?.exercise ?? "weekly");
   const [region, setRegion] = useState<Region>(profile?.region ?? "unspecified");
+
+  const people = profile?.people;
+  const metTriple = useDateTriple(people?.partnerMet);
+  const marriedTriple = useDateTriple(people?.partnerMarried);
+  const childTriple = useDateTriple(people?.children?.[0]?.dob);
+  const parentATriple = useDateTriple(people?.parents?.[0]?.dob);
+  const parentBTriple = useDateTriple(people?.parents?.[1]?.dob);
+  const [parentASex, setParentASex] = useState<Sex>(
+    people?.parents?.[0]?.sex ?? "unspecified",
+  );
+  const [parentBSex, setParentBSex] = useState<Sex>(
+    people?.parents?.[1]?.sex ?? "unspecified",
+  );
+
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const yearRef = useRef<HTMLInputElement>(null);
-  const monthRef = useRef<HTMLInputElement>(null);
-  const dayRef = useRef<HTMLInputElement>(null);
 
-  const dob = `${yyyy}-${mm}-${dd}`;
-  const complete = yyyy.length === 4 && mm.length === 2 && dd.length === 2;
-  const dobValid = useMemo(
-    () => complete && parseDob(dob, new Date()) !== null,
-    [dob, complete],
-  );
-  const showError = complete && !dobValid;
+  const dobValid = dobTriple.valid;
   const rawExpectancy = useMemo(
     () => estimateExpectancyRaw({ sex, smoking, exercise, region }),
     [sex, smoking, exercise, region],
@@ -243,9 +392,55 @@ export function LifeClockCalibration({
     [],
   );
 
+  // Every PEOPLE field is optional: only fully valid entries are carried over,
+  // so a half-typed date is dropped instead of blocking the clock.
+  const buildPeople = (): LifePeople | undefined => {
+    const next: LifePeople = {};
+    if (metTriple.valid) next.partnerMet = metTriple.value;
+    if (marriedTriple.valid) next.partnerMarried = marriedTriple.value;
+    if (
+      people?.partnerLabel &&
+      (next.partnerMet !== undefined || next.partnerMarried !== undefined)
+    ) {
+      next.partnerLabel = people.partnerLabel;
+    }
+    if (childTriple.valid) {
+      next.children = [
+        {
+          label: people?.children?.[0]?.label ?? DEFAULT_CHILD_LABEL,
+          dob: childTriple.value,
+          ...(people?.children?.[0]?.sex ? { sex: people.children[0].sex } : {}),
+        },
+      ];
+    }
+    const parents: RelatedPerson[] = [];
+    const parentInputs = [
+      { triple: parentATriple, sex: parentASex, index: 0 },
+      { triple: parentBTriple, sex: parentBSex, index: 1 },
+    ] as const;
+    for (const parent of parentInputs) {
+      if (!parent.triple.valid) continue;
+      parents.push({
+        label: people?.parents?.[parent.index]?.label ?? DEFAULT_PARENT_LABELS[parent.index],
+        dob: parent.triple.value,
+        sex: parent.sex,
+      });
+    }
+    if (parents.length > 0) next.parents = parents;
+    return Object.keys(next).length > 0 ? next : undefined;
+  };
+
   const handleSubmit = () => {
     if (!dobValid) return;
-    const saved = saveProfile({ dob, sex, smoking, exercise, region, demo: false });
+    const saved = saveProfile({
+      dob: dobTriple.value,
+      sex,
+      smoking,
+      exercise,
+      region,
+      people: buildPeople(),
+      demo: false,
+    });
     closeThen(() => onComplete(saved));
   };
   const handleSkip = () => {
@@ -314,24 +509,6 @@ export function LifeClockCalibration({
   const visible = entered && !closing;
   const transitionMs = closing ? EXIT_MS : ENTER_MS;
 
-  const handleYearChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
-    setYyyy(digits);
-    if (digits.length === 4) monthRef.current?.focus();
-  };
-  const handleMonthChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const digits = event.target.value.replace(/\D/g, "").slice(0, 2);
-    setMm(digits);
-    if (digits.length === 2) dayRef.current?.focus();
-  };
-  const handleDayChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDd(event.target.value.replace(/\D/g, "").slice(0, 2));
-  };
-  const padOnBlur = (value: string, setter: (v: string) => void) => () => {
-    if (value.length === 1) setter(`0${value}`);
-  };
-
-  const errorBorder = showError ? { borderColor: TOKENS.text } : null;
   const cornerTickStyle: CSSProperties = { width: 10, height: 10 };
   const tickBorder = `1px solid ${TOKENS.hairlineStrong}`;
 
@@ -415,67 +592,13 @@ export function LifeClockCalibration({
               <FieldLabel index="01" id={`${baseId}-dob`}>
                 DATE OF BIRTH
               </FieldLabel>
-              <div
-                role="group"
-                aria-labelledby={`${baseId}-dob`}
-                className="mt-2 flex items-center gap-2"
-              >
-                <input
-                  ref={yearRef}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="bday-year"
-                  placeholder="YYYY"
-                  aria-label="Year of birth"
-                  aria-invalid={showError || undefined}
-                  value={yyyy}
-                  onChange={handleYearChange}
-                  className={DATE_INPUT_CLASS}
-                  style={{ ...DATE_INPUT_STYLE, width: 56, ...errorBorder }}
-                />
-                <span aria-hidden style={{ color: TOKENS.textFaint }}>
-                  -
-                </span>
-                <input
-                  ref={monthRef}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="bday-month"
-                  placeholder="MM"
-                  aria-label="Month of birth"
-                  aria-invalid={showError || undefined}
-                  value={mm}
-                  onChange={handleMonthChange}
-                  onBlur={padOnBlur(mm, setMm)}
-                  className={DATE_INPUT_CLASS}
-                  style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
-                />
-                <span aria-hidden style={{ color: TOKENS.textFaint }}>
-                  -
-                </span>
-                <input
-                  ref={dayRef}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="bday-day"
-                  placeholder="DD"
-                  aria-label="Day of birth"
-                  aria-invalid={showError || undefined}
-                  value={dd}
-                  onChange={handleDayChange}
-                  onBlur={padOnBlur(dd, setDd)}
-                  className={DATE_INPUT_CLASS}
-                  style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
-                />
-              </div>
-              {showError ? (
-                <p
-                  role="alert"
-                  style={{ ...LABEL_METRICS, color: TOKENS.text, marginTop: 8 }}
-                >
-                  {DOB_ERROR}
-                </p>
-              ) : null}
+              <DateFields
+                labelId={`${baseId}-dob`}
+                namePrefix="Birth"
+                triple={dobTriple}
+                birthAutoComplete
+                yearRef={yearRef}
+              />
             </div>
 
             <div>
@@ -524,6 +647,100 @@ export function LifeClockCalibration({
                 value={region}
                 onChange={setRegion}
               />
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: `1px solid ${TOKENS.hairline}`,
+            }}
+          >
+            <p style={{ ...LABEL_METRICS, color: TOKENS.textFaint }}>
+              PEOPLE · OPTIONAL
+            </p>
+            <p style={{ ...LABEL_STYLE, marginTop: 8 }}>
+              DATES YOU GIVE BECOME MARKERS ON THE LIFE GRID. LEAVE ANY BLANK.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-6">
+              <div>
+                <FieldLabel index="06" id={`${baseId}-met`}>
+                  PARTNER — DAY YOU MET
+                </FieldLabel>
+                <DateFields
+                  labelId={`${baseId}-met`}
+                  namePrefix="Day you met your partner"
+                  triple={metTriple}
+                />
+              </div>
+
+              <div>
+                <FieldLabel index="07" id={`${baseId}-married`}>
+                  PARTNER — DAY YOU MARRIED
+                </FieldLabel>
+                <DateFields
+                  labelId={`${baseId}-married`}
+                  namePrefix="Day you married"
+                  triple={marriedTriple}
+                />
+              </div>
+
+              <div>
+                <FieldLabel index="08" id={`${baseId}-child`}>
+                  CHILD — DATE OF BIRTH
+                </FieldLabel>
+                <DateFields
+                  labelId={`${baseId}-child`}
+                  namePrefix="Child birth"
+                  triple={childTriple}
+                />
+              </div>
+
+              <div>
+                <FieldLabel index="09" id={`${baseId}-parent-a`}>
+                  PARENT ONE — DATE OF BIRTH
+                </FieldLabel>
+                <DateFields
+                  labelId={`${baseId}-parent-a`}
+                  namePrefix="First parent birth"
+                  triple={parentATriple}
+                />
+                <div style={{ marginTop: 12 }}>
+                  <div id={`${baseId}-parent-a-sex`} style={{ ...LABEL_STYLE }}>
+                    SEX AT BIRTH
+                  </div>
+                  <ChipRow
+                    labelId={`${baseId}-parent-a-sex`}
+                    options={SEX_OPTIONS}
+                    value={parentASex}
+                    onChange={setParentASex}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <FieldLabel index="10" id={`${baseId}-parent-b`}>
+                  PARENT TWO — DATE OF BIRTH
+                </FieldLabel>
+                <DateFields
+                  labelId={`${baseId}-parent-b`}
+                  namePrefix="Second parent birth"
+                  triple={parentBTriple}
+                />
+                <div style={{ marginTop: 12 }}>
+                  <div id={`${baseId}-parent-b-sex`} style={{ ...LABEL_STYLE }}>
+                    SEX AT BIRTH
+                  </div>
+                  <ChipRow
+                    labelId={`${baseId}-parent-b-sex`}
+                    options={SEX_OPTIONS}
+                    value={parentBSex}
+                    onChange={setParentBSex}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

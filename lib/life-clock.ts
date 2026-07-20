@@ -41,14 +41,40 @@ export type Region =
   | "sub-saharan-africa"
   | "unspecified";
 
+/** A person the clock derives events from. `dob` is "YYYY-MM-DD". */
+export interface RelatedPerson {
+  /** Short label used in event copy, e.g. "DAD". Uppercase by convention. */
+  label: string;
+  dob: string;
+  /** Drives sex-specific mortality curves for parent predictions. */
+  sex?: Sex;
+}
+
+/**
+ * Optional relationships. Every field is independent — events that lack
+ * their inputs are simply not generated, so a bare dob still works.
+ */
+export interface LifePeople {
+  /** Label for the partner in event copy, e.g. "MY WIFE". */
+  partnerLabel?: string;
+  /** "YYYY-MM-DD" — the day you met. */
+  partnerMet?: string;
+  /** "YYYY-MM-DD" — the day you married. */
+  partnerMarried?: string;
+  children?: RelatedPerson[];
+  parents?: RelatedPerson[];
+}
+
 export interface LifeProfile {
-  v: 1;
+  v: 2;
   /** "YYYY-MM-DD", validated real calendar date, 1900-01-01..today */
   dob: string;
   sex: Sex;
   smoking: Smoking;
   exercise: Exercise;
   region: Region;
+  /** Relationships driving the life-event markers; absent = none. */
+  people?: LifePeople;
   /** true when created by SKIP — renderer shows the DEMO badge */
   demo: boolean;
   /** ISO 8601 UTC; informational only, never used in math */

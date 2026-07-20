@@ -1,16 +1,25 @@
-// Three.js renderer for the Life Clock: two instanced-quad cell layers plus a
-// line layer (frame, corner ticks, slot marker, crosshair, expectancy marker).
-// Per-frame work is uniform updates and one small line-buffer rewrite — cell
-// buffers rebuild only on setLayer. No React.
+// Three.js renderer for the Life Clock: two instanced-quad cell layers, an
+// instanced event-marker layer, plus a line layer (frame, corner ticks, slot
+// marker, crosshair, expectancy marker). Per-frame work is uniform updates and
+// one small line-buffer rewrite — cell and marker buffers rebuild only on
+// setLayer / setEventMarkers. No React.
 
 import * as THREE from "three";
 
-import type { LayerTransform, MorphFrame, Rect, ViewLayout } from "./types";
+import type {
+  EventMarker,
+  LayerTransform,
+  MorphFrame,
+  Rect,
+  ViewLayout,
+} from "./types";
 import { TOKENS, VIEW_LIFE } from "./types";
 
 const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
+const MARKER_CAPACITY = 64;
 const COMMIT_FLASH_S = 0.3;
+const MARKER_BREATH_S = 4.2;
 
 /**
  * Raw sRGB components. These shaders write gl_FragColor directly with no
@@ -32,6 +41,7 @@ const COLOR_EMPTY_OPEN = rawColor(TOKENS.cellEmptyOpen);
 const COLOR_FILLED = rawColor(TOKENS.cellFilled);
 const COLOR_LIVE = rawColor(TOKENS.live);
 const COLOR_TEXT = rawColor(TOKENS.text);
+const COLOR_EVENT = rawColor(TOKENS.event);
 
 const HAIRLINE_A = 0.09;
 const HAIRLINE_STRONG_A = 0.22;
@@ -79,6 +89,10 @@ const CELL_FRAG = /* glsl */ `
   uniform float uCommitAge;
   uniform float uLayerOpacity;
   uniform float uSlotOpacity;
+  uniform vec3 uEvent;
+  uniform float uRangeStart;
+  uniform float uRangeEnd;
+  uniform float uRangeAmount;
   varying float vCellIndex;
   varying float vInSlot;
   varying float vLocalX;
@@ -101,6 +115,12 @@ const CELL_FRAG = /* glsl */ `
     } else {
       color = uEmpty;
     }
+    // Range highlight: warm lift, tint plus a small additive term so the dark
+    // unlived cells rise as much as the bright lived ones.
+    float inRange =
+      step(uRangeStart - 0.5, vCellIndex) * step(vCellIndex, uRangeEnd + 0.5);
+    float lift = inRange * uRangeAmount;
+    color = mix(color, uEvent, 0.20 * lift) + uEvent * 0.07 * lift;
     float alpha = mix(uLayerOpacity, uSlotOpacity, vInSlot);
     if (alpha < 0.003) discard;
     gl_FragColor = vec4(color, alpha);
@@ -128,6 +148,79 @@ const LINE_FRAG = /* glsl */ `
   void main() {
     if (vColor.a < 0.003) discard;
     gl_FragColor = vColor;
+  }
+`;
+
+// Marker quad spans 4 cell widths so the hovered halo (1.76 cell radii, plus
+// the breathing scale) never clips against the instance quad's edge.
+const MARKER_SPAN = 4.0;
+const MARKER_CORE_R = 0.16; // cell widths, at rest
+const MARKER_HALO_R = 0.8; // cell widths, at rest -> 1.6x cell overall
+const MARKER_HOVER_SCALE = 2.2;
+
+const MARKER_VERT = /* glsl */ `
+  uniform vec2 uViewport;
+  uniform vec2 uOffset;
+  uniform vec2 uScale;
+  uniform float uHoverSlot;
+  uniform float uHoverAmount;
+  uniform float uBreath;
+  attribute vec4 aRect;
+  attribute float aSlot;
+  varying vec2 vOffset;
+  varying float vCoreR;
+  varying float vHaloR;
+  varying float vHot;
+  void main() {
+    float hot = uHoverAmount * (1.0 - step(0.5, abs(aSlot - uHoverSlot)));
+    vHot = hot;
+    // Square in screen px: anisotropic layer scale would otherwise oval the dot.
+    float cell = min(aRect.z * uScale.x, aRect.w * uScale.y);
+    float grow = mix(1.0, ${MARKER_HOVER_SCALE.toFixed(2)}, hot) * uBreath;
+    vCoreR = cell * ${MARKER_CORE_R.toFixed(3)} * grow;
+    vHaloR = cell * ${MARKER_HALO_R.toFixed(3)} * grow;
+    vOffset = (position.xy - 0.5) * ${MARKER_SPAN.toFixed(1)} * cell;
+    vec2 center = uOffset + uScale * (aRect.xy + aRect.zw * 0.5);
+    vec2 screen = center + vOffset;
+    gl_Position = vec4(
+      screen.x / uViewport.x * 2.0 - 1.0,
+      1.0 - screen.y / uViewport.y * 2.0,
+      0.0,
+      1.0
+    );
+  }
+`;
+
+const MARKER_FRAG = /* glsl */ `
+  precision highp float;
+  uniform vec3 uColor;
+  uniform vec3 uDark;
+  uniform float uOpacity;
+  varying vec2 vOffset;
+  varying float vCoreR;
+  varying float vHaloR;
+  varying float vHot;
+  void main() {
+    if (vHaloR < 0.25) discard;
+    float d = length(vOffset);
+    if (d > vHaloR) discard;
+    float aa = max(0.6, vCoreR * 0.6);
+    float core = 1.0 - smoothstep(vCoreR - aa, vCoreR + aa, d);
+    // Dark annulus: without it the dot vanishes against elapsed (bright) cells.
+    float ringOuter = vCoreR * 1.85;
+    float ring = (1.0 - core) * (1.0 - smoothstep(ringOuter - aa, ringOuter + aa, d));
+    float halo = 1.0 - d / vHaloR;
+    halo *= halo;
+    float hot = mix(1.0, 1.55, vHot);
+    float aCore = 0.62 * core * hot;
+    float aHalo = 0.22 * halo * hot;
+    float aRing = 0.55 * ring;
+    float a = aCore + aHalo + aRing;
+    if (a < 0.003) discard;
+    vec3 premul = uColor * (aCore + aHalo) + uDark * aRing;
+    // Fade markers with their LIFE layer so they crossfade during the morph
+    // instead of popping in over a still-fading grid.
+    gl_FragColor = vec4(premul / max(a, 1e-4), min(a, 0.95) * uOpacity);
   }
 `;
 
@@ -165,11 +258,20 @@ export class LifeClockRenderer {
   private linePositions: THREE.BufferAttribute;
   private lineColors: THREE.BufferAttribute;
   private lineMaterial: THREE.ShaderMaterial;
+  private markerMesh: THREE.Mesh;
+  private markerGeometry: THREE.InstancedBufferGeometry;
+  private markerMaterial: THREE.ShaderMaterial;
+  private markerRects: THREE.InstancedBufferAttribute;
+  private markerSlots: THREE.InstancedBufferAttribute;
+  private markers: EventMarker[] = [];
+  private markerById = new Map<string, EventMarker>();
+  private markerSlotById = new Map<string, number>();
   private quad = quadGeometry();
   private frameRect: Rect = { x: 0, y: 0, w: 1, h: 1 };
   private width = 1;
   private height = 1;
   private dpr = 1;
+  private startedMs = 0;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -181,8 +283,53 @@ export class LifeClockRenderer {
     });
     this.renderer.setClearColor(COLOR_BG, 1);
 
+    this.startedMs = performance.now();
+
     this.parent = this.makeCellLayer(0);
     this.child = this.makeCellLayer(1);
+
+    this.markerGeometry = new THREE.InstancedBufferGeometry();
+    this.markerGeometry.index = this.quad.index;
+    this.markerGeometry.setAttribute(
+      "position",
+      this.quad.getAttribute("position"),
+    );
+    this.markerRects = new THREE.InstancedBufferAttribute(
+      new Float32Array(MARKER_CAPACITY * 4),
+      4,
+    );
+    this.markerSlots = new THREE.InstancedBufferAttribute(
+      new Float32Array(MARKER_CAPACITY),
+      1,
+    );
+    this.markerRects.setUsage(THREE.DynamicDrawUsage);
+    this.markerSlots.setUsage(THREE.DynamicDrawUsage);
+    this.markerGeometry.setAttribute("aRect", this.markerRects);
+    this.markerGeometry.setAttribute("aSlot", this.markerSlots);
+    this.markerGeometry.instanceCount = 0;
+    this.markerMaterial = new THREE.ShaderMaterial({
+      vertexShader: MARKER_VERT,
+      fragmentShader: MARKER_FRAG,
+      uniforms: {
+        uViewport: { value: new THREE.Vector2(1, 1) },
+        uOffset: { value: new THREE.Vector2(0, 0) },
+        uScale: { value: new THREE.Vector2(1, 1) },
+        uHoverSlot: { value: -1 },
+        uHoverAmount: { value: 0 },
+        uBreath: { value: 1 },
+        uColor: { value: COLOR_EVENT },
+        uDark: { value: rawColor(TOKENS.bg) },
+        uOpacity: { value: 1 },
+      },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.markerMesh = new THREE.Mesh(this.markerGeometry, this.markerMaterial);
+    this.markerMesh.frustumCulled = false;
+    this.markerMesh.renderOrder = 3;
+    this.markerMesh.visible = false;
+    this.scene.add(this.markerMesh);
 
     this.lineGeometry = new THREE.BufferGeometry();
     this.linePositions = new THREE.BufferAttribute(
@@ -252,6 +399,10 @@ export class LifeClockRenderer {
         uCommitAge: { value: -1 },
         uLayerOpacity: { value: 1 },
         uSlotOpacity: { value: 1 },
+        uEvent: { value: COLOR_EVENT },
+        uRangeStart: { value: -1 },
+        uRangeEnd: { value: -1 },
+        uRangeAmount: { value: 0 },
       },
       transparent: true,
       depthTest: false,
@@ -275,6 +426,7 @@ export class LifeClockRenderer {
     this.child.material.uniforms.uViewport.value = vp;
     this.parent.material.uniforms.uViewport.value = vp;
     this.lineMaterial.uniforms.uViewport.value = vp;
+    this.markerMaterial.uniforms.uViewport.value = vp;
   }
 
   setFrameRect(rect: Rect): void {
@@ -288,6 +440,7 @@ export class LifeClockRenderer {
     if (!layout) {
       layer.mesh.visible = false;
       layer.geometry.instanceCount = 0;
+      this.rebuildMarkers();
       return;
     }
     const n = Math.min(layout.cellCount, CELL_CAPACITY);
@@ -339,10 +492,59 @@ export class LifeClockRenderer {
     layer.material.uniforms.uGap.value = gap;
     layer.material.uniforms.uEmpty.value =
       layout.view === VIEW_LIFE ? COLOR_EMPTY_OPEN : COLOR_EMPTY;
+
+    this.rebuildMarkers();
   }
 
   getLayerLayout(slot: "child" | "parent"): ViewLayout | null {
     return (slot === "child" ? this.child : this.parent).layout;
+  }
+
+  /**
+   * Store the event markers and rebuild the marker instance buffers against
+   * whichever layer currently holds the LIFE layout. Safe to call before any
+   * layout exists — setLayer replays it.
+   */
+  setEventMarkers(markers: EventMarker[]): void {
+    this.markers = markers;
+    this.markerById.clear();
+    for (const m of markers) this.markerById.set(m.id, m);
+    this.rebuildMarkers();
+  }
+
+  private lifeLayer(): CellLayer | null {
+    if (this.child.layout?.view === VIEW_LIFE) return this.child;
+    if (this.parent.layout?.view === VIEW_LIFE) return this.parent;
+    return null;
+  }
+
+  private rebuildMarkers(): void {
+    this.markerSlotById.clear();
+    const layout = this.lifeLayer()?.layout ?? null;
+    if (!layout) {
+      this.markerGeometry.instanceCount = 0;
+      this.markerMesh.visible = false;
+      return;
+    }
+    const rects = this.markerRects.array as Float32Array;
+    const slots = this.markerSlots.array as Float32Array;
+    let n = 0;
+    for (const m of this.markers) {
+      if (n >= MARKER_CAPACITY) break;
+      if (m.index < 0 || m.index >= layout.cellCount) continue;
+      const r = layout.cellRect(m.index);
+      const o = n * 4;
+      rects[o] = r.x;
+      rects[o + 1] = r.y;
+      rects[o + 2] = r.w;
+      rects[o + 3] = r.h;
+      slots[n] = n;
+      this.markerSlotById.set(m.id, n);
+      n++;
+    }
+    this.markerRects.needsUpdate = true;
+    this.markerSlots.needsUpdate = true;
+    this.markerGeometry.instanceCount = n;
   }
 
   drawFrame(frame: MorphFrame): void {
@@ -350,6 +552,19 @@ export class LifeClockRenderer {
     const cx = this.frameRect.x + this.frameRect.w / 2;
     const cy = this.frameRect.y + this.frameRect.h / 2;
     const rubber = frame.rubberScale;
+
+    const ev = frame.events;
+    let rangeStart = -1;
+    let rangeEnd = -1;
+    let rangeAmount = 0;
+    if (ev && ev.hoveredId) {
+      const m = this.markerById.get(ev.hoveredId);
+      if (m && m.rangeStart >= 0 && m.rangeEnd >= m.rangeStart) {
+        rangeStart = m.rangeStart;
+        rangeEnd = m.rangeEnd;
+        rangeAmount = Math.max(0, Math.min(1, ev.hoverAmount));
+      }
+    }
 
     const applyLayer = (
       layer: CellLayer,
@@ -380,6 +595,10 @@ export class LifeClockRenderer {
       u.uCommitAge.value = frame.reducedMotion ? -1 : frame.commitAge;
       u.uLayerOpacity.value = data.opacity;
       u.uSlotOpacity.value = slotOpacity ?? data.opacity;
+      const isLife = layer.layout.view === VIEW_LIFE;
+      u.uRangeStart.value = isLife ? rangeStart : -1;
+      u.uRangeEnd.value = isLife ? rangeEnd : -1;
+      u.uRangeAmount.value = isLife ? rangeAmount : 0;
     };
 
     applyLayer(this.child, frame.child, null);
@@ -389,8 +608,59 @@ export class LifeClockRenderer {
       frame.parent ? frame.parent.slotInteriorOpacity : null,
     );
 
+    this.applyMarkers(frame, rubber, cx, cy);
     this.writeLines(frame, rubber, cx, cy);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // -- event markers ---------------------------------------------------------
+
+  private applyMarkers(
+    frame: MorphFrame,
+    rubber: number,
+    cx: number,
+    cy: number,
+  ): void {
+    const ev = frame.events;
+    const layer = this.lifeLayer();
+    const data =
+      layer === null
+        ? null
+        : layer === this.child
+          ? frame.child
+          : frame.parent;
+    if (
+      !ev ||
+      !layer ||
+      !data ||
+      this.markerGeometry.instanceCount === 0 ||
+      data.opacity <= 0.003
+    ) {
+      this.markerMesh.visible = false;
+      return;
+    }
+    this.markerMesh.visible = true;
+    const u = this.markerMaterial.uniforms;
+    const sx = data.transform.scaleX * rubber;
+    const sy = data.transform.scaleY * rubber;
+    u.uScale.value.set(sx, sy);
+    u.uOffset.value.set(
+      cx * (1 - rubber) + rubber * data.transform.offsetX,
+      cy * (1 - rubber) + rubber * data.transform.offsetY,
+    );
+    const slot = ev.hoveredId
+      ? (this.markerSlotById.get(ev.hoveredId) ?? -1)
+      : -1;
+    u.uHoverSlot.value = slot;
+    u.uHoverAmount.value = Math.max(0, Math.min(1, ev.hoverAmount));
+    u.uOpacity.value = data.opacity;
+    if (frame.reducedMotion) {
+      u.uBreath.value = 1;
+    } else {
+      const t = (performance.now() - this.startedMs) / 1000;
+      u.uBreath.value =
+        1 + 0.05 * (0.5 + 0.5 * Math.sin((t * 2 * Math.PI) / MARKER_BREATH_S));
+    }
   }
 
   // -- line layer ------------------------------------------------------------
@@ -570,6 +840,8 @@ export class LifeClockRenderer {
     this.parent.material.dispose();
     this.lineGeometry.dispose();
     this.lineMaterial.dispose();
+    this.markerGeometry.dispose();
+    this.markerMaterial.dispose();
     this.quad.dispose();
     this.renderer.dispose();
   }
