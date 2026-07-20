@@ -142,10 +142,17 @@ export interface MorphFrame {
   reducedMotion: boolean;
 }
 
+/** Axis gutters (px) reserved beside the grid for DOM graduation labels. */
+export const AXIS_LEFT_GUTTER = 32;
+export const AXIS_TOP_GUTTER = 18;
+
 /** Design tokens — single source of truth for both canvas and DOM. */
 export const TOKENS = {
   bg: "#060707",
   cellEmpty: "#151717",
+  // LIFE cells are large and the unlived remainder dominates the screen;
+  // the tighter empty value would read as bare background there.
+  cellEmptyOpen: "#262727",
   cellFilled: "#C9CFCC",
   hairline: "rgba(255, 255, 255, 0.09)",
   hairlineStrong: "rgba(255, 255, 255, 0.22)",

@@ -27,7 +27,9 @@ import {
 } from "@/lib/life-clock";
 
 export const CELL_ASPECT_MIN = 0.65;
-export const CELL_ASPECT_MAX = 1.7;
+// 2.0 lets the WEEK grid (wide day-bands over tall rows) fill a 16:9 stage
+// instead of letterboxing; beyond this cells stop reading as squares.
+export const CELL_ASPECT_MAX = 2;
 
 export interface BuildLayoutOptions {
   view: ViewIndex;

@@ -36,6 +36,8 @@ import {
 } from "./layout";
 import { LifeClockRenderer } from "./renderer";
 import {
+  AXIS_LEFT_GUTTER,
+  AXIS_TOP_GUTTER,
   IDENTITY_TRANSFORM,
   TOKENS,
   VIEW_DAY,
@@ -65,13 +67,15 @@ interface StageMetrics {
   gridArea: Rect;
 }
 
+// Reserves clear the HUD corner blocks (two lines at the inset) and the
+// ladder rail by a few px — the grid takes everything else.
 function computeMetrics(w: number, h: number): StageMetrics {
   const mobile = w < 768;
   const axisVisible = w >= 640;
-  const top = (mobile ? 56 : 64) + (axisVisible ? 24 : 0);
-  const bottom = mobile ? 88 : 64;
-  const left = (mobile ? 16 : 32) + (axisVisible ? 40 : 0);
-  const right = mobile ? 16 : 88;
+  const top = (mobile ? 46 : 54) + (axisVisible ? AXIS_TOP_GUTTER : 0);
+  const bottom = mobile ? 84 : 58;
+  const left = (mobile ? 14 : 18) + (axisVisible ? AXIS_LEFT_GUTTER : 0);
+  const right = mobile ? 14 : 78;
   return {
     mobile,
     axisVisible,

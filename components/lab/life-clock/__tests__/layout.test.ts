@@ -177,7 +177,7 @@ describe("aspect-fit clamp", () => {
     expect(aspect).toBeLessThanOrEqual(CELL_ASPECT_MAX);
   });
 
-  it("over-wide areas clamp cell aspect to 1.7 and letterbox horizontally", () => {
+  it("over-wide areas clamp cell aspect to the max and letterbox horizontally", () => {
     const area: Rect = { x: 0, y: 0, w: 4000, h: 500 };
     const day = build(VIEW_DAY, area);
     expect(day.cellW / day.cellH).toBeCloseTo(CELL_ASPECT_MAX, 9);
@@ -188,7 +188,7 @@ describe("aspect-fit clamp", () => {
     ).toBeLessThan(1e-6);
   });
 
-  it("over-tall areas clamp cell aspect to 0.65 and letterbox vertically", () => {
+  it("over-tall areas clamp cell aspect to the min and letterbox vertically", () => {
     const area: Rect = { x: 0, y: 0, w: 500, h: 2000 };
     const day = build(VIEW_DAY, area);
     expect(day.cellW / day.cellH).toBeCloseTo(CELL_ASPECT_MIN, 9);

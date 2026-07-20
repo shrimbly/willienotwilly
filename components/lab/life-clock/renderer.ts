@@ -12,11 +12,26 @@ const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
 const COMMIT_FLASH_S = 0.3;
 
+/**
+ * Raw sRGB components. These shaders write gl_FragColor directly with no
+ * output-encoding chunk, so colors must bypass three's conversion into the
+ * linear working space — otherwise every token renders far darker than spec.
+ */
+function rawColor(hex: string): THREE.Color {
+  return new THREE.Color().setHex(
+    Number.parseInt(hex.slice(1), 16),
+    THREE.NoColorSpace,
+  );
+}
+
+// setClearColor round-trips through the renderer's output color space, so the
+// background is the one color that stays a normally-managed THREE.Color.
 const COLOR_BG = new THREE.Color(TOKENS.bg);
-const COLOR_EMPTY = new THREE.Color(TOKENS.cellEmpty);
-const COLOR_FILLED = new THREE.Color(TOKENS.cellFilled);
-const COLOR_LIVE = new THREE.Color(TOKENS.live);
-const COLOR_TEXT = new THREE.Color(TOKENS.text);
+const COLOR_EMPTY = rawColor(TOKENS.cellEmpty);
+const COLOR_EMPTY_OPEN = rawColor(TOKENS.cellEmptyOpen);
+const COLOR_FILLED = rawColor(TOKENS.cellFilled);
+const COLOR_LIVE = rawColor(TOKENS.live);
+const COLOR_TEXT = rawColor(TOKENS.text);
 
 const HAIRLINE_A = 0.09;
 const HAIRLINE_STRONG_A = 0.22;
@@ -314,14 +329,16 @@ export class LifeClockRenderer {
     layer.inSlot.needsUpdate = true;
     layer.geometry.instanceCount = n;
 
-    // Gap: pitch/8, whole device pixels, min 1 device px; 0 when cells are
+    // Gap: pitch/10, whole device pixels, min 1 device px; 0 when cells are
     // too small for a gap to read (boundaries carried by grain instead).
     const pitch = Math.min(layout.cellW, layout.cellH);
     let gap = 0;
     if (pitch * dpr >= 3) {
-      gap = Math.max(1 / dpr, Math.round((pitch / 8) * dpr) / dpr);
+      gap = Math.max(1 / dpr, Math.round((pitch / 10) * dpr) / dpr);
     }
     layer.material.uniforms.uGap.value = gap;
+    layer.material.uniforms.uEmpty.value =
+      layout.view === VIEW_LIFE ? COLOR_EMPTY_OPEN : COLOR_EMPTY;
   }
 
   getLayerLayout(slot: "child" | "parent"): ViewLayout | null {

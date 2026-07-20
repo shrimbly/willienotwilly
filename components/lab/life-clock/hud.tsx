@@ -16,6 +16,8 @@ import {
 
 import { formatExpectancy } from "@/lib/life-clock";
 import {
+  AXIS_LEFT_GUTTER,
+  AXIS_TOP_GUTTER,
   TOKENS,
   VIEW_LABELS,
   VIEW_NAMES,
@@ -30,8 +32,6 @@ const IDLE_DIM_MS = 45_000;
 const LEGEND_HIDE_MS = 8_000;
 const LADDER_ROW_H = 18;
 const LADDER_STOP_W = 56;
-const AXIS_LEFT_GUTTER = 40;
-const AXIS_TOP_GUTTER = 24;
 
 // Fixed value-span widths (ch) per view so telemetry never reflows (R4 formats).
 const ELAPSED_CH = [7, 8, 9, 11] as const;
@@ -403,7 +403,7 @@ export function LifeClockHud({
       role="radiogroup"
       aria-label="Zoom level"
       onKeyDown={onLadderKeyDown}
-      className="pointer-events-auto absolute bottom-[max(20px,env(safe-area-inset-bottom))] right-[max(20px,env(safe-area-inset-right))]"
+      className="pointer-events-auto absolute bottom-[max(14px,env(safe-area-inset-bottom))] right-[max(14px,env(safe-area-inset-right))]"
       style={{ width: 64, height: 4 * LADDER_ROW_H }}
     >
       <span
@@ -625,7 +625,7 @@ export function LifeClockHud({
         </div>
       ) : null}
 
-      <div className="absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] sm:left-[max(20px,env(safe-area-inset-left))] sm:top-[max(20px,env(safe-area-inset-top))]">
+      <div className="absolute left-[max(10px,env(safe-area-inset-left))] top-[max(10px,env(safe-area-inset-top))] sm:left-[max(14px,env(safe-area-inset-left))] sm:top-[max(14px,env(safe-area-inset-top))]">
         <div
           style={{
             fontSize: "13px",
@@ -644,7 +644,7 @@ export function LifeClockHud({
         </div>
       </div>
 
-      <div className="absolute right-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] text-right sm:right-[max(20px,env(safe-area-inset-right))] sm:top-[max(20px,env(safe-area-inset-top))]">
+      <div className="absolute right-[max(10px,env(safe-area-inset-right))] top-[max(10px,env(safe-area-inset-top))] text-right sm:right-[max(14px,env(safe-area-inset-right))] sm:top-[max(14px,env(safe-area-inset-top))]">
         <div style={CLOCK_STYLE}>
           <span
             ref={dotRef}
@@ -675,7 +675,7 @@ export function LifeClockHud({
         </div>
       </div>
 
-      <div className="absolute bottom-[48px] left-[max(12px,env(safe-area-inset-left))] flex gap-8 sm:bottom-[max(20px,env(safe-area-inset-bottom))] sm:left-[max(20px,env(safe-area-inset-left))]">
+      <div className="absolute bottom-[48px] left-[max(10px,env(safe-area-inset-left))] flex gap-8 sm:bottom-[max(14px,env(safe-area-inset-bottom))] sm:left-[max(14px,env(safe-area-inset-left))]">
         <div>
           <div style={LABEL_STYLE}>ELAPSED</div>
           <div ref={elapsedRef} style={{ ...VALUE_STYLE, minWidth: "7ch" }} />
@@ -690,7 +690,7 @@ export function LifeClockHud({
         </div>
       </div>
 
-      <div className="absolute bottom-[max(20px,env(safe-area-inset-bottom))] left-1/2 hidden -translate-x-1/2 flex-col items-center sm:flex">
+      <div className="absolute bottom-[max(14px,env(safe-area-inset-bottom))] left-1/2 hidden -translate-x-1/2 flex-col items-center sm:flex">
         <div
           style={{
             ...LABEL_STYLE,
@@ -708,7 +708,7 @@ export function LifeClockHud({
         </div>
         <div className="mt-3">{chip}</div>
       </div>
-      <div className="absolute bottom-[44px] right-[max(12px,env(safe-area-inset-right))] sm:hidden">
+      <div className="absolute bottom-[44px] right-[max(10px,env(safe-area-inset-right))] sm:hidden">
         {chip}
       </div>
 
