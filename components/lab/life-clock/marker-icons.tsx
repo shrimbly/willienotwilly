@@ -14,8 +14,11 @@ const SIZE_FRAC = 0.6;
 const INK_LIVED = TOKENS.bg;
 const INK_FUTURE = TOKENS.text;
 
-const R = 9; // circle radius in the 24-unit viewBox
+const R = 9; // filled-shape radius (record ●) in the 24-unit viewBox
 const SW = 3; // stroke width for hollow shapes
+// A centred stroke straddles its path, so to make a hollow shape's OUTER edge
+// land at R (matching the filled dot) the path radius must sit half a stroke in.
+const STROKE_R = R - SW / 2;
 const D = 9.5; // diamond half-diagonal
 
 // The four symbols as centred SVG shapes (currentColor = the adaptive ink):
@@ -23,11 +26,11 @@ const D = 9.5; // diamond half-diagonal
 const SHAPES: Record<string, ReactNode> = {
   [EVENT_SYMBOL.record]: <circle cx="12" cy="12" r={R} fill="currentColor" />,
   [EVENT_SYMBOL.estimate]: (
-    <circle cx="12" cy="12" r={R} fill="none" stroke="currentColor" strokeWidth={SW} />
+    <circle cx="12" cy="12" r={STROKE_R} fill="none" stroke="currentColor" strokeWidth={SW} />
   ),
   [EVENT_SYMBOL.probability]: (
     <>
-      <circle cx="12" cy="12" r={R} fill="none" stroke="currentColor" strokeWidth={SW} />
+      <circle cx="12" cy="12" r={STROKE_R} fill="none" stroke="currentColor" strokeWidth={SW} />
       <path d={`M12 ${12 - R} A${R} ${R} 0 0 0 12 ${12 + R} Z`} fill="currentColor" />
     </>
   ),
