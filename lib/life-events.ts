@@ -235,7 +235,7 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       id: `child-leaves${suffix}`,
       label: `${capFirst(who)} leaves home`,
       date: leaves,
-      detail: `${capFirst(who)} likely moves out around now — ${spent}% of our time under one roof is already behind us.`,
+      detail: `${capFirst(who)} likely moves out around now — ${spent}% of the years spent living at home are already behind us.`,
       basis: "BIRTH + 22Y — NZ/AU MEDIAN AGE LEAVING HOME",
       certainty: "estimate",
       rangeStart: born,

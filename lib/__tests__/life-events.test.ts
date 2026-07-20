@@ -151,7 +151,9 @@ describe("buildEvents — author's default profile", () => {
     expect(byId(events, "met").detail).toBe(
       "The day I met my wife. Everything since is on this side of it.",
     );
-    expect(byId(events, "child-leaves").detail).toMatch(/\d+% of our time/);
+    expect(byId(events, "child-leaves").detail).toMatch(
+      /\d+% of the years spent living at home/,
+    );
     for (const e of events) expect(e.detail).not.toMatch(/\byou\b|\byour\b/i);
   });
 
