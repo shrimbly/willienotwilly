@@ -52,7 +52,6 @@ import {
   VIEW_LIFE,
   VIEW_NAMES,
   VIEW_YEAR,
-  TONE_COLOR,
   eventTone,
   pulseAlpha,
   type AxisSpec,
@@ -295,16 +294,19 @@ export function LifeClockLab() {
         }))
         .filter((marker) => marker.index >= 0);
       renderer.setEventMarkers(markers);
-      // Icons sit at cell centres; valid to read as screen px only at rest in
-      // LIFE, which is exactly when the overlay is shown.
-      setIconSize(Math.max(12, Math.round(life.cellW * 1.35)));
+      // Icons sit at cell centres, sized to the (square) cell; valid to read as
+      // screen px only at rest in LIFE, which is exactly when they show. `lived`
+      // (event before now) picks the ink so the mark contrasts with its cell.
+      const nowMs = Date.now();
+      setIconSize(life.cellW);
       setMarkerIcons(
         markers.map((m) => {
           const c = life.cellRect(m.index);
+          const ev = eventById.get(m.id);
           return {
             id: m.id,
-            icon: eventById.get(m.id)?.icon ?? "milestone",
-            tone: m.tone,
+            icon: ev?.icon ?? "milestone",
+            lived: ev ? ev.date.getTime() <= nowMs : false,
             x: c.x + c.w / 2,
             y: c.y + c.h / 2,
           };
@@ -598,7 +600,9 @@ export function LifeClockLab() {
       const e = hit.event;
       return {
         key: `event:${e.id}`,
-        swatch: TONE_COLOR[eventTone(e)],
+        // Monochrome to match the icons — the kind label and shape carry the
+        // meaning, not a colour.
+        swatch: TOKENS.text,
         hollow: e.crossroad === true,
         kind: e.crossroad ? "CROSSROAD" : CERTAINTY_LABEL[e.certainty],
         dateLine: `${formatEventDate(e.date)} · ${formatRelative(e.date, new Date())}`,

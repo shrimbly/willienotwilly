@@ -239,21 +239,15 @@ export const TOKENS = {
   textDim: "#7A827F",
   textFaint: "#464B4A",
   live: "#63E2B7",
-  // Event accents, annotation only, on the LIFE grid. A complementary pair
-  // split by hue at matched saturation/lightness: `event` is the warm amber of
-  // things that HAPPENED (records); `eventPredict` its cool azure complement,
-  // for things the model PREDICTS. Both stay clear of the mint live position.
-  event: "#F2913D",
-  eventPredict: "#3D92F2",
-  // Crossroads — the rare moments a life could have forked. A third accent
-  // (violet), distinct from both event tones and the mint, rendered hollow.
-  crossroad: "#B47CFF",
+  // Event markers are monochrome: dark on lived (bright) cells, light on
+  // unlived (dark) ones — the `bg`/`text` tokens above, chosen per cell.
   easeOut: "cubic-bezier(0.16, 1, 0.3, 1)",
 } as const;
 
 /**
- * Which accent an event wears. Records are warm (they happened), predictions
- * cool (they might), crossroads violet (they could have changed everything).
+ * How an event is classified: a record (it happened), a prediction (it might),
+ * or a crossroad (it could have changed everything). Markers are monochrome —
+ * shape and the card's kind label carry this, not colour.
  */
 export type EventTone = "record" | "predict" | "crossroad";
 
@@ -264,12 +258,6 @@ export function eventTone(e: {
   if (e.crossroad) return "crossroad";
   return e.certainty === "record" ? "record" : "predict";
 }
-
-export const TONE_COLOR: Record<EventTone, string> = {
-  record: TOKENS.event,
-  predict: TOKENS.eventPredict,
-  crossroad: TOKENS.crossroad,
-};
 
 /** Pulse waveform: u = fractional part of the wall-clock second. */
 export function pulseAlpha(u: number): number {

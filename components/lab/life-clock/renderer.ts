@@ -8,13 +8,12 @@ import * as THREE from "three";
 
 import type {
   EventMarker,
-  EventTone,
   LayerTransform,
   MorphFrame,
   Rect,
   ViewLayout,
 } from "./types";
-import { TOKENS, TONE_COLOR, VIEW_LIFE } from "./types";
+import { TOKENS, VIEW_LIFE } from "./types";
 
 const CELL_CAPACITY = 18_432;
 const LINE_CAPACITY = 64; // segments
@@ -40,15 +39,7 @@ const COLOR_EMPTY_OPEN = rawColor(TOKENS.cellEmptyOpen);
 const COLOR_FILLED = rawColor(TOKENS.cellFilled);
 const COLOR_LIVE = rawColor(TOKENS.live);
 const COLOR_TEXT = rawColor(TOKENS.text);
-const COLOR_EVENT = rawColor(TOKENS.event);
-
-// Per-tone accent colours, resolved once (records warm, predictions cool,
-// crossroads violet). Keyed by EventTone for O(1) marker + hover-range lookup.
-const TONE_RGB: Record<EventTone, THREE.Color> = {
-  record: rawColor(TONE_COLOR.record),
-  predict: rawColor(TONE_COLOR.predict),
-  crossroad: rawColor(TONE_COLOR.crossroad),
-};
+const COLOR_INK_DARK = rawColor(TOKENS.bg);
 
 const HAIRLINE_A = 0.09;
 const HAIRLINE_STRONG_A = 0.22;
@@ -132,12 +123,13 @@ const CELL_FRAG = /* glsl */ `
     // both take the hue while staying distinguishable. Under the hover range.
     float pa = vPlace.a * clamp(uPlaceAmount, 0.0, 1.0);
     color = mix(color, vPlace.rgb, 0.30 * pa) + vPlace.rgb * 0.06 * pa;
-    // Range highlight: accent lift, tint plus a small additive term so the dark
-    // unlived cells rise as much as the bright lived ones.
+    // Range highlight: a monochrome lift toward the text colour, with an
+    // additive term strong enough to read on the already-bright lived cells
+    // as well as the dark unlived ones.
     float inRange =
       step(uRangeStart - 0.5, vCellIndex) * step(vCellIndex, uRangeEnd + 0.5);
     float lift = inRange * uRangeAmount;
-    color = mix(color, uEvent, 0.22 * lift) + uEvent * 0.07 * lift;
+    color = mix(color, uEvent, 0.28 * lift) + uEvent * 0.12 * lift;
     float alpha = mix(uLayerOpacity, uSlotOpacity, vInSlot);
     if (alpha < 0.003) discard;
     gl_FragColor = vec4(color, alpha);
@@ -165,6 +157,42 @@ const LINE_FRAG = /* glsl */ `
   void main() {
     if (vColor.a < 0.003) discard;
     gl_FragColor = vColor;
+  }
+`;
+
+// Hover cell — a single quad that pops the hovered marker's cell above the
+// grid: fill in the cell's own tone, with a contrast border so the grown cell
+// reads on both bright (lived) and dark (unlived) neighbours.
+const HOVERCELL_VERT = /* glsl */ `
+  uniform vec2 uViewport;
+  uniform vec2 uMin;
+  uniform vec2 uSize;
+  varying vec2 vUv;
+  void main() {
+    vUv = position.xy;
+    vec2 screen = uMin + position.xy * uSize;
+    gl_Position = vec4(
+      screen.x / uViewport.x * 2.0 - 1.0,
+      1.0 - screen.y / uViewport.y * 2.0,
+      0.0,
+      1.0
+    );
+  }
+`;
+
+const HOVERCELL_FRAG = /* glsl */ `
+  precision highp float;
+  uniform vec3 uColor;
+  uniform vec3 uBorder;
+  uniform float uAlpha;
+  uniform vec2 uBorderUv;
+  varying vec2 vUv;
+  void main() {
+    float ex = min(vUv.x, 1.0 - vUv.x);
+    float ey = min(vUv.y, 1.0 - vUv.y);
+    float inside = step(uBorderUv.x, ex) * step(uBorderUv.y, ey);
+    vec3 c = mix(uBorder, uColor, inside);
+    gl_FragColor = vec4(c, uAlpha);
   }
 `;
 
@@ -204,6 +232,8 @@ export class LifeClockRenderer {
   private linePositions: THREE.BufferAttribute;
   private lineColors: THREE.BufferAttribute;
   private lineMaterial: THREE.ShaderMaterial;
+  private hoverCellMesh: THREE.Mesh;
+  private hoverCellMaterial: THREE.ShaderMaterial;
   // Markers render as DOM icons; the renderer keeps only their resolved cell
   // ranges, so a hover can lift the matching span on the LIFE grid.
   private markerById = new Map<string, EventMarker>();
@@ -229,6 +259,29 @@ export class LifeClockRenderer {
 
     this.parent = this.makeCellLayer(0);
     this.child = this.makeCellLayer(1);
+
+    // Hover cell pops above the grid (below the crosshair lines).
+    this.hoverCellMaterial = new THREE.ShaderMaterial({
+      vertexShader: HOVERCELL_VERT,
+      fragmentShader: HOVERCELL_FRAG,
+      uniforms: {
+        uViewport: { value: new THREE.Vector2(1, 1) },
+        uMin: { value: new THREE.Vector2(0, 0) },
+        uSize: { value: new THREE.Vector2(0, 0) },
+        uColor: { value: COLOR_FILLED.clone() },
+        uBorder: { value: COLOR_TEXT.clone() },
+        uAlpha: { value: 0 },
+        uBorderUv: { value: new THREE.Vector2(0.06, 0.06) },
+      },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.hoverCellMesh = new THREE.Mesh(this.quad, this.hoverCellMaterial);
+    this.hoverCellMesh.frustumCulled = false;
+    this.hoverCellMesh.renderOrder = 1.5;
+    this.hoverCellMesh.visible = false;
+    this.scene.add(this.hoverCellMesh);
 
     this.lineGeometry = new THREE.BufferGeometry();
     this.linePositions = new THREE.BufferAttribute(
@@ -304,7 +357,7 @@ export class LifeClockRenderer {
         uCommitAge: { value: -1 },
         uLayerOpacity: { value: 1 },
         uSlotOpacity: { value: 1 },
-        uEvent: { value: COLOR_EVENT.clone() },
+        uEvent: { value: COLOR_TEXT.clone() },
         uRangeStart: { value: -1 },
         uRangeEnd: { value: -1 },
         uRangeAmount: { value: 0 },
@@ -341,6 +394,7 @@ export class LifeClockRenderer {
     this.child.material.uniforms.uViewport.value = vp;
     this.parent.material.uniforms.uViewport.value = vp;
     this.lineMaterial.uniforms.uViewport.value = vp;
+    this.hoverCellMaterial.uniforms.uViewport.value = vp;
   }
 
   setFrameRect(rect: Rect): void {
@@ -457,12 +511,8 @@ export class LifeClockRenderer {
     let rangeStart = -1;
     let rangeEnd = -1;
     let rangeAmount = 0;
-    // The hover range takes the hovered marker's own accent, so highlighting a
-    // prediction glows azure, a record amber, a crossroad violet.
-    let hoverColor = COLOR_EVENT;
     if (ev && ev.hoveredId) {
       const m = this.markerById.get(ev.hoveredId);
-      if (m) hoverColor = TONE_RGB[m.tone];
       if (m && m.rangeStart >= 0 && m.rangeEnd >= m.rangeStart) {
         rangeStart = m.rangeStart;
         rangeEnd = m.rangeEnd;
@@ -504,7 +554,6 @@ export class LifeClockRenderer {
       u.uRangeStart.value = isLife ? rangeStart : -1;
       u.uRangeEnd.value = isLife ? rangeEnd : -1;
       u.uRangeAmount.value = isLife ? rangeAmount : 0;
-      (u.uEvent.value as THREE.Color).copy(hoverColor);
       // Non-LIFE cells carry aPlaceTint.a = 0, so this is a no-op off the LIFE
       // grid — safe to set unconditionally.
       u.uPlaceAmount.value = placesAmount;
@@ -517,8 +566,70 @@ export class LifeClockRenderer {
       frame.parent ? frame.parent.slotInteriorOpacity : null,
     );
 
+    this.applyHoverCell(frame, rubber, cx, cy);
     this.writeLines(frame, rubber, cx, cy);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Pop the hovered marker's cell: a quad grown about the cell centre, filled
+  // in the cell's own tone with a contrast border so it reads on bright and
+  // dark neighbours alike. Only on the LIFE grid, only while hovering.
+  private applyHoverCell(
+    frame: MorphFrame,
+    rubber: number,
+    cx: number,
+    cy: number,
+  ): void {
+    const ev = frame.events;
+    let data: { transform: LayerTransform; opacity: number; live: { index: number } } | null =
+      null;
+    let layout: ViewLayout | null = null;
+    if (this.child.layout?.view === VIEW_LIFE) {
+      data = frame.child;
+      layout = this.child.layout;
+    } else if (this.parent.layout?.view === VIEW_LIFE) {
+      data = frame.parent;
+      layout = this.parent.layout;
+    }
+    const m = ev?.hoveredId ? this.markerById.get(ev.hoveredId) : undefined;
+    if (
+      !ev ||
+      !data ||
+      !layout ||
+      !m ||
+      m.index < 0 ||
+      m.index >= layout.cellCount ||
+      data.opacity <= 0.5
+    ) {
+      this.hoverCellMesh.visible = false;
+      return;
+    }
+    const amt = Math.max(0, Math.min(1, ev.hoverAmount));
+    if (amt < 0.01) {
+      this.hoverCellMesh.visible = false;
+      return;
+    }
+    const r = layout.cellRect(m.index);
+    const grow = 1 + 0.7 * amt;
+    const gw = r.w * grow;
+    const gh = r.h * grow;
+    const grown: Rect = {
+      x: r.x + r.w / 2 - gw / 2,
+      y: r.y + r.h / 2 - gh / 2,
+      w: gw,
+      h: gh,
+    };
+    const s = this.transformedRect(data.transform, grown, rubber, cx, cy);
+    const lived = m.index < data.live.index;
+    const u = this.hoverCellMaterial.uniforms;
+    u.uMin.value.set(s.x, s.y);
+    u.uSize.value.set(s.w, s.h);
+    (u.uColor.value as THREE.Color).copy(lived ? COLOR_FILLED : COLOR_EMPTY_OPEN);
+    (u.uBorder.value as THREE.Color).copy(lived ? COLOR_INK_DARK : COLOR_TEXT);
+    u.uAlpha.value = amt * data.opacity;
+    const bpx = Math.max(1, Math.min(s.w, s.h) * 0.07);
+    u.uBorderUv.value.set(bpx / Math.max(1, s.w), bpx / Math.max(1, s.h));
+    this.hoverCellMesh.visible = true;
   }
 
   // -- line layer ------------------------------------------------------------
@@ -698,6 +809,7 @@ export class LifeClockRenderer {
     this.parent.material.dispose();
     this.lineGeometry.dispose();
     this.lineMaterial.dispose();
+    this.hoverCellMaterial.dispose();
     this.quad.dispose();
     this.renderer.dispose();
   }

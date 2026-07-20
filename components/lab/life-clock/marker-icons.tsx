@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { TOKENS, TONE_COLOR, type EventTone } from "./types";
+import { TOKENS } from "./types";
 
 /** Lucide component per event icon key (see lib/life-events.ts). */
 const ICONS: Record<string, LucideIcon> = {
@@ -36,12 +36,22 @@ const ICONS: Record<string, LucideIcon> = {
   hourglass: Hourglass,
 };
 
+/** Below this cell size there isn't room for a legible icon — show a dot. */
+const MIN_CELL_PX = 11.5;
+/** Icon glyph as a fraction of the cell — a little padding inside the square. */
+const ICON_FILL = 0.72;
+// Grows with the cell beneath it (the renderer pops that cell in tandem).
 const HOVER_SCALE = 1.7;
+// Monochrome, theme only. A marker on an elapsed (bright) cell is dark; on an
+// unlived (dark) cell it is light — so it reads either way without a backdrop.
+const INK_LIVED = TOKENS.bg;
+const INK_FUTURE = TOKENS.text;
 
 export interface MarkerIcon {
   id: string;
   icon: string;
-  tone: EventTone;
+  /** true when the event's cell is already lived (a bright cell). */
+  lived: boolean;
   /** Cell centre in layout px, relative to the clock container. */
   x: number;
   y: number;
@@ -49,7 +59,7 @@ export interface MarkerIcon {
 
 export interface MarkerIconsProps {
   icons: MarkerIcon[];
-  /** Icon box size in px (roughly one grid cell). */
+  /** The (square) cell size in px — the box each marker must fit inside. */
   size: number;
   /** Shown only once settled in LIFE; fades with the grid on a morph. */
   visible: boolean;
@@ -59,10 +69,10 @@ export interface MarkerIconsProps {
 
 /**
  * The life-event markers, as Lucide icons pinned to their week cells on the
- * LIFE grid. A DOM overlay (crisp SVG at any DPR) rather than canvas dots;
- * pointer-events stay off so the canvas underneath still hit-tests hovers.
- * Each icon carries a dark backdrop disc so it reads on the bright lived cells
- * as well as the dark future ones — a flat plate, not a glow.
+ * LIFE grid. Each glyph fits inside its cell; where the cell is too small to
+ * read one, a dot stands in. Monochrome (theme dark/light, chosen so the mark
+ * contrasts with its cell) — a DOM overlay with pointer-events off, so the
+ * canvas underneath still hit-tests hovers.
  */
 export function MarkerIcons({
   icons,
@@ -71,6 +81,12 @@ export function MarkerIcons({
   hoveredId,
   reducedMotion,
 }: MarkerIconsProps) {
+  // Icon (smaller than the cell) where there's room; a dot below that.
+  const showIcon = size >= MIN_CELL_PX;
+  const glyph = Math.max(8, Math.round(size * ICON_FILL));
+  const dot = Math.max(3, Math.round(size * 0.4));
+  const box = showIcon ? glyph : dot;
+
   return (
     <div
       aria-hidden
@@ -85,8 +101,7 @@ export function MarkerIcons({
       {icons.map((m) => {
         const Icon = ICONS[m.icon] ?? Milestone;
         const hot = m.id === hoveredId;
-        const pad = Math.max(2, Math.round(size * 0.16));
-        const disc = size + pad;
+        const ink = m.lived ? INK_LIVED : INK_FUTURE;
         return (
           <span
             key={m.id}
@@ -94,15 +109,14 @@ export function MarkerIcons({
               position: "absolute",
               left: m.x,
               top: m.y,
-              width: disc,
-              height: disc,
-              marginLeft: -disc / 2,
-              marginTop: -disc / 2,
+              width: box,
+              height: box,
+              marginLeft: -box / 2,
+              marginTop: -box / 2,
               display: "grid",
               placeItems: "center",
-              borderRadius: "9999px",
-              backgroundColor: TOKENS.bg,
-              color: TONE_COLOR[m.tone],
+              color: ink,
+              // Grows in step with the cell the renderer pops beneath it.
               transform: hot ? `scale(${HOVER_SCALE})` : "scale(1)",
               transformOrigin: "center",
               transition: reducedMotion
@@ -111,7 +125,18 @@ export function MarkerIcons({
               zIndex: hot ? 1 : 0,
             }}
           >
-            <Icon size={size} strokeWidth={2.25} />
+            {showIcon ? (
+              <Icon size={glyph} strokeWidth={2.25} />
+            ) : (
+              <span
+                style={{
+                  width: dot,
+                  height: dot,
+                  borderRadius: "9999px",
+                  backgroundColor: ink,
+                }}
+              />
+            )}
           </span>
         );
       })}
