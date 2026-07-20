@@ -35,27 +35,28 @@ const REGION_VALUES: readonly Region[] = [
 ];
 
 /**
- * The author's life — what the clock shows before anyone calibrates.
- * `dob` is an inferred placeholder: Jan 1 signals "unset", the real value
- * is unknown. Everything else is ground truth as of 2026-07-20.
+ * The author's life — hardcoded, shown before anyone maps their own.
+ * `author: true` distinguishes it from a user's custom profile; it is never
+ * written to storage. Ground truth as of 2026-07-20.
  */
 export const DEFAULT_PROFILE: LifeProfile = {
   v: 2,
-  dob: "1989-01-01",
+  dob: "1991-02-17",
   sex: "male",
   smoking: "never",
   exercise: "weekly",
   region: "western-europe-oceania",
   people: {
-    partnerLabel: "MY WIFE",
+    partnerLabel: "my wife",
     partnerMet: "2010-04-08",
     partnerMarried: "2021-02-13",
-    children: [{ label: "MY SON", dob: "2023-10-30", sex: "male" }],
+    children: [{ label: "my son", dob: "2023-10-30", sex: "male" }],
     parents: [
-      { label: "DAD", dob: "1958-01-01", sex: "male" },
-      { label: "MUM", dob: "1959-01-01", sex: "female" },
+      { label: "Dad", dob: "1958-01-01", sex: "male" },
+      { label: "Mum", dob: "1959-01-01", sex: "female" },
     ],
   },
+  author: true,
   demo: false,
   savedAt: "2026-07-20T00:00:00.000Z",
 };
@@ -110,6 +111,9 @@ export function saveProfile(
     v: 2,
     savedAt: new Date().toISOString(),
   };
+  // The author flag marks the hardcoded default only; a saved profile is by
+  // definition the user's own, never the author's.
+  delete profile.author;
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));

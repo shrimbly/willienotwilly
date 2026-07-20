@@ -21,6 +21,7 @@ import {
 } from "@/lib/life-clock";
 import {
   DEFAULT_PROFILE,
+  clearProfile,
   hasSeenIntro,
   hasSeenZoomHint,
   loadProfile,
@@ -162,7 +163,6 @@ export function LifeClockLab() {
   const [booted, setBooted] = useState(false);
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [calOpen, setCalOpen] = useState(false);
-  const [calEdit, setCalEdit] = useState(false);
   const [hint, setHint] = useState<"scroll" | "pinch" | null>(null);
   // Hovered life-event readout. Changes on pointer move, not per frame.
   const [hovered, setHovered] = useState<{
@@ -208,12 +208,9 @@ export function LifeClockLab() {
 
   useEffect(() => {
     openCalibrationRef.current = () => {
-      if (!calOpenRef.current && profile) {
-        setCalEdit(true);
-        setCalOpen(true);
-      }
+      if (!calOpenRef.current) setCalOpen(true);
     };
-  }, [profile]);
+  }, []);
 
   useEffect(() => {
     // Client-only storage hydration: SSR renders the null-profile shell, then
@@ -760,7 +757,7 @@ export function LifeClockLab() {
     };
   }, [booted, profile]);
 
-  const hudHidden = calOpen && !calEdit;
+  const isAuthor = profile === null || profile.author === true;
 
   return (
     <div
@@ -778,9 +775,9 @@ export function LifeClockLab() {
         // alone leave invisible controls in the tab order.
         inert={calOpen}
         style={{
-          opacity: hudHidden ? 0 : 1,
+          opacity: calOpen ? 0 : 1,
           transition: "opacity 200ms linear",
-          pointerEvents: hudHidden ? "none" : undefined,
+          pointerEvents: calOpen ? "none" : undefined,
         }}
       >
         <LifeClockHud
@@ -788,7 +785,7 @@ export function LifeClockLab() {
           axis={axisState?.axis ?? null}
           gridRect={axisState?.gridRect ?? null}
           expectancyYears={expectancyYears}
-          demo={profile?.demo ?? false}
+          mode={isAuthor ? "author" : "custom"}
           hint={hint}
           onSelectView={(view) => {
             if (!calOpenRef.current) {
@@ -808,20 +805,21 @@ export function LifeClockLab() {
       />
       {booted && calOpen ? (
         <LifeClockCalibration
-          profile={profile}
-          editMode={calEdit}
+          // Author mode maps a fresh life; custom mode edits the stored one.
+          profile={isAuthor ? null : profile}
           onComplete={(next) => {
             setProfile(next);
             setCalOpen(false);
-            setCalEdit(false);
           }}
-          onCancel={
-            calEdit
-              ? () => {
+          onCancel={() => setCalOpen(false)}
+          onReset={
+            isAuthor
+              ? undefined
+              : () => {
+                  clearProfile();
+                  setProfile(DEFAULT_PROFILE);
                   setCalOpen(false);
-                  setCalEdit(false);
                 }
-              : undefined
           }
         />
       ) : null}

@@ -126,7 +126,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const events: ClockEvent[] = [];
   const people = profile.people;
   const expectancy = estimateExpectancy(profile, now);
-  const partner = people?.partnerLabel ?? "MY PARTNER";
+  // Person labels are stored in natural case ("my wife", "my son", "Dad") and
+  // read as first-person copy, so a name never shouts mid-sentence.
+  const partner = people?.partnerLabel ?? "my partner";
 
   const met = people?.partnerMet ? parseDob(people.partnerMet, now) : null;
   const married = people?.partnerMarried
@@ -136,9 +138,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   if (met) {
     events.push({
       id: "met",
-      label: "THE DAY WE MET",
+      label: "The day we met",
       date: met,
-      detail: `The day you met ${partner}. Everything since is on this side of it.`,
+      detail: `The day I met ${partner}. Everything since is on this side of it.`,
       basis: "RECORDED",
       certainty: "record",
       rangeStart: met,
@@ -146,12 +148,13 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     });
     events.push({
       id: "partner-majority",
-      label: `MORE LIFE WITH ${partner} THAN WITHOUT`,
+      label: `Longer with ${partner} than without`,
       date: mirror(dob, met),
-      detail: `From this week on you have spent more of your life knowing ${partner} than not knowing ${partner}.`,
+      detail: `From this week, more of my life has been spent with ${partner} than without.`,
       basis: "MET + (MET - BIRTH)",
       certainty: "estimate",
-      rangeStart: dob,
+      // The span the crossover refers to: time together, from meeting to now.
+      rangeStart: met,
       rangeEnd: mirror(dob, met),
     });
   }
@@ -159,9 +162,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   if (married) {
     events.push({
       id: "married",
-      label: "THE DAY WE MARRIED",
+      label: "The day we married",
       date: married,
-      detail: `The day you married ${partner}.`,
+      detail: `The day I married ${partner}.`,
       basis: "RECORDED",
       certainty: "record",
       rangeStart: married,
@@ -169,13 +172,14 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     });
     events.push({
       id: "married-longer",
-      label: "MARRIED LONGER THAN NOT",
+      label: "Married longer than single",
       date: mirror(dob, married),
       detail:
-        "From this week on you have been married for more of your life than you were unmarried.",
+        "From this week, I have been married for more of my life than I was single.",
       basis: "MARRIED + (MARRIED - BIRTH)",
       certainty: "estimate",
-      rangeStart: dob,
+      // Married time, from the wedding to the crossover.
+      rangeStart: married,
       rangeEnd: mirror(dob, married),
     });
   }
@@ -184,14 +188,14 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   children.forEach((child, i) => {
     const born = parseDob(child.dob, now);
     if (born === null) return;
-    const who = child.label || "MY CHILD";
+    const who = child.label || "my child";
     const suffix = children.length > 1 ? `-${i}` : "";
 
     events.push({
       id: `child-born${suffix}`,
-      label: `${who} ARRIVED`,
+      label: `${capFirst(who)} was born`,
       date: born,
-      detail: `The day ${who} was born.`,
+      detail: `The day ${who} came into the world.`,
       basis: "RECORDED",
       certainty: "record",
       rangeStart: born,
@@ -201,9 +205,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     const peers = addYears(born, CHILD_PEERS_YEARS);
     events.push({
       id: `child-peers${suffix}`,
-      label: `${who} PREFERS FRIENDS TO US`,
+      label: `${capFirst(who)} picks friends over me`,
       date: peers,
-      detail: `Around here ${who} turns to friends before parents, and the daily centre of their world stops being you.`,
+      detail: `Around here ${who} starts turning to friends first, and I stop being the daily centre of their world.`,
       basis: "BIRTH + 13Y — PEER ORIENTATION, EARLY ADOLESCENCE (12-14)",
       certainty: "estimate",
       rangeStart: born,
@@ -212,9 +216,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
 
     events.push({
       id: `child-18${suffix}`,
-      label: `${who} TURNS 18`,
+      label: `${capFirst(who)} turns 18`,
       date: addYears(born, 18),
-      detail: `${who} becomes an adult.`,
+      detail: `${capFirst(who)} becomes an adult.`,
       basis: "BIRTH + 18Y",
       certainty: "estimate",
       rangeStart: born,
@@ -229,9 +233,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
     );
     events.push({
       id: `child-leaves${suffix}`,
-      label: `${who} LEAVES HOME`,
+      label: `${capFirst(who)} leaves home`,
       date: leaves,
-      detail: `${who} is likely to move out around now. ${spent}% of your time living together is already spent.`,
+      detail: `${capFirst(who)} likely moves out around now — ${spent}% of our time under one roof is already behind us.`,
       basis: "BIRTH + 22Y — NZ/AU MEDIAN AGE LEAVING HOME",
       certainty: "estimate",
       rangeStart: born,
@@ -253,12 +257,12 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       events.push({
         id: "parents-one-50",
         label:
-          parents.length > 1 ? "ONE PARENT LIKELY GONE" : "PARENT LIKELY GONE",
+          parents.length > 1 ? "One parent likely gone" : "A parent likely gone",
         date: oneHalf,
         detail:
           parents.length > 1
-            ? "By this week it is more likely than not that you have lost at least one of your parents."
-            : "By this week it is more likely than not that you have lost your parent.",
+            ? "By this week, it is more likely than not that I have lost at least one of my parents."
+            : "By this week, it is more likely than not that I have lost my parent.",
         basis: "GOMPERTZ-MAKEHAM, NZ PERIOD TABLE, INDEPENDENT — P >= 0.50",
         certainty: "probability",
         rangeStart: now,
@@ -271,10 +275,10 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       if (bothHalf) {
         events.push({
           id: "parents-both-50",
-          label: "BOTH PARENTS LIKELY GONE",
+          label: "Both parents likely gone",
           date: bothHalf,
           detail:
-            "By this week it is more likely than not that both of your parents have died.",
+            "By this week, it is more likely than not that both my parents are gone.",
           basis: "GOMPERTZ-MAKEHAM, NZ PERIOD TABLE, INDEPENDENT — P >= 0.50",
           certainty: "probability",
           rangeStart: now,
@@ -285,10 +289,10 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       if (bothNinety) {
         events.push({
           id: "parents-both-90",
-          label: "ALMOST CERTAINLY NO PARENTS",
+          label: "Almost certainly no parents",
           date: bothNinety,
           detail:
-            "By this week there is a nine-in-ten chance both of your parents are gone.",
+            "By this week, there is a nine-in-ten chance both my parents are gone.",
           basis: "GOMPERTZ-MAKEHAM, NZ PERIOD TABLE, INDEPENDENT — P >= 0.90",
           certainty: "probability",
           rangeStart: now,
@@ -302,13 +306,13 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
       const oldestDob = parseDob(oldest.dob, now);
       if (oldestDob) {
         const age = Math.floor((now.getTime() - oldestDob.getTime()) / MS_PER_YEAR);
-        const who = oldest.label || "MY PARENT";
+        const who = oldest.label || "my parent";
         const date = addYears(dob, age);
         events.push({
           id: "parent-age-now",
-          label: `THE AGE ${who} IS TODAY`,
+          label: `The age ${who} is now`,
           date,
-          detail: `You turn ${age} — the age ${who} is right now.`,
+          detail: `I turn ${age} — the age ${who} is right now.`,
           basis: "BIRTH + PARENT'S CURRENT AGE",
           certainty: "estimate",
           rangeStart: dob,
@@ -321,9 +325,9 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const halfway = new Date(dob.getTime() + (expectancy / 2) * MS_PER_YEAR);
   events.push({
     id: "halfway",
-    label: "HALF THE SAND IS GONE",
+    label: "Halfway",
     date: halfway,
-    detail: "The midpoint of the estimated span: as much behind you as ahead.",
+    detail: "The midpoint of my estimated span — as much behind me as ahead.",
     basis: "BIRTH + EXPECTANCY / 2",
     certainty: "estimate",
     rangeStart: dob,
@@ -333,10 +337,10 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const healthy = addYears(dob, HEALTHY_YEARS);
   events.push({
     id: "healthy-years",
-    label: "LAST OF THE GOOD YEARS",
+    label: "My last good years",
     date: healthy,
     detail:
-      "Around here the healthy years typically end; what follows is usually lived with something wrong.",
+      "Around here the healthy years typically run out; what comes after is usually lived with something wrong.",
     basis: "WHO HALE AT BIRTH, NZ ~70Y",
     certainty: "estimate",
     rangeStart: earlier(now, healthy),
@@ -346,13 +350,14 @@ export function buildEvents(profile: LifeProfile, now: Date): ClockEvent[] {
   const end = new Date(dob.getTime() + expectancy * MS_PER_YEAR);
   events.push({
     id: "expectancy-end",
-    label: "THE ESTIMATE RUNS OUT",
+    label: "The estimate runs out",
     date: end,
-    detail: "The end of the estimated span. The grid stops here.",
+    detail: "The end of my estimated span. The grid stops here.",
     basis: "BIRTH + EXPECTANCY",
     certainty: "estimate",
-    rangeStart: dob,
-    rangeEnd: end,
+    // The remaining life, from now to the end — not the whole grid.
+    rangeStart: earlier(now, end),
+    rangeEnd: later(now, end),
   });
 
   events.sort((a, b) => a.date.getTime() - b.date.getTime() || cmp(a.id, b.id));
@@ -371,6 +376,11 @@ function oldestParent(parents: RelatedPerson[], now: Date): RelatedPerson | null
     }
   }
   return best;
+}
+
+/** Capitalize the first letter only ("my son" → "My son", "Dad" → "Dad"). */
+function capFirst(s: string): string {
+  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** The date as far after `pivot` as `pivot` is after `origin`. */

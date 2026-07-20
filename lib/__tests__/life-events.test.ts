@@ -11,8 +11,8 @@ import type { ClockEvent } from "@/components/lab/life-clock/types";
 
 const NOW = new Date(2026, 6, 20, 12, 0, 0);
 
-const DAD: RelatedPerson = { label: "DAD", dob: "1958-01-01", sex: "male" };
-const MUM: RelatedPerson = { label: "MUM", dob: "1959-01-01", sex: "female" };
+const DAD: RelatedPerson = { label: "Dad", dob: "1958-01-01", sex: "male" };
+const MUM: RelatedPerson = { label: "Mum", dob: "1959-01-01", sex: "female" };
 
 const AUTHOR: LifeProfile = {
   v: 2,
@@ -22,10 +22,10 @@ const AUTHOR: LifeProfile = {
   exercise: "weekly",
   region: "western-europe-oceania",
   people: {
-    partnerLabel: "MY WIFE",
+    partnerLabel: "my wife",
     partnerMet: "2010-04-08",
     partnerMarried: "2021-02-13",
-    children: [{ label: "MY SON", dob: "2023-10-30", sex: "male" }],
+    children: [{ label: "my son", dob: "2023-10-30", sex: "male" }],
     parents: [DAD, MUM],
   },
   demo: false,
@@ -143,20 +143,31 @@ describe("buildEvents — author's default profile", () => {
     }
   });
 
-  it("uses the supplied labels in the copy", () => {
-    expect(byId(events, "partner-majority").label).toContain("MY WIFE");
-    expect(byId(events, "child-18").label).toBe("MY SON TURNS 18");
-    expect(byId(events, "parent-age-now").label).toBe("THE AGE DAD IS TODAY");
-    expect(byId(events, "child-leaves").detail).toMatch(/\d+% of your time/);
+  it("uses the supplied labels in first-person, natural-case copy", () => {
+    expect(byId(events, "partner-majority").label).toContain("my wife");
+    expect(byId(events, "child-18").label).toBe("My son turns 18");
+    expect(byId(events, "parent-age-now").label).toBe("The age Dad is now");
+    // First person, no shouting names.
+    expect(byId(events, "met").detail).toBe(
+      "The day I met my wife. Everything since is on this side of it.",
+    );
+    expect(byId(events, "child-leaves").detail).toMatch(/\d+% of our time/);
+    for (const e of events) expect(e.detail).not.toMatch(/\byou\b|\byour\b/i);
   });
 
-  it("labels every event in short uppercase", () => {
+  it("keeps labels short and details substantial", () => {
     for (const e of events) {
-      expect(e.label).toBe(e.label.toUpperCase());
       expect(e.label.length).toBeLessThanOrEqual(40);
       expect(e.detail.length).toBeGreaterThan(10);
       expect(e.basis.length).toBeGreaterThan(0);
     }
+  });
+
+  it("highlights married time from the wedding, not from birth", () => {
+    const marriedLonger = byId(events, "married-longer");
+    expect(marriedLonger.rangeStart?.toISOString()).toBe(
+      new Date(2021, 1, 13).toISOString(),
+    );
   });
 });
 
@@ -217,8 +228,8 @@ describe("buildEvents — omission", () => {
       { ...BARE, people: { partnerMet: "2010-04-08", children: [{ label: "", dob: "2023-10-30" }] } },
       NOW,
     );
-    expect(byId(events, "partner-majority").label).toContain("MY PARTNER");
-    expect(byId(events, "child-18").label).toBe("MY CHILD TURNS 18");
+    expect(byId(events, "partner-majority").label).toContain("my partner");
+    expect(byId(events, "child-18").label).toBe("My child turns 18");
   });
 });
 

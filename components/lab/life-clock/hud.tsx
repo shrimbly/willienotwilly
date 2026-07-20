@@ -92,10 +92,10 @@ export interface HudProps {
   axis: AxisSpec | null;
   /** Grid outer rect in layout px — anchors the axis gutters. */
   gridRect: Rect | null;
-  /** Clamped expectancy years for the CAL chip (rendered at 1 dp). */
+  /** Clamped expectancy years for the chip (rendered at 1 dp). */
   expectancyYears: number;
-  /** Renders the bright DEMO tag inside the chip (R2). */
-  demo: boolean;
+  /** "author" = showing the hardcoded default; "custom" = the user's profile. */
+  mode: "author" | "custom";
   /** First-use hint variant; null hides it. Parent owns timing + dismissal. */
   hint: "scroll" | "pinch" | null;
   onSelectView: (view: ViewIndex) => void;
@@ -107,7 +107,7 @@ export function LifeClockHud({
   axis,
   gridRect,
   expectancyYears,
-  demo,
+  mode,
   hint,
   onSelectView,
   onCalibrate,
@@ -387,14 +387,23 @@ export function LifeClockHud({
     <button
       type="button"
       onClick={onCalibrate}
-      aria-label="Open calibration"
-      className={`group pointer-events-auto border border-[var(--lc-hairline-strong)] transition-colors duration-[120ms] hover:border-[var(--lc-text)] ${FOCUS_RING}`}
+      aria-label={mode === "author" ? "Map your own life" : "Recalibrate"}
+      className={`group pointer-events-auto border transition-colors duration-[120ms] ${FOCUS_RING} ${
+        mode === "author"
+          ? "border-[var(--lc-text)]"
+          : "border-[var(--lc-hairline-strong)] hover:border-[var(--lc-text)]"
+      }`}
       style={{ ...LABEL_METRICS, padding: "4px 10px" }}
     >
-      <span className={DIM_GROUP_TEXT}>CAL</span>
-      <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
-      {demo ? <span style={{ color: TOKENS.text }}>DEMO </span> : null}
-      <span className={DIM_GROUP_TEXT}>{formatExpectancy(expectancyYears)}</span>
+      {mode === "author" ? (
+        <span style={{ color: TOKENS.text }}>MAP YOUR LIFE →</span>
+      ) : (
+        <>
+          <span className={DIM_GROUP_TEXT}>YOUR LIFE</span>
+          <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
+          <span className={DIM_GROUP_TEXT}>{formatExpectancy(expectancyYears)}</span>
+        </>
+      )}
     </button>
   );
 

@@ -4,6 +4,7 @@ import type {
   ChangeEvent,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
+  ReactNode,
   RefObject,
 } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -21,11 +22,12 @@ import {
   type Sex,
   type Smoking,
 } from "@/lib/life-clock";
-import { createDemoProfile, saveProfile } from "@/lib/life-clock-storage";
+import { saveProfile } from "@/lib/life-clock-storage";
 import { TOKENS } from "./types";
 
 const ENTER_MS = 300;
 const EXIT_MS = 200;
+const STEP_MS = 260;
 
 const CSS_VARS = {
   "--lc-bg": TOKENS.bg,
@@ -52,6 +54,14 @@ const VALUE_STYLE: CSSProperties = {
   letterSpacing: "0.02em",
   color: TOKENS.text,
 };
+const TITLE_STYLE: CSSProperties = {
+  fontSize: "18px",
+  lineHeight: "24px",
+  fontWeight: 500,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: TOKENS.text,
+};
 
 const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--lc-text)]";
@@ -69,6 +79,14 @@ const DATE_INPUT_STYLE: CSSProperties = {
 };
 
 const DOB_ERROR = "! ENTER A VALID DATE BETWEEN 1900-01-01 AND TODAY";
+
+const DEFAULT_PARTNER_LABEL = "my partner";
+const DEFAULT_CHILD_LABEL = "my child";
+
+/** Natural-case parent label from the sex chip, for first-person event copy. */
+function parentLabel(sex: Sex): string {
+  return sex === "female" ? "my mother" : sex === "male" ? "my father" : "my parent";
+}
 
 interface ChoiceOption<T extends string> {
   value: T;
@@ -101,43 +119,34 @@ const REGION_OPTIONS: ChoiceOption<Region>[] = [
   { value: "sub-saharan-africa", label: "SUB-SAHARAN AFRICA" },
   { value: "unspecified", label: "PREFER NOT TO SAY" },
 ];
-
-const DEFAULT_CHILD_LABEL = "MY CHILD";
-const DEFAULT_PARENT_LABELS = ["PARENT ONE", "PARENT TWO"] as const;
-
-function FieldLabel({
-  index,
-  id,
-  children,
-}: {
-  index: string;
-  id: string;
-  children: string;
-}) {
-  return (
-    <div id={id} style={LABEL_STYLE}>
-      <span style={{ color: TOKENS.textFaint }}>{index}</span>
-      <span style={{ marginLeft: 8 }}>{children}</span>
-    </div>
-  );
-}
+const YESNO_OPTIONS: ChoiceOption<"yes" | "no">[] = [
+  { value: "yes", label: "YES" },
+  { value: "no", label: "NOT NOW" },
+];
 
 function ChipRow<T extends string>({
   labelId,
   options,
   value,
   onChange,
+  autoFocus = false,
 }: {
-  labelId: string;
+  labelId?: string;
   options: ChoiceOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  autoFocus?: boolean;
 }) {
   const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const selectedIndex = Math.max(
     0,
     options.findIndex((option) => option.value === value),
   );
+  useEffect(() => {
+    if (autoFocus) chipRefs.current[selectedIndex]?.focus();
+    // Focus once per mount; selectedIndex is the initial selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Radio pattern: one tab stop per group, arrows move focus + selection.
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     let delta = 0;
@@ -155,7 +164,7 @@ function ChipRow<T extends string>({
       role="radiogroup"
       aria-labelledby={labelId}
       onKeyDown={onKeyDown}
-      className="mt-2 flex flex-wrap gap-2"
+      className="flex flex-wrap gap-2"
     >
       {options.map((option, i) => {
         const selected = option.value === value;
@@ -176,8 +185,8 @@ function ChipRow<T extends string>({
                 : "border border-[rgba(255,255,255,0.25)] text-[var(--lc-text-dim)] hover:border-[rgba(255,255,255,0.45)]"
             }`}
             style={{
-              height: 28,
-              padding: "0 12px",
+              height: 30,
+              padding: "0 14px",
               fontSize: "12px",
               fontWeight: 400,
               letterSpacing: "0.02em",
@@ -203,6 +212,8 @@ interface DateTriple {
   value: string;
   /** All three parts have their full width. */
   filled: boolean;
+  /** No digits entered at all. */
+  empty: boolean;
   valid: boolean;
 }
 
@@ -212,21 +223,12 @@ function useDateTriple(initial: string | undefined): DateTriple {
   const [dd, setDd] = useState(() => initial?.slice(8, 10) ?? "");
   const value = `${yyyy}-${mm}-${dd}`;
   const filled = yyyy.length === 4 && mm.length === 2 && dd.length === 2;
+  const empty = yyyy === "" && mm === "" && dd === "";
   const valid = useMemo(
     () => filled && parseDob(value, new Date()) !== null,
     [value, filled],
   );
-  return {
-    yyyy,
-    mm,
-    dd,
-    setYyyy,
-    setMm,
-    setDd,
-    value,
-    filled,
-    valid,
-  };
+  return { yyyy, mm, dd, setYyyy, setMm, setDd, value, filled, empty, valid };
 }
 
 function DateFields({
@@ -234,20 +236,25 @@ function DateFields({
   namePrefix,
   triple,
   birthAutoComplete = false,
-  yearRef,
+  firstRef,
+  errorOnPartial = false,
 }: {
-  labelId: string;
+  labelId?: string;
   namePrefix: string;
   triple: DateTriple;
   birthAutoComplete?: boolean;
-  yearRef?: RefObject<HTMLInputElement | null>;
+  firstRef?: RefObject<HTMLInputElement | null>;
+  /** Optional dates warn as soon as any digit is present, not only when full. */
+  errorOnPartial?: boolean;
 }) {
   const localYearRef = useRef<HTMLInputElement>(null);
-  const firstRef = yearRef ?? localYearRef;
+  const yearRef = firstRef ?? localYearRef;
   const monthRef = useRef<HTMLInputElement>(null);
   const dayRef = useRef<HTMLInputElement>(null);
 
-  const showError = triple.filled && !triple.valid;
+  const showError = errorOnPartial
+    ? !triple.empty && !triple.valid
+    : triple.filled && !triple.valid;
   const errorBorder = showError ? { borderColor: TOKENS.text } : null;
 
   const handleYearChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -272,10 +279,10 @@ function DateFields({
       <div
         role="group"
         aria-labelledby={labelId}
-        className="mt-2 flex items-center gap-2"
+        className="flex items-center gap-2"
       >
         <input
-          ref={firstRef}
+          ref={yearRef}
           type="text"
           inputMode="numeric"
           autoComplete={birthAutoComplete ? "bday-year" : "off"}
@@ -285,7 +292,7 @@ function DateFields({
           value={triple.yyyy}
           onChange={handleYearChange}
           className={DATE_INPUT_CLASS}
-          style={{ ...DATE_INPUT_STYLE, width: 56, ...errorBorder }}
+          style={{ ...DATE_INPUT_STYLE, width: 58, ...errorBorder }}
         />
         <span aria-hidden style={{ color: TOKENS.textFaint }}>
           -
@@ -302,7 +309,7 @@ function DateFields({
           onChange={handleMonthChange}
           onBlur={padOnBlur(triple.mm, triple.setMm)}
           className={DATE_INPUT_CLASS}
-          style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
+          style={{ ...DATE_INPUT_STYLE, width: 40, ...errorBorder }}
         />
         <span aria-hidden style={{ color: TOKENS.textFaint }}>
           -
@@ -319,11 +326,11 @@ function DateFields({
           onChange={handleDayChange}
           onBlur={padOnBlur(triple.dd, triple.setDd)}
           className={DATE_INPUT_CLASS}
-          style={{ ...DATE_INPUT_STYLE, width: 36, ...errorBorder }}
+          style={{ ...DATE_INPUT_STYLE, width: 40, ...errorBorder }}
         />
       </div>
       {showError ? (
-        <p role="alert" style={{ ...LABEL_METRICS, color: TOKENS.text, marginTop: 8 }}>
+        <p role="alert" style={{ ...LABEL_METRICS, color: TOKENS.text, marginTop: 10 }}>
           {DOB_ERROR}
         </p>
       ) : null}
@@ -331,27 +338,112 @@ function DateFields({
   );
 }
 
+/** One animated question. Remounts per step so the enter transition replays. */
+function StepPanel({
+  direction,
+  reducedMotion,
+  children,
+}: {
+  direction: number;
+  reducedMotion: boolean;
+  children: ReactNode;
+}) {
+  const [entered, setEntered] = useState(reducedMotion);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setEntered(true)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [reducedMotion]);
+  const offset = reducedMotion ? 0 : direction * 24;
+  return (
+    <div
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? "translateX(0)" : `translateX(${offset}px)`,
+        transition: reducedMotion
+          ? "none"
+          : `opacity ${STEP_MS}ms ${TOKENS.easeOut}, transform ${STEP_MS}ms ${TOKENS.easeOut}`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+type StepId =
+  | "dob"
+  | "sex"
+  | "smoking"
+  | "exercise"
+  | "region"
+  | "partner-gate"
+  | "partner-details"
+  | "child-gate"
+  | "child-details"
+  | "parents-gate"
+  | "parents-details"
+  | "review";
+
+const SECTION: Record<StepId, string> = {
+  dob: "YOUR LIFE",
+  sex: "YOUR LIFE",
+  smoking: "YOUR LIFE",
+  exercise: "YOUR LIFE",
+  region: "YOUR LIFE",
+  "partner-gate": "YOUR PARTNER",
+  "partner-details": "YOUR PARTNER",
+  "child-gate": "YOUR CHILD",
+  "child-details": "YOUR CHILD",
+  "parents-gate": "YOUR PARENTS",
+  "parents-details": "YOUR PARENTS",
+  review: "REVIEW",
+};
+
+function buildSequence(gates: {
+  partner: boolean;
+  child: boolean;
+  parents: boolean;
+}): StepId[] {
+  const seq: StepId[] = ["dob", "sex", "smoking", "exercise", "region"];
+  seq.push("partner-gate");
+  if (gates.partner) seq.push("partner-details");
+  seq.push("child-gate");
+  if (gates.child) seq.push("child-details");
+  seq.push("parents-gate");
+  if (gates.parents) seq.push("parents-details");
+  seq.push("review");
+  return seq;
+}
+
 export interface CalibrationProps {
+  /** Pre-fill for editing an existing custom profile; null starts fresh. */
   profile: LifeProfile | null;
   onComplete: (profile: LifeProfile) => void;
-  onCancel?: () => void;
-  editMode: boolean;
+  /** Back out with no change (returns to whatever was showing). */
+  onCancel: () => void;
+  /** Only in custom mode: discard the custom profile, revert to the default. */
+  onReset?: () => void;
 }
 
 export function LifeClockCalibration({
   profile,
   onComplete,
   onCancel,
-  editMode,
+  onReset,
 }: CalibrationProps) {
   const baseId = useId();
-  const dobTriple = useDateTriple(profile?.dob);
-  const [sex, setSex] = useState<Sex>(profile?.sex ?? "unspecified");
-  const [smoking, setSmoking] = useState<Smoking>(profile?.smoking ?? "never");
-  const [exercise, setExercise] = useState<Exercise>(profile?.exercise ?? "weekly");
-  const [region, setRegion] = useState<Region>(profile?.region ?? "unspecified");
+  const editing = profile !== null && !profile.author;
+  const seed = editing ? profile : null;
+  const people = seed?.people;
 
-  const people = profile?.people;
+  const dobTriple = useDateTriple(seed?.dob);
+  const [sex, setSex] = useState<Sex>(seed?.sex ?? "unspecified");
+  const [smoking, setSmoking] = useState<Smoking>(seed?.smoking ?? "never");
+  const [exercise, setExercise] = useState<Exercise>(seed?.exercise ?? "weekly");
+  const [region, setRegion] = useState<Region>(seed?.region ?? "unspecified");
+
   const metTriple = useDateTriple(people?.partnerMet);
   const marriedTriple = useDateTriple(people?.partnerMarried);
   const childTriple = useDateTriple(people?.children?.[0]?.dob);
@@ -364,13 +456,36 @@ export function LifeClockCalibration({
     people?.parents?.[1]?.sex ?? "unspecified",
   );
 
+  const [partnerGate, setPartnerGate] = useState<"yes" | "no">(
+    people?.partnerMet || people?.partnerMarried ? "yes" : "no",
+  );
+  const [childGate, setChildGate] = useState<"yes" | "no">(
+    people?.children?.length ? "yes" : "no",
+  );
+  const [parentsGate, setParentsGate] = useState<"yes" | "no">(
+    people?.parents?.length ? "yes" : "no",
+  );
+
+  const gates = {
+    partner: partnerGate === "yes",
+    child: childGate === "yes",
+    parents: parentsGate === "yes",
+  };
+  const sequence = buildSequence(gates);
+
+  const [nav, setNav] = useState<{ step: StepId; direction: number }>({
+    step: "dob",
+    direction: 1,
+  });
+  const step = nav.step;
+  const stepIndex = Math.max(0, sequence.indexOf(step));
+
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  const yearRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const dobValid = dobTriple.valid;
   const rawExpectancy = useMemo(
     () => estimateExpectancyRaw({ sex, smoking, exercise, region }),
     [sex, smoking, exercise, region],
@@ -392,19 +507,16 @@ export function LifeClockCalibration({
     [],
   );
 
-  // Every PEOPLE field is optional: only fully valid entries are carried over,
-  // so a half-typed date is dropped instead of blocking the clock.
   const buildPeople = (): LifePeople | undefined => {
     const next: LifePeople = {};
-    if (metTriple.valid) next.partnerMet = metTriple.value;
-    if (marriedTriple.valid) next.partnerMarried = marriedTriple.value;
-    if (
-      people?.partnerLabel &&
-      (next.partnerMet !== undefined || next.partnerMarried !== undefined)
-    ) {
-      next.partnerLabel = people.partnerLabel;
+    if (gates.partner) {
+      if (metTriple.valid) next.partnerMet = metTriple.value;
+      if (marriedTriple.valid) next.partnerMarried = marriedTriple.value;
+      if (next.partnerMet !== undefined || next.partnerMarried !== undefined) {
+        next.partnerLabel = people?.partnerLabel ?? DEFAULT_PARTNER_LABEL;
+      }
     }
-    if (childTriple.valid) {
+    if (gates.child && childTriple.valid) {
       next.children = [
         {
           label: people?.children?.[0]?.label ?? DEFAULT_CHILD_LABEL,
@@ -413,25 +525,27 @@ export function LifeClockCalibration({
         },
       ];
     }
-    const parents: RelatedPerson[] = [];
-    const parentInputs = [
-      { triple: parentATriple, sex: parentASex, index: 0 },
-      { triple: parentBTriple, sex: parentBSex, index: 1 },
-    ] as const;
-    for (const parent of parentInputs) {
-      if (!parent.triple.valid) continue;
-      parents.push({
-        label: people?.parents?.[parent.index]?.label ?? DEFAULT_PARENT_LABELS[parent.index],
-        dob: parent.triple.value,
-        sex: parent.sex,
-      });
+    if (gates.parents) {
+      const parents: RelatedPerson[] = [];
+      const inputs = [
+        { triple: parentATriple, sex: parentASex, index: 0 },
+        { triple: parentBTriple, sex: parentBSex, index: 1 },
+      ] as const;
+      for (const parent of inputs) {
+        if (!parent.triple.valid) continue;
+        parents.push({
+          label: people?.parents?.[parent.index]?.label ?? parentLabel(parent.sex),
+          dob: parent.triple.value,
+          sex: parent.sex,
+        });
+      }
+      if (parents.length > 0) next.parents = parents;
     }
-    if (parents.length > 0) next.parents = parents;
     return Object.keys(next).length > 0 ? next : undefined;
   };
 
   const handleSubmit = () => {
-    if (!dobValid) return;
+    if (!dobTriple.valid) return;
     const saved = saveProfile({
       dob: dobTriple.value,
       sex,
@@ -443,41 +557,71 @@ export function LifeClockCalibration({
     });
     closeThen(() => onComplete(saved));
   };
-  const handleSkip = () => {
-    const saved = saveProfile(createDemoProfile(new Date()));
-    closeThen(() => onComplete(saved));
+
+  // An optional date blocks the step when any digit is present but it is not a
+  // valid date, so a half-typed date is never silently dropped on save.
+  const partial = (t: DateTriple) => !t.empty && !t.valid;
+  const stepBlocked = (id: StepId): boolean => {
+    switch (id) {
+      case "dob":
+        return !dobTriple.valid;
+      case "partner-details":
+        return partial(metTriple) || partial(marriedTriple);
+      case "child-details":
+        return partial(childTriple);
+      case "parents-details":
+        return partial(parentATriple) || partial(parentBTriple);
+      default:
+        return false;
+    }
   };
-  const handleCancel = () => {
-    if (onCancel) closeThen(onCancel);
+
+  const goTo = (id: StepId, dir: number) => {
+    setNav({ step: id, direction: dir });
   };
 
-  const escapeRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    escapeRef.current = editMode ? handleCancel : handleSkip;
-  });
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      escapeRef.current();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const next = () => {
+    if (step === "review") {
+      handleSubmit();
+      return;
+    }
+    if (stepBlocked(step)) return;
+    // Recompute the sequence from the latest gate answers before advancing.
+    const seq = buildSequence(gates);
+    const i = seq.indexOf(step);
+    const target = seq[Math.min(seq.length - 1, i + 1)];
+    goTo(target, 1);
+  };
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setEntered(true));
-    const focusTimer = window.setTimeout(() => yearRef.current?.focus(), 60);
-    // Return focus to whatever opened the dialog (the CAL chip in edit mode).
-    const opener = document.activeElement as HTMLElement | null;
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(focusTimer);
-      if (opener && opener.isConnected) opener.focus();
-    };
-  }, []);
+  const back = () => {
+    const seq = buildSequence(gates);
+    const i = seq.indexOf(step);
+    if (i <= 0) {
+      closeThen(onCancel);
+      return;
+    }
+    goTo(seq[i - 1], -1);
+  };
 
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      back();
+      return;
+    }
+    if (e.key === "Enter") {
+      const target = e.target as HTMLElement;
+      // Chips consume Enter themselves; buttons fire their own click.
+      if (target.getAttribute("role") === "radio" || target.tagName === "BUTTON") {
+        return;
+      }
+      e.preventDefault();
+      next();
+      return;
+    }
+    trapTab(e);
+  };
+
   const trapTab = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Tab") return;
     const root = dialogRef.current;
@@ -498,17 +642,38 @@ export function LifeClockCalibration({
     }
   };
 
+  // Capture the trigger DURING first render — a child step control steals
+  // focus in its own mount effect (which runs before this parent effect), so
+  // reading document.activeElement in an effect would miss the real opener.
+  const [opener] = useState<HTMLElement | null>(() =>
+    typeof document === "undefined"
+      ? null
+      : (document.activeElement as HTMLElement | null),
+  );
+
   useEffect(() => {
-    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setReducedMotion(motionQuery.matches);
+    const frame = requestAnimationFrame(() => setEntered(true));
+    return () => {
+      cancelAnimationFrame(frame);
+      if (opener && opener.isConnected) opener.focus();
+    };
+  }, [opener]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(query.matches);
     sync();
-    motionQuery.addEventListener("change", sync);
-    return () => motionQuery.removeEventListener("change", sync);
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
   }, []);
 
+  // What will actually persist — so the review summary can't claim a person
+  // was added when a blank/invalid date means buildPeople drops them.
+  const preview = buildPeople();
   const visible = entered && !closing;
   const transitionMs = closing ? EXIT_MS : ENTER_MS;
-
+  const progress = sequence.length > 1 ? stepIndex / (sequence.length - 1) : 1;
+  const blocked = stepBlocked(step);
   const cornerTickStyle: CSSProperties = { width: 10, height: 10 };
   const tickBorder = `1px solid ${TOKENS.hairlineStrong}`;
 
@@ -518,7 +683,7 @@ export function LifeClockCalibration({
       role="dialog"
       aria-modal="true"
       aria-label="Life Clock calibration"
-      onKeyDown={trapTab}
+      onKeyDown={onKeyDown}
       className="absolute inset-0 z-20 overflow-y-auto"
       style={{
         ...CSS_VARS,
@@ -532,7 +697,7 @@ export function LifeClockCalibration({
         <div
           className="relative"
           style={{
-            width: 420,
+            width: 440,
             maxWidth: "calc(100vw - 48px)",
             backgroundColor: "#0A0B0B",
             border: "1px solid rgba(255, 255, 255, 0.14)",
@@ -546,257 +711,430 @@ export function LifeClockCalibration({
             transition: `opacity ${transitionMs}ms ${TOKENS.easeOut}, transform ${transitionMs}ms ${TOKENS.easeOut}`,
           }}
         >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute"
-            style={{ ...cornerTickStyle, top: -1, left: -1, borderTop: tickBorder, borderLeft: tickBorder }}
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute"
-            style={{ ...cornerTickStyle, top: -1, right: -1, borderTop: tickBorder, borderRight: tickBorder }}
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute"
-            style={{ ...cornerTickStyle, bottom: -1, left: -1, borderBottom: tickBorder, borderLeft: tickBorder }}
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute"
-            style={{ ...cornerTickStyle, bottom: -1, right: -1, borderBottom: tickBorder, borderRight: tickBorder }}
-          />
+          {(
+            [
+              { top: -1, left: -1, borderTop: tickBorder, borderLeft: tickBorder },
+              { top: -1, right: -1, borderTop: tickBorder, borderRight: tickBorder },
+              { bottom: -1, left: -1, borderBottom: tickBorder, borderLeft: tickBorder },
+              { bottom: -1, right: -1, borderBottom: tickBorder, borderRight: tickBorder },
+            ] as CSSProperties[]
+          ).map((corner, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className="pointer-events-none absolute"
+              style={{ ...cornerTickStyle, ...corner }}
+            />
+          ))}
 
-          <p style={{ ...LABEL_METRICS, color: TOKENS.textFaint }}>
-            LIFE CLOCK · SETUP
-          </p>
-          <h2
-            style={{
-              marginTop: 4,
-              fontSize: "16px",
-              lineHeight: "20px",
-              fontWeight: 500,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: TOKENS.text,
-            }}
-          >
-            CALIBRATION
-          </h2>
-          <p style={{ ...LABEL_STYLE, marginTop: 12 }}>
-            THE LIFE SCALE NEEDS A FEW INPUTS. ANSWERS STAY ON THIS DEVICE.
-          </p>
-
-          <div className="mt-6 flex flex-col gap-6">
-            <div>
-              <FieldLabel index="01" id={`${baseId}-dob`}>
-                DATE OF BIRTH
-              </FieldLabel>
-              <DateFields
-                labelId={`${baseId}-dob`}
-                namePrefix="Birth"
-                triple={dobTriple}
-                birthAutoComplete
-                yearRef={yearRef}
-              />
-            </div>
-
-            <div>
-              <FieldLabel index="02" id={`${baseId}-sex`}>
-                SEX AT BIRTH
-              </FieldLabel>
-              <ChipRow
-                labelId={`${baseId}-sex`}
-                options={SEX_OPTIONS}
-                value={sex}
-                onChange={setSex}
-              />
-            </div>
-
-            <div>
-              <FieldLabel index="03" id={`${baseId}-smoking`}>
-                SMOKING
-              </FieldLabel>
-              <ChipRow
-                labelId={`${baseId}-smoking`}
-                options={SMOKING_OPTIONS}
-                value={smoking}
-                onChange={setSmoking}
-              />
-            </div>
-
-            <div>
-              <FieldLabel index="04" id={`${baseId}-exercise`}>
-                EXERCISE
-              </FieldLabel>
-              <ChipRow
-                labelId={`${baseId}-exercise`}
-                options={EXERCISE_OPTIONS}
-                value={exercise}
-                onChange={setExercise}
-              />
-            </div>
-
-            <div>
-              <FieldLabel index="05" id={`${baseId}-region`}>
-                REGION
-              </FieldLabel>
-              <ChipRow
-                labelId={`${baseId}-region`}
-                options={REGION_OPTIONS}
-                value={region}
-                onChange={setRegion}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 24,
-              paddingTop: 16,
-              borderTop: `1px solid ${TOKENS.hairline}`,
-            }}
-          >
+          {/* Header: section eyebrow + progress rail. */}
+          <div className="flex items-baseline justify-between">
             <p style={{ ...LABEL_METRICS, color: TOKENS.textFaint }}>
-              PEOPLE · OPTIONAL
+              CALIBRATION
+              <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
+              <span style={{ color: TOKENS.textDim }}>{SECTION[step]}</span>
             </p>
-            <p style={{ ...LABEL_STYLE, marginTop: 8 }}>
-              DATES YOU GIVE BECOME MARKERS ON THE LIFE GRID. LEAVE ANY BLANK.
+            <p style={{ ...LABEL_METRICS, color: TOKENS.textFaint }}>
+              {String(stepIndex + 1).padStart(2, "0")} /{" "}
+              {String(sequence.length).padStart(2, "0")}
             </p>
-
-            <div className="mt-6 flex flex-col gap-6">
-              <div>
-                <FieldLabel index="06" id={`${baseId}-met`}>
-                  PARTNER — DAY YOU MET
-                </FieldLabel>
-                <DateFields
-                  labelId={`${baseId}-met`}
-                  namePrefix="Day you met your partner"
-                  triple={metTriple}
-                />
-              </div>
-
-              <div>
-                <FieldLabel index="07" id={`${baseId}-married`}>
-                  PARTNER — DAY YOU MARRIED
-                </FieldLabel>
-                <DateFields
-                  labelId={`${baseId}-married`}
-                  namePrefix="Day you married"
-                  triple={marriedTriple}
-                />
-              </div>
-
-              <div>
-                <FieldLabel index="08" id={`${baseId}-child`}>
-                  CHILD — DATE OF BIRTH
-                </FieldLabel>
-                <DateFields
-                  labelId={`${baseId}-child`}
-                  namePrefix="Child birth"
-                  triple={childTriple}
-                />
-              </div>
-
-              <div>
-                <FieldLabel index="09" id={`${baseId}-parent-a`}>
-                  PARENT ONE — DATE OF BIRTH
-                </FieldLabel>
-                <DateFields
-                  labelId={`${baseId}-parent-a`}
-                  namePrefix="First parent birth"
-                  triple={parentATriple}
-                />
-                <div style={{ marginTop: 12 }}>
-                  <div id={`${baseId}-parent-a-sex`} style={{ ...LABEL_STYLE }}>
-                    SEX AT BIRTH
-                  </div>
-                  <ChipRow
-                    labelId={`${baseId}-parent-a-sex`}
-                    options={SEX_OPTIONS}
-                    value={parentASex}
-                    onChange={setParentASex}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel index="10" id={`${baseId}-parent-b`}>
-                  PARENT TWO — DATE OF BIRTH
-                </FieldLabel>
-                <DateFields
-                  labelId={`${baseId}-parent-b`}
-                  namePrefix="Second parent birth"
-                  triple={parentBTriple}
-                />
-                <div style={{ marginTop: 12 }}>
-                  <div id={`${baseId}-parent-b-sex`} style={{ ...LABEL_STYLE }}>
-                    SEX AT BIRTH
-                  </div>
-                  <ChipRow
-                    labelId={`${baseId}-parent-b-sex`}
-                    options={SEX_OPTIONS}
-                    value={parentBSex}
-                    onChange={setParentBSex}
-                  />
-                </div>
-              </div>
-            </div>
+          </div>
+          <div
+            aria-hidden
+            className="mt-2 h-px w-full"
+            style={{ backgroundColor: TOKENS.hairline }}
+          >
+            <div
+              className="h-px"
+              style={{
+                width: `${progress * 100}%`,
+                backgroundColor: TOKENS.text,
+                transition: reducedMotion
+                  ? "none"
+                  : `width ${STEP_MS}ms ${TOKENS.easeOut}`,
+              }}
+            />
           </div>
 
-          {dobValid ? (
-            <div
+          {/* The active question. */}
+          <div className="mt-7" style={{ minHeight: 188 }}>
+            <StepPanel
+              key={step}
+              direction={nav.direction}
+              reducedMotion={reducedMotion}
+            >
+              <StepBody
+                step={step}
+                baseId={baseId}
+                dobTriple={dobTriple}
+                sex={sex}
+                setSex={setSex}
+                smoking={smoking}
+                setSmoking={setSmoking}
+                exercise={exercise}
+                setExercise={setExercise}
+                region={region}
+                setRegion={setRegion}
+                partnerGate={partnerGate}
+                setPartnerGate={setPartnerGate}
+                childGate={childGate}
+                setChildGate={setChildGate}
+                parentsGate={parentsGate}
+                setParentsGate={setParentsGate}
+                metTriple={metTriple}
+                marriedTriple={marriedTriple}
+                childTriple={childTriple}
+                parentATriple={parentATriple}
+                parentBTriple={parentBTriple}
+                parentASex={parentASex}
+                setParentASex={setParentASex}
+                parentBSex={parentBSex}
+                setParentBSex={setParentBSex}
+                rawExpectancy={rawExpectancy}
+                spanDays={spanDays}
+                partnerAdded={
+                  !!(preview?.partnerMet || preview?.partnerMarried)
+                }
+                childAdded={!!preview?.children?.length}
+                parentsAdded={!!preview?.parents?.length}
+              />
+            </StepPanel>
+          </div>
+
+          {/* Navigation. */}
+          <div className="mt-8 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={back}
+              className={`${FOCUS_RING} h-10 shrink-0 border border-[var(--lc-hairline-strong)] px-4 text-[var(--lc-text-dim)] transition-colors duration-[120ms] hover:text-[var(--lc-text)]`}
               style={{
-                marginTop: 24,
-                paddingTop: 16,
-                borderTop: `1px solid ${TOKENS.hairline}`,
+                fontSize: "12px",
+                fontWeight: 500,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
               }}
             >
-              <div style={LABEL_STYLE}>ESTIMATED SPAN</div>
-              <div style={VALUE_STYLE}>
-                {formatExpectancy(rawExpectancy)}
-                <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
-                {spanDays.toLocaleString("en-US")} DAYS
-              </div>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            disabled={!dobValid || closing}
-            onClick={handleSubmit}
-            className={`${FOCUS_RING} mt-8 h-10 w-full transition-colors duration-[120ms] ${
-              dobValid
-                ? "bg-[var(--lc-text)] text-[var(--lc-bg)] hover:bg-white active:bg-[var(--lc-cell-filled)]"
-                : "cursor-default border border-[var(--lc-hairline-strong)] bg-transparent text-[var(--lc-text-dim)]"
-            }`}
-            style={{
-              fontSize: "12px",
-              fontWeight: 500,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
-            {editMode ? "SAVE CHANGES" : "START CLOCK"}
-          </button>
+              {stepIndex === 0 ? "CANCEL" : "BACK"}
+            </button>
+            <button
+              type="button"
+              onClick={next}
+              disabled={blocked}
+              className={`${FOCUS_RING} h-10 flex-1 transition-colors duration-[120ms] ${
+                blocked
+                  ? "cursor-default border border-[var(--lc-hairline-strong)] bg-transparent text-[var(--lc-text-dim)]"
+                  : "bg-[var(--lc-text)] text-[var(--lc-bg)] hover:bg-white active:bg-[var(--lc-cell-filled)]"
+              }`}
+              style={{
+                fontSize: "12px",
+                fontWeight: 500,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {step === "review" ? "START CLOCK" : "NEXT"}
+            </button>
+          </div>
 
           <p
-            className="text-center"
-            style={{ ...LABEL_METRICS, color: TOKENS.textFaint, marginTop: 12 }}
+            className="mt-3 text-center"
+            style={{ ...LABEL_METRICS, color: TOKENS.textFaint }}
           >
             STORED IN THIS BROWSER ONLY
           </p>
-
-          <button
-            type="button"
-            onClick={editMode ? handleCancel : handleSkip}
-            className={`${FOCUS_RING} mx-auto mt-2 block underline underline-offset-2`}
-            style={{ ...LABEL_METRICS, color: TOKENS.textDim }}
-          >
-            {editMode ? "CANCEL" : "SKIP — DEMO PROFILE"}
-          </button>
+          {editing && onReset ? (
+            <button
+              type="button"
+              onClick={() => closeThen(onReset)}
+              className={`${FOCUS_RING} mx-auto mt-2 block underline underline-offset-2`}
+              style={{ ...LABEL_METRICS, color: TOKENS.textDim }}
+            >
+              DISCARD — USE THE DEFAULT LIFE
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
+
+interface StepBodyProps {
+  step: StepId;
+  baseId: string;
+  dobTriple: DateTriple;
+  sex: Sex;
+  setSex: (v: Sex) => void;
+  smoking: Smoking;
+  setSmoking: (v: Smoking) => void;
+  exercise: Exercise;
+  setExercise: (v: Exercise) => void;
+  region: Region;
+  setRegion: (v: Region) => void;
+  partnerGate: "yes" | "no";
+  setPartnerGate: (v: "yes" | "no") => void;
+  childGate: "yes" | "no";
+  setChildGate: (v: "yes" | "no") => void;
+  parentsGate: "yes" | "no";
+  setParentsGate: (v: "yes" | "no") => void;
+  metTriple: DateTriple;
+  marriedTriple: DateTriple;
+  childTriple: DateTriple;
+  parentATriple: DateTriple;
+  parentBTriple: DateTriple;
+  parentASex: Sex;
+  setParentASex: (v: Sex) => void;
+  parentBSex: Sex;
+  setParentBSex: (v: Sex) => void;
+  rawExpectancy: number;
+  spanDays: number;
+  partnerAdded: boolean;
+  childAdded: boolean;
+  parentsAdded: boolean;
+}
+
+function Prompt({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="mb-5">
+      <h2 style={TITLE_STYLE}>{title}</h2>
+      {hint ? (
+        <p style={{ ...LABEL_STYLE, marginTop: 8, lineHeight: "16px" }}>{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function StepBody(props: StepBodyProps) {
+  const { step, baseId } = props;
+  const firstFocus = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    firstFocus.current?.focus();
+  }, []);
+
+  switch (step) {
+    case "dob":
+      return (
+        <>
+          <Prompt
+            title="WHEN WERE YOU BORN?"
+            hint="THE CLOCK MEASURES EVERYTHING FROM HERE."
+          />
+          <DateFields
+            labelId={`${baseId}-dob`}
+            namePrefix="Birth"
+            triple={props.dobTriple}
+            birthAutoComplete
+            firstRef={firstFocus}
+          />
+        </>
+      );
+    case "sex":
+      return (
+        <>
+          <Prompt title="SEX AT BIRTH" hint="IT SETS THE BASELINE LIFE TABLE." />
+          <ChipRow options={SEX_OPTIONS} value={props.sex} onChange={props.setSex} autoFocus />
+        </>
+      );
+    case "smoking":
+      return (
+        <>
+          <Prompt title="DO YOU SMOKE?" hint="THE SINGLE LARGEST MODIFIABLE FACTOR." />
+          <ChipRow
+            options={SMOKING_OPTIONS}
+            value={props.smoking}
+            onChange={props.setSmoking}
+            autoFocus
+          />
+        </>
+      );
+    case "exercise":
+      return (
+        <>
+          <Prompt title="HOW OFTEN DO YOU EXERCISE?" />
+          <ChipRow
+            options={EXERCISE_OPTIONS}
+            value={props.exercise}
+            onChange={props.setExercise}
+            autoFocus
+          />
+        </>
+      );
+    case "region":
+      return (
+        <>
+          <Prompt title="WHERE DO YOU LIVE?" hint="ADJUSTS TOWARD THE REGIONAL LIFE TABLE." />
+          <ChipRow
+            options={REGION_OPTIONS}
+            value={props.region}
+            onChange={props.setRegion}
+            autoFocus
+          />
+        </>
+      );
+    case "partner-gate":
+      return (
+        <>
+          <Prompt
+            title="DO YOU HAVE A PARTNER?"
+            hint="THEIR DATES UNLOCK THE MOMENTS BETWEEN YOU."
+          />
+          <ChipRow
+            options={YESNO_OPTIONS}
+            value={props.partnerGate}
+            onChange={props.setPartnerGate}
+            autoFocus
+          />
+        </>
+      );
+    case "partner-details":
+      return (
+        <>
+          <Prompt title="YOU & YOUR PARTNER" hint="LEAVE EITHER BLANK TO SKIP IT." />
+          <div className="flex flex-col gap-5">
+            <div>
+              <p id={`${baseId}-met`} style={LABEL_STYLE}>
+                THE DAY YOU MET
+              </p>
+              <div className="mt-2">
+                <DateFields
+                  labelId={`${baseId}-met`}
+                  namePrefix="Met"
+                  triple={props.metTriple}
+                  firstRef={firstFocus}
+                  errorOnPartial
+                />
+              </div>
+            </div>
+            <div>
+              <p id={`${baseId}-married`} style={LABEL_STYLE}>
+                THE DAY YOU MARRIED
+              </p>
+              <div className="mt-2">
+                <DateFields
+                  labelId={`${baseId}-married`}
+                  namePrefix="Married"
+                  triple={props.marriedTriple}
+                  errorOnPartial
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    case "child-gate":
+      return (
+        <>
+          <Prompt
+            title="DO YOU HAVE A CHILD?"
+            hint="THEIR BIRTH DRAWS THE YEARS YOU HAVE TOGETHER."
+          />
+          <ChipRow
+            options={YESNO_OPTIONS}
+            value={props.childGate}
+            onChange={props.setChildGate}
+            autoFocus
+          />
+        </>
+      );
+    case "child-details":
+      return (
+        <>
+          <Prompt title="YOUR CHILD" hint="THE DAY THEY WERE BORN." />
+          <DateFields
+            labelId={`${baseId}-child`}
+            namePrefix="Child birth"
+            triple={props.childTriple}
+            firstRef={firstFocus}
+            errorOnPartial
+          />
+        </>
+      );
+    case "parents-gate":
+      return (
+        <>
+          <Prompt
+            title="ADD YOUR PARENTS?"
+            hint="THEIR AGES SHAPE THE HARDEST PREDICTIONS."
+          />
+          <ChipRow
+            options={YESNO_OPTIONS}
+            value={props.parentsGate}
+            onChange={props.setParentsGate}
+            autoFocus
+          />
+        </>
+      );
+    case "parents-details":
+      return (
+        <>
+          <Prompt title="YOUR PARENTS" hint="LEAVE EITHER BLANK TO SKIP IT." />
+          <div className="flex flex-col gap-5">
+            <div>
+              <p id={`${baseId}-parentA`} style={LABEL_STYLE}>
+                PARENT ONE — BORN
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                <DateFields
+                  labelId={`${baseId}-parentA`}
+                  namePrefix="Parent one birth"
+                  triple={props.parentATriple}
+                  firstRef={firstFocus}
+                  errorOnPartial
+                />
+                <ChipRow
+                  options={SEX_OPTIONS}
+                  value={props.parentASex}
+                  onChange={props.setParentASex}
+                />
+              </div>
+            </div>
+            <div>
+              <p id={`${baseId}-parentB`} style={LABEL_STYLE}>
+                PARENT TWO — BORN
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                <DateFields
+                  labelId={`${baseId}-parentB`}
+                  namePrefix="Parent two birth"
+                  triple={props.parentBTriple}
+                  errorOnPartial
+                />
+                <ChipRow
+                  options={SEX_OPTIONS}
+                  value={props.parentBSex}
+                  onChange={props.setParentBSex}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    case "review": {
+      const added = [
+        props.partnerAdded ? "PARTNER" : null,
+        props.childAdded ? "CHILD" : null,
+        props.parentsAdded ? "PARENTS" : null,
+      ].filter(Boolean) as string[];
+      return (
+        <>
+          <Prompt title="READY" hint="YOU CAN RECALIBRATE ANY TIME." />
+          <div style={{ paddingTop: 4 }}>
+            <div style={LABEL_STYLE}>ESTIMATED SPAN</div>
+            <div style={{ ...VALUE_STYLE, marginTop: 2 }}>
+              {formatExpectancy(props.rawExpectancy)}
+              <span style={{ color: TOKENS.textFaint }}>{" · "}</span>
+              {props.spanDays.toLocaleString("en-US")} DAYS
+            </div>
+            <div style={{ ...LABEL_STYLE, marginTop: 16 }}>ADDED</div>
+            <div style={{ ...VALUE_STYLE, marginTop: 2 }}>
+              {added.length ? added.join(" · ") : "JUST YOU"}
+            </div>
+          </div>
+        </>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+export { LifeClockCalibration as LifeClockCalibrationWizard };

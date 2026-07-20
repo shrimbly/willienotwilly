@@ -515,8 +515,15 @@ describe("loadProfile (mocked window)", () => {
 describe("DEFAULT_PROFILE", () => {
   const then = new Date(2026, 6, 20, 12, 0, 0, 0);
 
-  it("round-trips through validateProfile", () => {
-    expect(validateProfile(DEFAULT_PROFILE, then)).toEqual(DEFAULT_PROFILE);
+  it("is flagged as the author profile", () => {
+    expect(DEFAULT_PROFILE.author).toBe(true);
+  });
+
+  it("validates, but the author flag is never carried through storage", () => {
+    // A validated (stored) profile is by definition the user's own.
+    const { author: _author, ...expected } = DEFAULT_PROFILE;
+    void _author;
+    expect(validateProfile(DEFAULT_PROFILE, then)).toEqual(expected);
   });
 
   it("has parents aged 68 and 67 on 2026-07-20", () => {

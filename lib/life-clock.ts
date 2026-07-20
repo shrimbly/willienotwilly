@@ -75,6 +75,8 @@ export interface LifeProfile {
   region: Region;
   /** Relationships driving the life-event markers; absent = none. */
   people?: LifePeople;
+  /** true only for the hardcoded author profile; never persisted. */
+  author?: boolean;
   /** true when created by SKIP — renderer shows the DEMO badge */
   demo: boolean;
   /** ISO 8601 UTC; informational only, never used in math */
