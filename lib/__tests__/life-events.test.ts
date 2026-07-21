@@ -167,8 +167,8 @@ describe("buildEvents — author's default profile", () => {
 
   it("maps each event to its symbol by nature of claim", () => {
     expect(eventSymbol(byId(events, "met"))).toBe("●"); // record
-    expect(eventSymbol(byId(events, "child-18"))).toBe("○"); // estimate
-    expect(eventSymbol(byId(events, "parents-one-50"))).toBe("◐"); // probability
+    expect(eventSymbol(byId(events, "child-18"))).toBe("✱"); // estimate
+    expect(eventSymbol(byId(events, "parents-one-50"))).toBe("◇"); // probability
   });
 
   it("highlights married time from the wedding, not from birth", () => {

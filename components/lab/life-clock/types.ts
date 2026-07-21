@@ -242,13 +242,14 @@ export const TOKENS = {
 
 /**
  * The marker glyph, by the nature of the claim — matching the card's kind
- * label. Solid → hollow → half dot grades certainty (fact, projection, odds);
- * the diamond flags a fork. Monochrome; the ink adapts to the cell.
+ * label. A solid dot is a fact; an asterisk is an estimate; a hollow diamond
+ * is a probabilistic prediction; the solid diamond flags a fork. Monochrome;
+ * the ink adapts to the cell.
  */
 export const EVENT_SYMBOL = {
   record: "●",
-  estimate: "○",
-  probability: "◐",
+  estimate: "✱",
+  probability: "◇",
   crossroad: "◆",
 } as const;
 

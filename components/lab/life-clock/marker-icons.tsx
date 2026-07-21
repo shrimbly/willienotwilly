@@ -14,25 +14,50 @@ const SIZE_FRAC = 0.6;
 const INK_LIVED = TOKENS.bg;
 const INK_FUTURE = TOKENS.text;
 
-const R = 9; // filled-shape radius (record ●) in the 24-unit viewBox
+const R = 9; // filled-dot radius (record ●) in the 24-unit viewBox — shared footprint
 const SW = 3; // stroke width for hollow shapes
-// A centred stroke straddles its path, so to make a hollow shape's OUTER edge
-// land at R (matching the filled dot) the path radius must sit half a stroke in.
-const STROKE_R = R - SW / 2;
-const D = 9.5; // diamond half-diagonal
+const D = 9.5; // solid-diamond half-diagonal (crossroad ◆)
+const DH = 8; // hollow-diamond half-diagonal (prediction ◇); the stroke pushes tips out to ~R
+const AW = 2.6; // asterisk stroke width (estimate ✱)
+const SPOKE = 7.7; // asterisk half-length — round caps carry the tips out to ~R
+
+// Three lines at 30°/90°/150° make a six-spoke asterisk with one spoke pointing
+// up. Each line runs tip-to-tip through the centre. (SVG y is down.)
+const ASTERISK = [30, 90, 150].map((deg) => {
+  const a = (deg * Math.PI) / 180;
+  const dx = SPOKE * Math.cos(a);
+  const dy = SPOKE * Math.sin(a);
+  return { x1: 12 + dx, y1: 12 - dy, x2: 12 - dx, y2: 12 + dy };
+});
 
 // The four symbols as centred SVG shapes (currentColor = the adaptive ink):
-// ● record, ○ estimate, ◐ probability (left half filled), ◆ crossroad.
+// ● record, ✱ estimate, ◇ probability (hollow diamond), ◆ crossroad.
 const SHAPES: Record<string, ReactNode> = {
   [EVENT_SYMBOL.record]: <circle cx="12" cy="12" r={R} fill="currentColor" />,
   [EVENT_SYMBOL.estimate]: (
-    <circle cx="12" cy="12" r={STROKE_R} fill="none" stroke="currentColor" strokeWidth={SW} />
+    <>
+      {ASTERISK.map((s, i) => (
+        <line
+          key={i}
+          x1={s.x1}
+          y1={s.y1}
+          x2={s.x2}
+          y2={s.y2}
+          stroke="currentColor"
+          strokeWidth={AW}
+          strokeLinecap="round"
+        />
+      ))}
+    </>
   ),
   [EVENT_SYMBOL.probability]: (
-    <>
-      <circle cx="12" cy="12" r={STROKE_R} fill="none" stroke="currentColor" strokeWidth={SW} />
-      <path d={`M12 ${12 - R} A${R} ${R} 0 0 0 12 ${12 + R} Z`} fill="currentColor" />
-    </>
+    <path
+      d={`M12 ${12 - DH} L${12 + DH} 12 L12 ${12 + DH} L${12 - DH} 12 Z`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={SW}
+      strokeLinejoin="round"
+    />
   ),
   [EVENT_SYMBOL.crossroad]: (
     <path
@@ -44,7 +69,7 @@ const SHAPES: Record<string, ReactNode> = {
 
 export interface MarkerIcon {
   id: string;
-  /** The glyph to draw — ● record, ○ estimate, ◐ probability, ◆ crossroad. */
+  /** The glyph to draw — ● record, ✱ estimate, ◇ probability, ◆ crossroad. */
   symbol: string;
   /** true when the event's cell is already lived (a bright cell). */
   lived: boolean;
