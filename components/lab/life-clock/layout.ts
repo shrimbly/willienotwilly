@@ -38,16 +38,22 @@ export interface BuildLayoutOptions {
   now: Date;
   /** Required for LIFE. */
   profile?: LifeProfile;
+  /**
+   * LIFE only: lay the grid out at a legible fixed cell size that overflows the
+   * area (a scrollable canvas), instead of shrinking every year to fit. Set on
+   * touch phones; the caller pans the overflow. Ignored in landscape.
+   */
+  scrollable?: boolean;
 }
 
 export function buildLayout(options: BuildLayoutOptions): ViewLayout {
-  const { view, gridArea, now, profile } = options;
+  const { view, gridArea, now, profile, scrollable } = options;
   const landscape = gridArea.w >= gridArea.h;
   if (view === VIEW_LIFE) {
     if (!profile) {
       throw new Error("buildLayout: LIFE view requires a profile");
     }
-    return buildLife(gridArea, now, landscape, profile);
+    return buildLife(gridArea, now, landscape, profile, scrollable === true);
   }
   if (view === VIEW_YEAR) return buildYear(gridArea, now, landscape);
   if (view === VIEW_WEEK) return buildWeek(gridArea, now, landscape);
@@ -385,11 +391,21 @@ function buildYear(area: Rect, now: Date, landscape: boolean): ViewLayout {
 // expectancy year (extended to the current year if outlived). Ghost cells
 // (before birth, after expectancy, missing week 53) are not instanced.
 
+/**
+ * Legible fixed square size for the scrollable (phone) LIFE grid: ~1/28 of the
+ * area width so the 52-week row runs a little past the screen (a small
+ * horizontal pan), clamped so it stays a sensible size on any phone.
+ */
+function scrollableLifeCell(areaW: number): number {
+  return Math.max(11, Math.min(16, Math.round(areaW / 28)));
+}
+
 function buildLife(
   area: Rect,
   now: Date,
   landscape: boolean,
   profile: LifeProfile,
+  scrollable = false,
 ): ViewLayout {
   const dob = parseDob(profile.dob, now);
   if (!dob) {
@@ -411,8 +427,19 @@ function buildLife(
   const rowGroup = 10; // decade gutter
   const rowGutter = 0.5;
   const ru = totalUnits(rowsPerBlock, rowGroup, rowGutter);
-  // Life weeks read as a calendar grid — square cells, letterboxed to fit.
-  const { gridRect, cellW, cellH } = fitGrid(area, cu, ru, true);
+  // Life weeks read as a calendar grid — square cells. Normally letterboxed to
+  // fit; on a scrolling phone the cells take a fixed legible size and the grid
+  // overflows the area (top-left origin), for the caller to pan.
+  const scroll = scrollable && !landscape;
+  let gridRect: Rect;
+  let cellW: number;
+  let cellH: number;
+  if (scroll) {
+    cellW = cellH = scrollableLifeCell(area.w);
+    gridRect = { x: area.x, y: area.y, w: cellW * cu, h: cellH * ru };
+  } else {
+    ({ gridRect, cellW, cellH } = fitGrid(area, cu, ru, true));
+  }
 
   const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
   const expCol = Math.min(WEEKS - 1, isoWeek(expectancy) - 1);

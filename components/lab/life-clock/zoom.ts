@@ -60,6 +60,19 @@ interface Anim {
   ease: (t: number) => number;
 }
 
+/**
+ * One-finger drag panning (the scrollable LIFE grid on phones). When `active`
+ * returns true a single touch drags the content instead of doing nothing;
+ * two-finger pinch still drives the view ladder. `by` receives the incremental
+ * CONTENT delta (finger up ⇒ positive dy ⇒ scroll toward later years); `end`
+ * receives the release velocity in px/ms for inertia.
+ */
+export interface ZoomPanOptions {
+  active: () => boolean;
+  by: (dx: number, dy: number) => void;
+  end?: (vx: number, vy: number) => void;
+}
+
 export interface ZoomMachineOptions {
   /** Inputs are ignored while this returns false (e.g. calibration open). */
   enabled: () => boolean;
@@ -68,6 +81,8 @@ export interface ZoomMachineOptions {
   maxView: () => ViewIndex;
   /** Double-click zoom is suppressed when the point sits in the slot marker. */
   inSlot?: (x: number, y: number) => boolean;
+  /** One-finger drag panning for the scrollable LIFE grid. */
+  pan?: ZoomPanOptions;
 }
 
 export class ZoomMachine {
@@ -92,6 +107,13 @@ export class ZoomMachine {
   // Safari trackpad pinch arrives as proprietary gesture* events.
   private gestureActive = false;
   private gestureBaseScale = 1;
+  // One-finger pan (scrollable LIFE grid).
+  private panning = false;
+  private panLastX = 0;
+  private panLastY = 0;
+  private panLastMs = 0;
+  private panVX = 0;
+  private panVY = 0;
 
   constructor(callbacks: ZoomCallbacks, opts: ZoomMachineOptions) {
     this.cb = callbacks;
@@ -435,7 +457,15 @@ export class ZoomMachine {
   private onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType !== "touch") return;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (this.pointers.size === 2) {
+    if (this.pointers.size === 1) {
+      // Arm a possible one-finger pan; it only engages if opts.pan.active().
+      this.panLastX = e.clientX;
+      this.panLastY = e.clientY;
+      this.panLastMs = Date.now();
+      this.panVX = 0;
+      this.panVY = 0;
+    } else if (this.pointers.size === 2) {
+      this.panning = false;
       this.pinchStartDist = this.pinchDist();
       this.pinchActive = true;
       this.pinchStartMs = Date.now();
@@ -447,6 +477,21 @@ export class ZoomMachine {
   private onPointerMove = (e: PointerEvent): void => {
     if (!this.pointers.has(e.pointerId)) return;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // One-finger drag pans the scrollable grid (never touches the ladder).
+    if (this.pointers.size === 1 && this.opts.pan?.active()) {
+      const nowMs = Date.now();
+      const dx = this.panLastX - e.clientX;
+      const dy = this.panLastY - e.clientY;
+      const dtp = Math.max(1, nowMs - this.panLastMs);
+      this.panVX = dx / dtp;
+      this.panVY = dy / dtp;
+      this.panLastX = e.clientX;
+      this.panLastY = e.clientY;
+      this.panLastMs = nowMs;
+      this.panning = true;
+      this.opts.pan.by(dx, dy);
+      return;
+    }
     if (!this.pinchActive || this.pointers.size < 2 || !this.opts.enabled()) {
       return;
     }
@@ -464,6 +509,19 @@ export class ZoomMachine {
 
   private onPointerUp = (e: PointerEvent): void => {
     if (!this.pointers.delete(e.pointerId)) return;
+    // Releasing the last pan finger flings the scroll; a two-finger release
+    // drops back to a single armed finger, ready to pan without a jump.
+    if (this.panning && this.pointers.size === 0) {
+      this.panning = false;
+      this.opts.pan?.end?.(this.panVX, this.panVY);
+    } else if (this.pointers.size === 1) {
+      const [p] = [...this.pointers.values()];
+      this.panLastX = p.x;
+      this.panLastY = p.y;
+      this.panLastMs = Date.now();
+      this.panVX = 0;
+      this.panVY = 0;
+    }
     if (this.pinchActive && this.pointers.size < 2) {
       this.pinchActive = false;
       const nowMs = Date.now();

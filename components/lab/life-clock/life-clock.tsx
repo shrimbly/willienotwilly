@@ -76,6 +76,8 @@ const AXIS_FADE_TAU_MS = 80;
 const EVENT_HOVER_RADIUS_PX = 16;
 const EVENT_HOVER_TAU_MS = 90;
 const PLACES_FADE_TAU_MS = 140;
+// Decay constant for the LIFE-scroll flick inertia (touch phones).
+const SCROLL_FLING_TAU_MS = 130;
 const MS_PER_DAY = 86_400_000;
 
 const CERTAINTY_LABEL = {
@@ -174,6 +176,9 @@ export function LifeClockLab() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hudRef = useRef<HudHandle | null>(null);
+  // Inner (translated) layer of the marker overlay — moved imperatively with the
+  // LIFE scroll, so markers pan with their cells without a per-frame re-render.
+  const markerLayerRef = useRef<HTMLDivElement | null>(null);
 
   const [booted, setBooted] = useState(false);
   const [profile, setProfile] = useState<LifeProfile | null>(null);
@@ -266,6 +271,18 @@ export function LifeClockLab() {
     let metrics = computeMetrics(container.clientWidth, container.clientHeight);
     const layouts: (ViewLayout | null)[] = [null, null, null, null];
     const maxView: ViewIndex = profile ? VIEW_LIFE : VIEW_YEAR;
+
+    // Scrollable LIFE grid: a legible fixed cell size that overflows the area,
+    // panned by one finger. Only on touch phones (coarse pointer, narrow) —
+    // where the age axis is hidden, so nothing else needs the scroll offset.
+    let scrollable = coarseQuery.matches && !metrics.axisVisible;
+    // Current 2D pan of the LIFE grid + release inertia, in layout px.
+    let scrollX = 0;
+    let scrollY = 0;
+    let maxScrollX = 0;
+    let maxScrollY = 0;
+    let flingVX = 0;
+    let flingVY = 0;
 
     const events: ClockEvent[] = profile ? buildEvents(profile, new Date()) : [];
     const eventById = new Map(events.map((e) => [e.id, e]));
@@ -371,11 +388,62 @@ export function LifeClockLab() {
           gridArea: metrics.gridArea,
           now,
           profile: profile ?? undefined,
+          scrollable: v === VIEW_LIFE ? scrollable : false,
         });
       }
       for (let v = maxView + 1; v < 4; v++) layouts[v] = null;
       resolveMarkers(layouts[VIEW_LIFE]);
       resolvePlaceTints(layouts[VIEW_LIFE]);
+      recomputeScrollBounds();
+      resetLifeScroll();
+    };
+
+    // The overflow the LIFE grid can be panned across, derived from its (bigger
+    // than the area) gridRect. Zero on any axis that already fits.
+    const recomputeScrollBounds = () => {
+      const life = layouts[VIEW_LIFE];
+      if (!scrollable || !life) {
+        maxScrollX = 0;
+        maxScrollY = 0;
+        return;
+      }
+      const a = metrics.gridArea;
+      maxScrollX = Math.max(0, life.gridRect.w - a.w);
+      maxScrollY = Math.max(0, life.gridRect.h - a.h);
+    };
+
+    const clampScroll = () => {
+      scrollX = Math.max(0, Math.min(maxScrollX, scrollX));
+      scrollY = Math.max(0, Math.min(maxScrollY, scrollY));
+    };
+
+    // Land the LIFE grid centred on "now" (this year's row), so zooming out from
+    // YEAR arrives looking at the present rather than at birth.
+    const resetLifeScroll = () => {
+      flingVX = 0;
+      flingVY = 0;
+      const life = layouts[VIEW_LIFE];
+      if (!scrollable || !life?.slotRect) {
+        scrollX = 0;
+        scrollY = 0;
+        return;
+      }
+      const a = metrics.gridArea;
+      const s = life.slotRect;
+      scrollX = s.x + s.w / 2 - (a.x + a.w / 2);
+      scrollY = s.y + s.h / 2 - (a.y + a.h / 2);
+      clampScroll();
+    };
+
+    // Apply a content-space pan delta; hitting a bound kills that axis's fling.
+    const applyScroll = (dx: number, dy: number) => {
+      const px = scrollX;
+      const py = scrollY;
+      scrollX += dx;
+      scrollY += dy;
+      clampScroll();
+      if (scrollX === px && dx !== 0) flingVX = 0;
+      if (scrollY === py && dy !== 0) flingVY = 0;
     };
 
     const renderer = new LifeClockRenderer(canvas);
@@ -417,8 +485,11 @@ export function LifeClockLab() {
       const slot = layout?.slotRect;
       if (!slot) return false;
       const rect = container.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+      // The scrollable LIFE grid is shifted on screen by the pan; map the tap
+      // back into layout space before testing the slot rect.
+      const isLife = zoom.restingView === VIEW_LIFE;
+      const x = clientX - rect.left + (isLife ? scrollX : 0);
+      const y = clientY - rect.top + (isLife ? scrollY : 0);
       return (
         x >= slot.x && x <= slot.x + slot.w && y >= slot.y && y <= slot.y + slot.h
       );
@@ -452,7 +523,7 @@ export function LifeClockLab() {
       }
     };
 
-    const zoom = new ZoomMachine(
+    const zoom: ZoomMachine = new ZoomMachine(
       {
         onFrame: () => {},
         onTransitionStart: (from, to) => {
@@ -484,7 +555,9 @@ export function LifeClockLab() {
           }
           syncAxis();
           // Icons appear once settled in LIFE, and fade otherwise.
-          setAtRestLife(zoom.restingView === VIEW_LIFE);
+          const inLife = zoom.restingView === VIEW_LIFE;
+          if (inLife) resetLifeScroll();
+          setAtRestLife(inLife);
           if (zoom.restingView === VIEW_DAY) armHint();
         },
         onLimit: (dir) => {
@@ -498,6 +571,23 @@ export function LifeClockLab() {
         // Recent slot clicks also suppress dblclick zoom (double-step guard).
         inSlot: (x, y) =>
           restingSlotHit(x, y) || Date.now() - slotClickAtMs < 400,
+        pan: {
+          active: () =>
+            scrollable &&
+            !calOpenRef.current &&
+            zoom.isAtRest &&
+            zoom.restingView === VIEW_LIFE &&
+            (maxScrollX > 0 || maxScrollY > 0),
+          by: (dx, dy) => {
+            flingVX = 0;
+            flingVY = 0;
+            applyScroll(dx, dy);
+          },
+          end: (vx, vy) => {
+            flingVX = vx;
+            flingVY = vy;
+          },
+        },
       },
     );
     zoom.attach(canvas);
@@ -668,6 +758,8 @@ export function LifeClockLab() {
     const clearHover = () => applyHover(null, null);
 
     const onPointerMove = (e: PointerEvent) => {
+      // Hover is a pointer affordance; on touch a drag pans the grid instead.
+      if (e.pointerType === "touch") return;
       const evHit = eventHitTest(e.clientX, e.clientY);
       if (evHit) {
         applyHover(eventInfo(evHit), evHit.id);
@@ -726,6 +818,22 @@ export function LifeClockLab() {
       const p = viewPos - lower;
       const morphing = p > 0.0005 && layouts[upper] !== null;
       const isReduced = reduced();
+
+      // LIFE scroll flick inertia — glide the pan after release while resting in
+      // the scrollable grid; any other state cancels leftover velocity.
+      if (scrollable && !morphing && zoom.restingView === VIEW_LIFE) {
+        if (flingVX !== 0 || flingVY !== 0) {
+          applyScroll(flingVX * dt, flingVY * dt);
+          const decay = Math.exp(-dt / SCROLL_FLING_TAU_MS);
+          flingVX *= decay;
+          flingVY *= decay;
+          if (Math.abs(flingVX) < 0.003) flingVX = 0;
+          if (Math.abs(flingVY) < 0.003) flingVY = 0;
+        }
+      } else {
+        flingVX = 0;
+        flingVY = 0;
+      }
 
       // Reduced motion crossfades DIRECTLY between the transition's endpoints
       // — chained jumps must not flash intermediate views.
@@ -876,6 +984,41 @@ export function LifeClockLab() {
           };
         }
       }
+      // 2D pan of the scrollable LIFE grid: shift whichever layer holds LIFE by
+      // the scroll offset in SCREEN space, so the stage frame stays put and
+      // clips. LIFE is the child at rest and the parent mid-morph; the shift
+      // eases out with `p` as it dives into a slot. The frame border, drawn in
+      // the fixed line layer, is unaffected.
+      if (scrollable) {
+        const lifeInvolved =
+          renderChild === VIEW_LIFE || renderParent === VIEW_LIFE;
+        renderer.setClip(lifeInvolved ? metrics.gridArea : null);
+        const shift =
+          renderChild === VIEW_LIFE ? 1 : renderParent === VIEW_LIFE ? p : 0;
+        const sx = scrollX * shift;
+        const sy = scrollY * shift;
+        if (sx !== 0 || sy !== 0) {
+          if (morphFrame.child) {
+            const t = morphFrame.child.transform;
+            morphFrame.child = {
+              ...morphFrame.child,
+              transform: { ...t, offsetX: t.offsetX - sx, offsetY: t.offsetY - sy },
+            };
+          }
+          if (morphFrame.parent) {
+            const t = morphFrame.parent.transform;
+            morphFrame.parent = {
+              ...morphFrame.parent,
+              transform: { ...t, offsetX: t.offsetX - sx, offsetY: t.offsetY - sy },
+            };
+          }
+        }
+        if (markerLayerRef.current) {
+          markerLayerRef.current.style.transform = `translate(${-sx}px, ${-sy}px)`;
+        }
+      } else {
+        renderer.setClip(null);
+      }
       renderer.drawFrame(morphFrame);
 
       // HUD: strings recompute at 1 Hz (or on view change); per-frame fields
@@ -938,6 +1081,7 @@ export function LifeClockLab() {
       if (w < 2 || h < 2) return;
       setViewport({ w, h });
       metrics = computeMetrics(w, h);
+      scrollable = coarseQuery.matches && !metrics.axisVisible;
       renderer.setViewport(w, h, Math.min(window.devicePixelRatio || 1, 2));
       renderer.setFrameRect(metrics.gridArea);
       buildAll(new Date());
@@ -994,6 +1138,12 @@ export function LifeClockLab() {
   const isAuthor = profile === null || profile.author === true;
   const hoveredEventId =
     hovered && hovered.key.startsWith("event:") ? hovered.key.slice(6) : null;
+  // The stage rect for clipping the marker overlay — derived from the viewport,
+  // matching the renderer's frame rect.
+  const stageGridArea = useMemo(
+    () => computeMetrics(Math.max(1, viewport.w), Math.max(1, viewport.h)).gridArea,
+    [viewport.w, viewport.h],
+  );
 
   return (
     <div
@@ -1039,6 +1189,8 @@ export function LifeClockLab() {
           visible={atRestLife}
           hoveredId={hoveredEventId}
           reducedMotion={reducedMotion}
+          clip={stageGridArea}
+          innerRef={markerLayerRef}
         />
         <HoverCard
           info={hovered}

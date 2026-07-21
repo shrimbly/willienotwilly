@@ -149,6 +149,42 @@ describe("cell counts", () => {
     const portrait = build(VIEW_LIFE, { x: 0, y: 0, w: 600, h: 1200 });
     expect(portrait.cellW).toBeCloseTo(portrait.cellH, 9);
   });
+
+  it("scrollable LIFE uses a fixed legible square that overflows the area", () => {
+    // A phone-sized portrait area: fit-to-height would shrink cells to fit, but
+    // the scrollable layout takes a fixed ~w/28 square and overflows downward.
+    const area: Rect = { x: 14, y: 46, w: 360, h: 620 };
+    const fit = buildLayout({ view: VIEW_LIFE, gridArea: area, now: NOW, profile: PROFILE });
+    const scroll = buildLayout({
+      view: VIEW_LIFE,
+      gridArea: area,
+      now: NOW,
+      profile: PROFILE,
+      scrollable: true,
+    });
+    // Square, ~w/28, and top-left aligned at the area origin.
+    expect(scroll.cellW).toBeCloseTo(scroll.cellH, 9);
+    expect(scroll.cellW).toBe(Math.round(area.w / 28));
+    expect(scroll.gridRect.x).toBe(area.x);
+    expect(scroll.gridRect.y).toBe(area.y);
+    // Bigger cells than the fit layout, and taller than the area (so it scrolls).
+    expect(scroll.cellW).toBeGreaterThan(fit.cellW);
+    expect(scroll.gridRect.h).toBeGreaterThan(area.h);
+  });
+
+  it("landscape ignores scrollable (keeps the two-block fit layout)", () => {
+    const area: Rect = { x: 0, y: 0, w: 1200, h: 700 };
+    const plain = buildLayout({ view: VIEW_LIFE, gridArea: area, now: NOW, profile: PROFILE });
+    const asked = buildLayout({
+      view: VIEW_LIFE,
+      gridArea: area,
+      now: NOW,
+      profile: PROFILE,
+      scrollable: true,
+    });
+    expect(asked.cellW).toBeCloseTo(plain.cellW, 9);
+    expect(asked.gridRect.h).toBeCloseTo(plain.gridRect.h, 9);
+  });
 });
 
 describe("DAY row semantics (landscape row = 15 minutes)", () => {

@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { EVENT_SYMBOL, TOKENS } from "./types";
+import type { Rect } from "./types";
 
 // Grows in step with the cell the renderer pops beneath it.
 const HOVER_SCALE = 1.7;
@@ -86,6 +87,15 @@ export interface MarkerIconsProps {
   visible: boolean;
   hoveredId: string | null;
   reducedMotion: boolean;
+  /**
+   * The stage rect (layout px). Markers are clipped to it and drawn relative to
+   * its origin, so a scrolled overlay clips at the frame instead of over the HUD.
+   */
+  clip: Rect;
+  /**
+   * The translated inner layer, moved imperatively with the LIFE scroll offset.
+   */
+  innerRef?: Ref<HTMLDivElement>;
 }
 
 /**
@@ -101,54 +111,63 @@ export function MarkerIcons({
   visible,
   hoveredId,
   reducedMotion,
+  clip,
+  innerRef,
 }: MarkerIconsProps) {
   const box = Math.max(5, Math.round(size * SIZE_FRAC));
 
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-20"
+      className="pointer-events-none absolute z-20 overflow-hidden"
       style={{
+        left: clip.x,
+        top: clip.y,
+        width: clip.w,
+        height: clip.h,
         opacity: visible ? 1 : 0,
         transition: reducedMotion
           ? "none"
           : `opacity ${visible ? 180 : 90}ms linear`,
       }}
     >
-      {icons.map((m) => {
-        const hot = m.id === hoveredId;
-        return (
-          <span
-            key={m.id}
-            style={{
-              position: "absolute",
-              left: m.x,
-              top: m.y,
-              width: box,
-              height: box,
-              marginLeft: -box / 2,
-              marginTop: -box / 2,
-              color: m.lived ? INK_LIVED : INK_FUTURE,
-              // Grows in step with the cell the renderer pops beneath it.
-              transform: hot ? `scale(${HOVER_SCALE})` : "scale(1)",
-              transformOrigin: "center",
-              transition: reducedMotion
-                ? "none"
-                : `transform 130ms ${TOKENS.easeOut}`,
-              zIndex: hot ? 1 : 0,
-            }}
-          >
-            <svg
-              width={box}
-              height={box}
-              viewBox="0 0 24 24"
-              style={{ display: "block" }}
+      {/* Translated imperatively with the LIFE scroll; identity otherwise. */}
+      <div ref={innerRef} className="absolute inset-0" style={{ willChange: "transform" }}>
+        {icons.map((m) => {
+          const hot = m.id === hoveredId;
+          return (
+            <span
+              key={m.id}
+              style={{
+                position: "absolute",
+                left: m.x - clip.x,
+                top: m.y - clip.y,
+                width: box,
+                height: box,
+                marginLeft: -box / 2,
+                marginTop: -box / 2,
+                color: m.lived ? INK_LIVED : INK_FUTURE,
+                // Grows in step with the cell the renderer pops beneath it.
+                transform: hot ? `scale(${HOVER_SCALE})` : "scale(1)",
+                transformOrigin: "center",
+                transition: reducedMotion
+                  ? "none"
+                  : `transform 130ms ${TOKENS.easeOut}`,
+                zIndex: hot ? 1 : 0,
+              }}
             >
-              {SHAPES[m.symbol] ?? SHAPES[EVENT_SYMBOL.record]}
-            </svg>
-          </span>
-        );
-      })}
+              <svg
+                width={box}
+                height={box}
+                viewBox="0 0 24 24"
+                style={{ display: "block" }}
+              >
+                {SHAPES[m.symbol] ?? SHAPES[EVENT_SYMBOL.record]}
+              </svg>
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

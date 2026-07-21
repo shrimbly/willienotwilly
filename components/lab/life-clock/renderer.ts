@@ -243,6 +243,9 @@ export class LifeClockRenderer {
   private lifePlaceTints: Float32Array | null = null;
   private quad = quadGeometry();
   private frameRect: Rect = { x: 0, y: 0, w: 1, h: 1 };
+  // When set, the scene is scissored to this rect (layout px) — used so the
+  // scrollable LIFE grid clips at the stage frame instead of over the HUD.
+  private clipRect: Rect | null = null;
   private width = 1;
   private height = 1;
   private dpr = 1;
@@ -399,6 +402,14 @@ export class LifeClockRenderer {
 
   setFrameRect(rect: Rect): void {
     this.frameRect = rect;
+  }
+
+  /**
+   * Clip the scene to `rect` (layout px), or null to draw unclipped. The rect is
+   * padded 1px so the stage frame hairline stays crisp at the boundary.
+   */
+  setClip(rect: Rect | null): void {
+    this.clipRect = rect;
   }
 
   /** Rebuild one layer's instance buffers from a layout (or hide it). */
@@ -568,7 +579,22 @@ export class LifeClockRenderer {
 
     this.applyHoverCell(frame, rubber, cx, cy);
     this.writeLines(frame, rubber, cx, cy);
+
+    // Scissor to the (padded) clip rect. WebGL's scissor origin is bottom-left,
+    // so flip y; three multiplies by the pixel ratio internally.
+    if (this.clipRect) {
+      const c = this.clipRect;
+      const x = c.x - 1;
+      const w = c.w + 2;
+      const yTop = c.y - 1;
+      const h = c.h + 2;
+      this.renderer.setScissorTest(true);
+      this.renderer.setScissor(x, this.height - (yTop + h), w, h);
+    } else {
+      this.renderer.setScissorTest(false);
+    }
     this.renderer.render(this.scene, this.camera);
+    if (this.clipRect) this.renderer.setScissorTest(false);
   }
 
   // Pop the hovered marker's cell: a quad grown about the cell centre, filled
