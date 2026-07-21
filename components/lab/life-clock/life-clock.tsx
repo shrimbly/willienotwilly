@@ -272,17 +272,14 @@ export function LifeClockLab() {
     const layouts: (ViewLayout | null)[] = [null, null, null, null];
     const maxView: ViewIndex = profile ? VIEW_LIFE : VIEW_YEAR;
 
-    // Scrollable LIFE grid: a legible fixed cell size that overflows the area,
-    // panned by one finger. Only on touch phones (coarse pointer, narrow) —
-    // where the age axis is hidden, so nothing else needs the scroll offset.
-    let scrollable = coarseQuery.matches && !metrics.axisVisible;
-    // Current 2D pan of the LIFE grid + release inertia, in layout px.
-    let scrollX = 0;
+    // LIFE is a single vertical column, taller than the stage, that scrolls:
+    // the wheel on desktop, one-finger drag on touch. Its width always fits, so
+    // only Y scrolls (X stays 0). Vertical scroll offset + release inertia (px).
     let scrollY = 0;
-    let maxScrollX = 0;
     let maxScrollY = 0;
-    let flingVX = 0;
     let flingVY = 0;
+    // Screen-space Y offset applied to the age axis this frame (scroll × ease).
+    let lifeAxisScrollY = 0;
 
     const events: ClockEvent[] = profile ? buildEvents(profile, new Date()) : [];
     const eventById = new Map(events.map((e) => [e.id, e]));
@@ -388,7 +385,6 @@ export function LifeClockLab() {
           gridArea: metrics.gridArea,
           now,
           profile: profile ?? undefined,
-          scrollable: v === VIEW_LIFE ? scrollable : false,
         });
       }
       for (let v = maxView + 1; v < 4; v++) layouts[v] = null;
@@ -398,52 +394,32 @@ export function LifeClockLab() {
       resetLifeScroll();
     };
 
-    // The overflow the LIFE grid can be panned across, derived from its (bigger
-    // than the area) gridRect. Zero on any axis that already fits.
+    // Vertical overflow the LIFE column can be scrolled across.
     const recomputeScrollBounds = () => {
       const life = layouts[VIEW_LIFE];
-      if (!scrollable || !life) {
-        maxScrollX = 0;
-        maxScrollY = 0;
-        return;
-      }
-      const a = metrics.gridArea;
-      maxScrollX = Math.max(0, life.gridRect.w - a.w);
-      maxScrollY = Math.max(0, life.gridRect.h - a.h);
+      maxScrollY = life ? Math.max(0, life.gridRect.h - metrics.gridArea.h) : 0;
     };
 
     const clampScroll = () => {
-      scrollX = Math.max(0, Math.min(maxScrollX, scrollX));
       scrollY = Math.max(0, Math.min(maxScrollY, scrollY));
     };
 
-    // Land the LIFE grid centred on "now" (this year's row), so zooming out from
-    // YEAR arrives looking at the present rather than at birth.
+    // Land the LIFE column at the top (age 0) — the reader scrolls down through
+    // the years, and rolls into YEAR on over-scrolling past the bottom.
     const resetLifeScroll = () => {
-      flingVX = 0;
       flingVY = 0;
-      const life = layouts[VIEW_LIFE];
-      if (!scrollable || !life?.slotRect) {
-        scrollX = 0;
-        scrollY = 0;
-        return;
-      }
-      const a = metrics.gridArea;
-      const s = life.slotRect;
-      scrollX = s.x + s.w / 2 - (a.x + a.w / 2);
-      scrollY = s.y + s.h / 2 - (a.y + a.h / 2);
-      clampScroll();
+      scrollY = 0;
     };
 
-    // Apply a content-space pan delta; hitting a bound kills that axis's fling.
-    const applyScroll = (dx: number, dy: number) => {
-      const px = scrollX;
+    // Apply a content-space scroll delta; return the dy actually applied so the
+    // wheel can tell it has hit the bottom. Hitting a bound kills the fling.
+    const applyScroll = (_dx: number, dy: number): number => {
       const py = scrollY;
-      scrollX += dx;
       scrollY += dy;
       clampScroll();
-      if (scrollX === px && dx !== 0) flingVX = 0;
-      if (scrollY === py && dy !== 0) flingVY = 0;
+      const applied = scrollY - py;
+      if (applied === 0 && dy !== 0) flingVY = 0;
+      return applied;
     };
 
     const renderer = new LifeClockRenderer(canvas);
@@ -485,10 +461,10 @@ export function LifeClockLab() {
       const slot = layout?.slotRect;
       if (!slot) return false;
       const rect = container.getBoundingClientRect();
-      // The scrollable LIFE grid is shifted on screen by the pan; map the tap
-      // back into layout space before testing the slot rect.
+      // The LIFE column is shifted on screen by the scroll; map the tap back
+      // into layout space before testing the slot rect.
       const isLife = zoom.restingView === VIEW_LIFE;
-      const x = clientX - rect.left + (isLife ? scrollX : 0);
+      const x = clientX - rect.left;
       const y = clientY - rect.top + (isLife ? scrollY : 0);
       return (
         x >= slot.x && x <= slot.x + slot.w && y >= slot.y && y <= slot.y + slot.h
@@ -529,6 +505,10 @@ export function LifeClockLab() {
         onTransitionStart: (from, to) => {
           transition.from = from;
           transition.to = to;
+          // Entering LIFE: land at the top from the first frame of the morph, so
+          // a stale scroll from a prior visit doesn't arrive scrolled then snap.
+          // Leaving LIFE keeps the offset so it eases out with the dive.
+          if (to === VIEW_LIFE) resetLifeScroll();
           // Icons fade with the grid; a morph is starting, so leave rest-LIFE.
           setAtRestLife(false);
           if (hoveredId !== null || hoverKey !== null) {
@@ -571,20 +551,17 @@ export function LifeClockLab() {
         // Recent slot clicks also suppress dblclick zoom (double-step guard).
         inSlot: (x, y) =>
           restingSlotHit(x, y) || Date.now() - slotClickAtMs < 400,
-        pan: {
+        scroll: {
           active: () =>
-            scrollable &&
             !calOpenRef.current &&
             zoom.isAtRest &&
             zoom.restingView === VIEW_LIFE &&
-            (maxScrollX > 0 || maxScrollY > 0),
+            maxScrollY > 0,
           by: (dx, dy) => {
-            flingVX = 0;
             flingVY = 0;
-            applyScroll(dx, dy);
+            return applyScroll(dx, dy);
           },
-          end: (vx, vy) => {
-            flingVX = vx;
+          end: (_vx, vy) => {
             flingVY = vy;
           },
         },
@@ -630,14 +607,14 @@ export function LifeClockLab() {
       }
     };
     // Event markers are hit-tested in layout px: at rest in LIFE the layer
-    // transform is identity, so a cell centre is already its screen position.
+    // transform is identity bar the scroll, so add scrollY to reach layout space.
     const eventHitTest = (clientX: number, clientY: number) => {
       if (!zoom.isAtRest || zoom.restingView !== VIEW_LIFE) return null;
       const life = layouts[VIEW_LIFE];
       if (!life || markers.length === 0) return null;
       const rect = container.getBoundingClientRect();
       const px = clientX - rect.left;
-      const py = clientY - rect.top;
+      const py = clientY - rect.top + scrollY;
       let best: { event: ClockEvent; x: number; y: number; id: string } | null =
         null;
       let bestDist = EVENT_HOVER_RADIUS_PX;
@@ -667,7 +644,7 @@ export function LifeClockLab() {
       if (!life || !placeCellBand) return null;
       const rect = container.getBoundingClientRect();
       const px = clientX - rect.left;
-      const py = clientY - rect.top;
+      const py = clientY - rect.top + scrollY;
       for (let i = 0; i < life.cellCount; i++) {
         const c = life.cellRect(i);
         if (px >= c.x && px <= c.x + c.w && py >= c.y && py <= c.y + c.h) {
@@ -700,7 +677,7 @@ export function LifeClockLab() {
         detail: e.detail,
         basis: e.basis,
         x: hit.x,
-        y: hit.y,
+        y: hit.y - scrollY,
       };
     };
 
@@ -739,7 +716,7 @@ export function LifeClockLab() {
         detail,
         basis: "WHERE I'VE LIVED",
         x: hit.x,
-        y: hit.y,
+        y: hit.y - scrollY,
       };
     };
 
@@ -819,19 +796,15 @@ export function LifeClockLab() {
       const morphing = p > 0.0005 && layouts[upper] !== null;
       const isReduced = reduced();
 
-      // LIFE scroll flick inertia — glide the pan after release while resting in
-      // the scrollable grid; any other state cancels leftover velocity.
-      if (scrollable && !morphing && zoom.restingView === VIEW_LIFE) {
-        if (flingVX !== 0 || flingVY !== 0) {
-          applyScroll(flingVX * dt, flingVY * dt);
-          const decay = Math.exp(-dt / SCROLL_FLING_TAU_MS);
-          flingVX *= decay;
-          flingVY *= decay;
-          if (Math.abs(flingVX) < 0.003) flingVX = 0;
+      // LIFE scroll flick inertia — glide after a touch release while resting in
+      // the column; any other state cancels leftover velocity.
+      if (!morphing && zoom.restingView === VIEW_LIFE) {
+        if (flingVY !== 0) {
+          applyScroll(0, flingVY * dt);
+          flingVY *= Math.exp(-dt / SCROLL_FLING_TAU_MS);
           if (Math.abs(flingVY) < 0.003) flingVY = 0;
         }
       } else {
-        flingVX = 0;
         flingVY = 0;
       }
 
@@ -984,41 +957,37 @@ export function LifeClockLab() {
           };
         }
       }
-      // 2D pan of the scrollable LIFE grid: shift whichever layer holds LIFE by
-      // the scroll offset in SCREEN space, so the stage frame stays put and
-      // clips. LIFE is the child at rest and the parent mid-morph; the shift
-      // eases out with `p` as it dives into a slot. The frame border, drawn in
-      // the fixed line layer, is unaffected.
-      if (scrollable) {
-        const lifeInvolved =
-          renderChild === VIEW_LIFE || renderParent === VIEW_LIFE;
-        renderer.setClip(lifeInvolved ? metrics.gridArea : null);
-        const shift =
-          renderChild === VIEW_LIFE ? 1 : renderParent === VIEW_LIFE ? p : 0;
-        const sx = scrollX * shift;
-        const sy = scrollY * shift;
-        if (sx !== 0 || sy !== 0) {
-          if (morphFrame.child) {
-            const t = morphFrame.child.transform;
-            morphFrame.child = {
-              ...morphFrame.child,
-              transform: { ...t, offsetX: t.offsetX - sx, offsetY: t.offsetY - sy },
-            };
-          }
-          if (morphFrame.parent) {
-            const t = morphFrame.parent.transform;
-            morphFrame.parent = {
-              ...morphFrame.parent,
-              transform: { ...t, offsetX: t.offsetX - sx, offsetY: t.offsetY - sy },
-            };
-          }
+      // Scroll offset for the LIFE column: shift whichever layer holds LIFE by
+      // the offset in SCREEN space, so the stage frame stays put and clips. LIFE
+      // is the child at rest and the parent mid-morph; the shift eases out with
+      // `p` as it dives into a slot. The frame border, in the fixed line layer,
+      // is unaffected. The age axis + markers follow the same offset.
+      const lifeInvolved =
+        renderChild === VIEW_LIFE || renderParent === VIEW_LIFE;
+      renderer.setClip(lifeInvolved ? metrics.gridArea : null);
+      const shift =
+        renderChild === VIEW_LIFE ? 1 : renderParent === VIEW_LIFE ? p : 0;
+      const sy = scrollY * shift;
+      if (sy !== 0) {
+        if (morphFrame.child) {
+          const t = morphFrame.child.transform;
+          morphFrame.child = {
+            ...morphFrame.child,
+            transform: { ...t, offsetY: t.offsetY - sy },
+          };
         }
-        if (markerLayerRef.current) {
-          markerLayerRef.current.style.transform = `translate(${-sx}px, ${-sy}px)`;
+        if (morphFrame.parent) {
+          const t = morphFrame.parent.transform;
+          morphFrame.parent = {
+            ...morphFrame.parent,
+            transform: { ...t, offsetY: t.offsetY - sy },
+          };
         }
-      } else {
-        renderer.setClip(null);
       }
+      if (markerLayerRef.current) {
+        markerLayerRef.current.style.transform = `translateY(${-sy}px)`;
+      }
+      lifeAxisScrollY = sy;
       renderer.drawFrame(morphFrame);
 
       // HUD: strings recompute at 1 Hz (or on view change); per-frame fields
@@ -1051,6 +1020,7 @@ export function LifeClockLab() {
         dotAlpha: pulse,
         nearestView: nearest,
         axisOpacity,
+        axisScrollY: lifeAxisScrollY,
       };
       hudRef.current?.update(fields);
     };
@@ -1081,7 +1051,6 @@ export function LifeClockLab() {
       if (w < 2 || h < 2) return;
       setViewport({ w, h });
       metrics = computeMetrics(w, h);
-      scrollable = coarseQuery.matches && !metrics.axisVisible;
       renderer.setViewport(w, h, Math.min(window.devicePixelRatio || 1, 2));
       renderer.setFrameRect(metrics.gridArea);
       buildAll(new Date());
@@ -1170,6 +1139,14 @@ export function LifeClockLab() {
           ref={hudRef}
           axis={axisState?.axis ?? null}
           gridRect={axisState?.gridRect ?? null}
+          axisScrollClip={
+            axisState?.view === VIEW_LIFE
+              ? {
+                  top: stageGridArea.y,
+                  bottom: stageGridArea.y + stageGridArea.h,
+                }
+              : null
+          }
           expectancyYears={expectancyYears}
           mode={isAuthor ? "author" : "custom"}
           hint={hint}

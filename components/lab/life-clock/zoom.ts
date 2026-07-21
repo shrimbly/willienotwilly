@@ -9,6 +9,8 @@ import { VIEW_DAY, VIEW_LIFE } from "./types";
 const LEAN_MAX = 0.08; // morph-progress preview at |charge| = 1
 const COMMIT_CHARGE = 1;
 const TOUCH_RELEASE_COMMIT = 0.55;
+// Over-scroll past the bottom of the LIFE column (px) before it steps to YEAR.
+const WHEEL_EDGE_STEP_PX = 140;
 const IDLE_DECAY_DELAY_MS = 90;
 const IDLE_DECAY_TAU_MS = 140;
 const POST_COMMIT_GATE_MS = 250;
@@ -61,15 +63,16 @@ interface Anim {
 }
 
 /**
- * One-finger drag panning (the scrollable LIFE grid on phones). When `active`
- * returns true a single touch drags the content instead of doing nothing;
- * two-finger pinch still drives the view ladder. `by` receives the incremental
- * CONTENT delta (finger up ⇒ positive dy ⇒ scroll toward later years); `end`
- * receives the release velocity in px/ms for inertia.
+ * Scrolling the LIFE column. When `active` returns true, the wheel (desktop) and
+ * one-finger drag (touch) scroll the content instead of driving the ladder;
+ * two-finger pinch still changes views. `by` applies an incremental CONTENT
+ * delta (positive dy ⇒ toward later years) and returns the dy actually applied,
+ * so the wheel can tell when it has hit the bottom. `end` gets the release
+ * velocity (px/ms) for touch fling.
  */
-export interface ZoomPanOptions {
+export interface ZoomScrollOptions {
   active: () => boolean;
-  by: (dx: number, dy: number) => void;
+  by: (dx: number, dy: number) => number;
   end?: (vx: number, vy: number) => void;
 }
 
@@ -81,8 +84,8 @@ export interface ZoomMachineOptions {
   maxView: () => ViewIndex;
   /** Double-click zoom is suppressed when the point sits in the slot marker. */
   inSlot?: (x: number, y: number) => boolean;
-  /** One-finger drag panning for the scrollable LIFE grid. */
-  pan?: ZoomPanOptions;
+  /** Scrolling the LIFE column (wheel + one-finger drag). */
+  scroll?: ZoomScrollOptions;
 }
 
 export class ZoomMachine {
@@ -114,6 +117,8 @@ export class ZoomMachine {
   private panLastMs = 0;
   private panVX = 0;
   private panVY = 0;
+  // Wheel over-scroll accumulated at the bottom edge, toward a step to YEAR.
+  private edgeAccum = 0;
 
   constructor(callbacks: ZoomCallbacks, opts: ZoomMachineOptions) {
     this.cb = callbacks;
@@ -397,6 +402,38 @@ export class ZoomMachine {
     const nowMs = Date.now();
     const px =
       e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY;
+    // In the scrollable LIFE column the wheel scrolls the years (trackpad pinch,
+    // ctrlKey+wheel, stays a zoom). Once the bottom is reached, further downward
+    // scrolling accumulates and steps in to YEAR.
+    const sc = this.opts.scroll;
+    if (sc?.active() && !e.ctrlKey) {
+      const applied = sc.by(0, px);
+      if (Math.abs(applied) > 0.01) {
+        this.edgeAccum = 0;
+        this.lastInputMs = nowMs;
+        return;
+      }
+      if (px > 0) {
+        this.edgeAccum += px;
+        if (this.edgeAccum >= WHEEL_EDGE_STEP_PX) {
+          this.edgeAccum = 0;
+          this.stepIn(nowMs); // leaving LIFE means zooming in to YEAR
+        }
+      } else {
+        this.edgeAccum = 0; // at the top, scrolling up — rubber-band, no exit
+      }
+      return;
+    }
+    this.edgeAccum = 0;
+    // While the edge step out of LIFE is still animating, swallow the wheel so
+    // the continued downward scroll doesn't reverse the exit back to LIFE.
+    if (
+      this.anim !== null &&
+      this.restView === VIEW_LIFE &&
+      this.anim.toPos < this.restView
+    ) {
+      return;
+    }
     // Trackpad pinch arrives as ctrlKey+wheel. Scroll down = zoom out.
     this.addCharge(-px / (e.ctrlKey ? 120 : 320), nowMs);
   };
@@ -477,8 +514,8 @@ export class ZoomMachine {
   private onPointerMove = (e: PointerEvent): void => {
     if (!this.pointers.has(e.pointerId)) return;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    // One-finger drag pans the scrollable grid (never touches the ladder).
-    if (this.pointers.size === 1 && this.opts.pan?.active()) {
+    // One-finger drag scrolls the LIFE column (never touches the ladder).
+    if (this.pointers.size === 1 && this.opts.scroll?.active()) {
       const nowMs = Date.now();
       const dx = this.panLastX - e.clientX;
       const dy = this.panLastY - e.clientY;
@@ -489,7 +526,7 @@ export class ZoomMachine {
       this.panLastY = e.clientY;
       this.panLastMs = nowMs;
       this.panning = true;
-      this.opts.pan.by(dx, dy);
+      this.opts.scroll.by(dx, dy);
       return;
     }
     if (!this.pinchActive || this.pointers.size < 2 || !this.opts.enabled()) {
@@ -513,7 +550,7 @@ export class ZoomMachine {
     // drops back to a single armed finger, ready to pan without a jump.
     if (this.panning && this.pointers.size === 0) {
       this.panning = false;
-      this.opts.pan?.end?.(this.panVX, this.panVY);
+      this.opts.scroll?.end?.(this.panVX, this.panVY);
     } else if (this.pointers.size === 1) {
       const [p] = [...this.pointers.values()];
       this.panLastX = p.x;

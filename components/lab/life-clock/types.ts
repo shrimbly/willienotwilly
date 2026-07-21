@@ -280,6 +280,8 @@ export interface HudFrameFields {
   nearestView: ViewIndex;
   /** Axis layer opacity 0..1 (fades out during morphs). */
   axisOpacity: number;
+  /** Screen-space Y offset for the LIFE age axis (scroll × ease); 0 elsewhere. */
+  axisScrollY: number;
 }
 
 /** Imperative handle exposed by the HUD via ref. */

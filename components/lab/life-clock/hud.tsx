@@ -92,6 +92,11 @@ export interface HudProps {
   axis: AxisSpec | null;
   /** Grid outer rect in layout px — anchors the axis gutters. */
   gridRect: Rect | null;
+  /**
+   * Vertical band (layout px) the axis clips to while the LIFE column scrolls,
+   * or null when the axis is fixed. Keeps scrolled age labels off the HUD.
+   */
+  axisScrollClip?: { top: number; bottom: number } | null;
   /** Clamped expectancy years for the chip (rendered at 1 dp). */
   expectancyYears: number;
   /** "author" = showing the hardcoded default; "custom" = the user's profile. */
@@ -111,6 +116,7 @@ export interface HudProps {
 export function LifeClockHud({
   axis,
   gridRect,
+  axisScrollClip,
   expectancyYears,
   mode,
   hint,
@@ -142,6 +148,7 @@ export function LifeClockHud({
   const cellRef = useRef<HTMLDivElement | null>(null);
   const thumbRef = useRef<HTMLSpanElement | null>(null);
   const axisLayerRef = useRef<HTMLDivElement | null>(null);
+  const axisInnerRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const tickRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const radioRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -156,6 +163,7 @@ export function LifeClockHud({
     dotAlpha: 0.65,
     nearestView: 0,
     axisOpacity: 1,
+    axisScrollY: 0,
   });
 
   // Per-frame path: refs only — never React state (R15).
@@ -241,6 +249,14 @@ export function LifeClockHud({
         prev.axisOpacity = fields.axisOpacity;
         if (axisLayerRef.current)
           axisLayerRef.current.style.opacity = String(fields.axisOpacity);
+      }
+      if (
+        fields.axisScrollY !== undefined &&
+        (force || fields.axisScrollY !== prev.axisScrollY)
+      ) {
+        prev.axisScrollY = fields.axisScrollY;
+        if (axisInnerRef.current)
+          axisInnerRef.current.style.transform = `translateY(${-fields.axisScrollY}px)`;
       }
       if (
         fields.nearestView !== undefined &&
@@ -593,7 +609,17 @@ export function LifeClockHud({
           aria-hidden
           data-lc-axis
           className="absolute inset-0 hidden sm:block"
+          style={
+            axisScrollClip
+              ? {
+                  // Clip scrolled age labels to the stage band (fixed; the inner
+                  // layer translates within it).
+                  clipPath: `inset(${axisScrollClip.top}px 0 calc(100% - ${axisScrollClip.bottom}px) 0)`,
+                }
+              : undefined
+          }
         >
+         <div ref={axisInnerRef} className="absolute inset-0">
           {axis.left.map((tick, i) => {
             const len = tick.major ? 6 : 3;
             return (
@@ -663,6 +689,7 @@ export function LifeClockHud({
               </Fragment>
             );
           })}
+         </div>
         </div>
       ) : null}
 

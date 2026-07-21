@@ -38,22 +38,17 @@ export interface BuildLayoutOptions {
   now: Date;
   /** Required for LIFE. */
   profile?: LifeProfile;
-  /**
-   * LIFE only: lay the grid out at a legible fixed cell size that overflows the
-   * area (a scrollable canvas), instead of shrinking every year to fit. Set on
-   * touch phones; the caller pans the overflow. Ignored in landscape.
-   */
-  scrollable?: boolean;
 }
 
 export function buildLayout(options: BuildLayoutOptions): ViewLayout {
-  const { view, gridArea, now, profile, scrollable } = options;
+  const { view, gridArea, now, profile } = options;
   const landscape = gridArea.w >= gridArea.h;
   if (view === VIEW_LIFE) {
     if (!profile) {
       throw new Error("buildLayout: LIFE view requires a profile");
     }
-    return buildLife(gridArea, now, landscape, profile, scrollable === true);
+    // LIFE is always a single vertical scrolling column (orientation-agnostic).
+    return buildLife(gridArea, now, profile);
   }
   if (view === VIEW_YEAR) return buildYear(gridArea, now, landscape);
   if (view === VIEW_WEEK) return buildWeek(gridArea, now, landscape);
@@ -391,22 +386,22 @@ function buildYear(area: Rect, now: Date, landscape: boolean): ViewLayout {
 // expectancy year (extended to the current year if outlived). Ghost cells
 // (before birth, after expectancy, missing week 53) are not instanced.
 
-/**
- * Legible fixed square size for the scrollable (phone) LIFE grid: ~1/28 of the
- * area width so the 52-week row runs a little past the screen (a small
- * horizontal pan), clamped so it stays a sensible size on any phone.
- */
-function scrollableLifeCell(areaW: number): number {
-  return Math.max(11, Math.min(16, Math.round(areaW / 28)));
+const LIFE_WEEKS = 52;
+// Column counts a year may reflow into (divisors of 52), widest first.
+const LIFE_PER_ROW = [52, 26, 13, 4, 2, 1];
+const LIFE_MIN_CELL = 12; // don't wrap so hard the weeks stop reading
+const LIFE_MAX_CELL = 20; // don't blow the cells up on a wide desktop
+const LIFE_DECADE_GUTTER = 0.5; // half-cell gap between decades
+
+/** Weeks-per-row: the widest wrap whose square cell still clears the min size. */
+function lifePerRow(areaW: number): number {
+  for (const p of LIFE_PER_ROW) {
+    if (areaW / p >= LIFE_MIN_CELL) return p;
+  }
+  return LIFE_PER_ROW[LIFE_PER_ROW.length - 1];
 }
 
-function buildLife(
-  area: Rect,
-  now: Date,
-  landscape: boolean,
-  profile: LifeProfile,
-  scrollable = false,
-): ViewLayout {
+function buildLife(area: Rect, now: Date, profile: LifeProfile): ViewLayout {
   const dob = parseDob(profile.dob, now);
   if (!dob) {
     throw new Error(`buildLayout: invalid dob in profile: "${profile.dob}"`);
@@ -417,29 +412,30 @@ function buildLife(
   const lastYear = Math.max(expYear, isoWeekYear(now), firstYear);
   const yearCount = lastYear - firstYear + 1;
 
-  // Every year row is a uniform WEEKS columns, so no row runs a box longer
-  // than another: the occasional 53rd ISO week folds into the 52nd cell. 52
-  // is even, which keeps the grid reading as clean blocks.
-  const WEEKS = 52;
-  const rowsPerBlock = landscape ? Math.ceil(yearCount / 2) : yearCount;
-  const blockStride = WEEKS + 4; // landscape block gutter = 4 cell widths
-  const cu = landscape ? 2 * WEEKS + 4 : WEEKS;
-  const rowGroup = 10; // decade gutter
-  const rowGutter = 0.5;
-  const ru = totalUnits(rowsPerBlock, rowGroup, rowGutter);
-  // Life weeks read as a calendar grid — square cells. Normally letterboxed to
-  // fit; on a scrolling phone the cells take a fixed legible size and the grid
-  // overflows the area (top-left origin), for the caller to pan.
-  const scroll = scrollable && !landscape;
-  let gridRect: Rect;
-  let cellW: number;
-  let cellH: number;
-  if (scroll) {
-    cellW = cellH = scrollableLifeCell(area.w);
-    gridRect = { x: area.x, y: area.y, w: cellW * cu, h: cellH * ru };
-  } else {
-    ({ gridRect, cellW, cellH } = fitGrid(area, cu, ru, true));
-  }
+  // A single vertical column of year blocks. Each year's up-to-52 weeks reflow
+  // to fit the width — one row on a wide screen, wrapped into `subRows` of
+  // `perRow` on a phone — so the column never overflows sideways and scrolls
+  // only vertically. The 53rd ISO week folds into the 52nd cell.
+  const WEEKS = LIFE_WEEKS;
+  const perRow = lifePerRow(area.w);
+  const subRows = WEEKS / perRow; // exact: perRow divides 52
+  const cell = Math.min(LIFE_MAX_CELL, area.w / perRow);
+  const cellW = cell;
+  const cellH = cell;
+  const colW = perRow * cell;
+
+  // Vertical unit of a year's first sub-row: stacked blocks + decade gutters.
+  const yearBaseV = (r: number): number =>
+    r * subRows + Math.floor(r / 10) * LIFE_DECADE_GUTTER;
+  const totalV =
+    yearCount * subRows + Math.floor((yearCount - 1) / 10) * LIFE_DECADE_GUTTER;
+
+  const gridRect: Rect = {
+    x: area.x + (area.w - colW) / 2, // centre the column; scrolling is vertical
+    y: area.y,
+    w: colW,
+    h: totalV * cell,
+  };
 
   const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
   const expCol = Math.min(WEEKS - 1, isoWeek(expectancy) - 1);
@@ -460,23 +456,14 @@ function buildLife(
     cellCount += end - start + 1;
   }
 
-  const rowX = (r: number): number =>
-    gridRect.x +
-    (landscape && r >= rowsPerBlock ? blockStride : 0) * cellW;
-  const rowY = (r: number): number =>
-    gridRect.y +
-    unitPos(r - (landscape && r >= rowsPerBlock ? rowsPerBlock : 0), rowGroup, rowGutter) *
-      cellH;
-
   const cells = new Float32Array(cellCount * 4);
   let i = 0;
   for (let r = 0; r < yearCount; r++) {
-    const x0 = rowX(r);
-    const y0 = rowY(r);
+    const baseV = yearBaseV(r);
     for (let c = rowStartCol[r]; c <= rowEndCol[r]; c++) {
       const o = i * 4;
-      cells[o] = x0 + c * cellW;
-      cells[o + 1] = y0;
+      cells[o] = gridRect.x + (c % perRow) * cell;
+      cells[o + 1] = gridRect.y + (baseV + Math.floor(c / perRow)) * cell;
       cells[o + 2] = cellW;
       cells[o + 3] = cellH;
       i++;
@@ -484,11 +471,12 @@ function buildLife(
   }
 
   const nowRow = clampInt(isoWeekYear(now) - firstYear, 0, yearCount - 1);
+  // The current year's whole block — the slot a YEAR view nests into.
   const slotRect: Rect = {
-    x: rowX(nowRow) + rowStartCol[nowRow] * cellW,
-    y: rowY(nowRow),
-    w: (rowEndCol[nowRow] - rowStartCol[nowRow] + 1) * cellW,
-    h: cellH,
+    x: gridRect.x,
+    y: gridRect.y + yearBaseV(nowRow) * cell,
+    w: colW,
+    h: subRows * cell,
   };
 
   const expRow = expYear - firstYear;
@@ -502,14 +490,14 @@ function buildLife(
     expectancyIndex = rowStartIndex[expRow] + (expCol - rowStartCol[expRow]);
   }
 
-  // Age axis: decade majors + per-year minors. Landscape labels block 1 only
-  // (block 2 rows share the same y positions with different ages).
-  const tickRows = Math.min(rowsPerBlock, yearCount);
+  // Age axis: one tick per year at the block's vertical centre; decade majors
+  // carry the label. A single column, so every decade is labelled in place.
+  const tickRows = yearCount;
   const left: AxisTick[] = [];
   for (let r = 0; r < tickRows; r++) {
     const major = r % 10 === 0;
     left.push({
-      pos: gridRect.y + (unitPos(r, rowGroup, rowGutter) + 0.5) * cellH,
+      pos: gridRect.y + (yearBaseV(r) + subRows / 2) * cell,
       label: major ? String(r) : "",
       major,
     });

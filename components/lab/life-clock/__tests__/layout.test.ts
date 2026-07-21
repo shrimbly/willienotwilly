@@ -150,40 +150,41 @@ describe("cell counts", () => {
     expect(portrait.cellW).toBeCloseTo(portrait.cellH, 9);
   });
 
-  it("scrollable LIFE uses a fixed legible square that overflows the area", () => {
-    // A phone-sized portrait area: fit-to-height would shrink cells to fit, but
-    // the scrollable layout takes a fixed ~w/28 square and overflows downward.
-    const area: Rect = { x: 14, y: 46, w: 360, h: 620 };
-    const fit = buildLayout({ view: VIEW_LIFE, gridArea: area, now: NOW, profile: PROFILE });
-    const scroll = buildLayout({
-      view: VIEW_LIFE,
-      gridArea: area,
-      now: NOW,
-      profile: PROFILE,
-      scrollable: true,
-    });
-    // Square, ~w/28, and top-left aligned at the area origin.
-    expect(scroll.cellW).toBeCloseTo(scroll.cellH, 9);
-    expect(scroll.cellW).toBe(Math.round(area.w / 28));
-    expect(scroll.gridRect.x).toBe(area.x);
-    expect(scroll.gridRect.y).toBe(area.y);
-    // Bigger cells than the fit layout, and taller than the area (so it scrolls).
-    expect(scroll.cellW).toBeGreaterThan(fit.cellW);
-    expect(scroll.gridRect.h).toBeGreaterThan(area.h);
+  it("LIFE is a single vertical column that overflows the area (scrolls)", () => {
+    // The column is centred horizontally, starts at the area top, and its height
+    // exceeds the area so the caller scrolls it. No sideways overflow.
+    const area: Rect = { x: 0, y: 0, w: 1600, h: 900 };
+    const life = buildLayout({ view: VIEW_LIFE, gridArea: area, now: NOW, profile: PROFILE });
+    expect(life.gridRect.y).toBe(area.y);
+    expect(life.gridRect.w).toBeLessThanOrEqual(area.w + 1e-6); // fits width
+    expect(life.gridRect.h).toBeGreaterThan(area.h); // overflows → scrolls
+    // Centred column.
+    expect(life.gridRect.x).toBeCloseTo(
+      area.x + (area.w - life.gridRect.w) / 2,
+      6,
+    );
   });
 
-  it("landscape ignores scrollable (keeps the two-block fit layout)", () => {
-    const area: Rect = { x: 0, y: 0, w: 1200, h: 700 };
-    const plain = buildLayout({ view: VIEW_LIFE, gridArea: area, now: NOW, profile: PROFILE });
-    const asked = buildLayout({
+  it("LIFE reflows the 52-week year to fit the width (one row wide, two narrow)", () => {
+    const wide = buildLayout({
       view: VIEW_LIFE,
-      gridArea: area,
+      gridArea: { x: 0, y: 0, w: 1600, h: 900 },
       now: NOW,
       profile: PROFILE,
-      scrollable: true,
     });
-    expect(asked.cellW).toBeCloseTo(plain.cellW, 9);
-    expect(asked.gridRect.h).toBeCloseTo(plain.gridRect.h, 9);
+    // 52 columns fit a wide screen → one row per year.
+    expect(Math.round(wide.gridRect.w / wide.cellW)).toBe(52);
+
+    const phone = buildLayout({
+      view: VIEW_LIFE,
+      gridArea: { x: 0, y: 0, w: 360, h: 720 },
+      now: NOW,
+      profile: PROFILE,
+    });
+    // 52 at a legible size overflow a phone → wrap to 26 columns (2 rows/year).
+    expect(Math.round(phone.gridRect.w / phone.cellW)).toBe(26);
+    expect(phone.cellW).toBeGreaterThanOrEqual(12); // still legible
+    expect(phone.cellW).toBeCloseTo(phone.cellH, 9); // square
   });
 });
 
@@ -428,18 +429,23 @@ describe("liveState across views", () => {
 });
 
 describe("LIFE ghost cells", () => {
-  it("portrait: first instanced cell starts at the birth week column", () => {
+  it("first instanced cell sits at the (wrapped) birth-week column", () => {
     const area: Rect = { x: 0, y: 0, w: 600, h: 1200 };
     const life = build(VIEW_LIFE, area);
     const dob = parseDob(PROFILE.dob, NOW);
     expect(dob).not.toBeNull();
     if (!dob) return;
+    const perRow = Math.round(life.gridRect.w / life.cellW);
     const dobCol = isoWeek(dob) - 1;
+    const col = dobCol % perRow;
+    const subRow = Math.floor(dobCol / perRow);
     const first = life.cellRect(0);
     expect(
-      Math.abs(first.x - (life.gridRect.x + dobCol * life.cellW)),
+      Math.abs(first.x - (life.gridRect.x + col * life.cellW)),
     ).toBeLessThan(F32_EPS);
-    expect(Math.abs(first.y - life.gridRect.y)).toBeLessThan(F32_EPS);
+    expect(
+      Math.abs(first.y - (life.gridRect.y + subRow * life.cellH)),
+    ).toBeLessThan(F32_EPS);
   });
 
   it("cellIndexForDate returns -1 off-grid and never clamps to an edge", () => {
@@ -461,27 +467,20 @@ describe("LIFE ghost cells", () => {
     expect(life.liveState(afterExpectancy).index).toBe(life.cellCount - 1);
   });
 
-  it("landscape: second block starts 56 col-units in, at the top row", () => {
-    const life = build(VIEW_LIFE);
+  it("narrow width wraps a year into stacked sub-rows (week 26 drops a row)", () => {
+    // A phone width forces 26 columns → week index 26 falls to the second
+    // sub-row, directly under week 0 of the same year.
+    const area: Rect = { x: 0, y: 0, w: 360, h: 720 };
+    const life = build(VIEW_LIFE, area);
+    const perRow = Math.round(life.gridRect.w / life.cellW);
+    expect(perRow).toBe(26);
     const dob = parseDob(PROFILE.dob, NOW);
-    const expectancy = getExpectancyDate(PROFILE, NOW);
-    expect(dob).not.toBeNull();
     if (!dob) return;
-    const WEEKS = 52;
-    const firstYear = isoWeekYear(dob);
-    const yearCount = isoWeekYear(expectancy) - firstYear + 1;
-    const rowsPerBlock = Math.ceil(yearCount / 2);
-    // Index of the first cell in block 2: all rows of block 1, 52 cells each
-    // (row 0 shortened by the birth-week column).
-    const dobCol = Math.min(WEEKS - 1, isoWeek(dob) - 1);
-    let idx = WEEKS - dobCol;
-    for (let r = 1; r < rowsPerBlock; r++) idx += WEEKS;
-    const r = life.cellRect(idx);
-    // Block gutter is 4 cells → block 2 begins at 52 + 4 = 56 col-units.
-    expect(
-      Math.abs(r.x - (life.gridRect.x + 56 * life.cellW)),
-    ).toBeLessThan(F32_EPS);
-    expect(Math.abs(r.y - life.gridRect.y)).toBeLessThan(F32_EPS);
+    const firstYearCells = 52 - (isoWeek(dob) - 1); // weeks in year 0
+    const y1w0 = life.cellRect(firstYearCells); // year 1, week 0
+    const y1w26 = life.cellRect(firstYearCells + 26); // year 1, week 26
+    expect(Math.abs(y1w26.x - y1w0.x)).toBeLessThan(F32_EPS); // same column
+    expect(Math.abs(y1w26.y - (y1w0.y + life.cellH))).toBeLessThan(F32_EPS);
   });
 });
 
