@@ -20,8 +20,8 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
       {
         slug: "perspective-clock",
         version: "v2",
-        title: "Perspective Clock — five UI directions",
-        note: "Static studies for the rename and UI rework: the same frozen LIFE view rendered as five different user experiences — annotated plate, almanac, transit line, mission console, and orbital disc.",
+        title: "Perspective Clock — ten UI directions",
+        note: "Static studies for the rename and UI rework: the same frozen LIFE view rendered as ten different user experiences — annotated plate, almanac, transit line, mission console, orbital disc, line-printer report, metro map, calc worksheet, contact sheet, and typographic poster.",
       },
       {
         slug: "life-clock",

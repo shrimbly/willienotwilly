@@ -43,6 +43,36 @@ const DIRECTIONS = [
     thesis:
       "One held image. A cyanotype disc — one ring per year, birth at the centre, the estimate at the rim — with every moment plotted at its polar position and keyed to a legend.",
   },
+  {
+    slug: "printout",
+    title: "Printout",
+    thesis:
+      "A batch job. LIFE.RPT off a line printer onto green-bar paper — the grid as 52 characters a year, residences as code letters with a lookup table, the current week struck in red ribbon.",
+  },
+  {
+    slug: "metro",
+    title: "Metro",
+    thesis:
+      "Wayfinding, not measurement. One transit line snakes through nine decade runs — residences are the line's colours, moments are stations, the unlived span is still under construction.",
+  },
+  {
+    slug: "worksheet",
+    title: "The Worksheet",
+    thesis:
+      "Show your working. An engineer's calc sheet on graph paper — the expectancy derived line by line, every moment written as the formula it is, the mortality model's parameters on the page.",
+  },
+  {
+    slug: "contact",
+    title: "Contact Sheet",
+    thesis:
+      "A roll of negatives. Eighty-one year-frames on nine film strips, each holding its 52 weeks as an exposure; the frames that matter are circled in grease pencil and keyed to the edit notes.",
+  },
+  {
+    slug: "signal",
+    title: "Signal",
+    thesis:
+      "Typography is the interface. The live colour becomes the whole room and everything serves one pair of numbers — weeks down, weeks to go — with the grid compressed to a spine at the poster's foot.",
+  },
 ];
 
 export default function PerspectiveClockIndex() {
@@ -63,7 +93,7 @@ export default function PerspectiveClockIndex() {
           LAB · LIFE CLOCK → PERSPECTIVE CLOCK
         </p>
         <h1 className="mt-3 text-2xl tracking-[0.08em]">
-          FIVE WAYS TO SHOW A LIFE
+          TEN WAYS TO SHOW A LIFE
         </h1>
         <p
           className="mt-4 text-[13px] leading-relaxed"
