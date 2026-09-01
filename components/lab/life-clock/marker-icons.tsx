@@ -10,10 +10,11 @@ const HOVER_SCALE = 1.7;
 // Fraction of the (square) cell the symbol box occupies — a bit smaller so it
 // sits comfortably inside its cell.
 const SIZE_FRAC = 0.6;
-// Monochrome, theme only. A marker on an elapsed (bright) cell is dark; on an
-// unlived (dark) cell it is light — so the glyph reads either way, no backdrop.
-const INK_LIVED = TOKENS.bg;
-const INK_FUTURE = TOKENS.text;
+// Theme only, no backdrop. A marker on an elapsed (grey) cell is ink; on an
+// unlived (tinted) cell it takes the accent — the moments still ahead belong
+// to the remainder, like the cells they sit on.
+const INK_LIVED = TOKENS.text;
+const INK_FUTURE = TOKENS.live;
 
 const R = 9; // filled-dot radius (record ●) in the 24-unit viewBox — shared footprint
 const SW = 3; // stroke width for hollow shapes
@@ -72,7 +73,7 @@ export interface MarkerIcon {
   id: string;
   /** The glyph to draw — ● record, ✱ estimate, ◇ probability, ◆ crossroad. */
   symbol: string;
-  /** true when the event's cell is already lived (a bright cell). */
+  /** true when the event's cell is already lived (a grey cell). */
   lived: boolean;
   /** Cell centre in layout px, relative to the clock container. */
   x: number;

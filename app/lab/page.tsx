@@ -27,7 +27,7 @@ const ITERATIONS: { project: string; entries: Iteration[] }[] = [
         slug: "life-clock",
         version: "v1",
         title: "Life Clock",
-        note: "A zoomable monochrome time instrument — one pixel per five seconds of the day, zooming out through week and year to a whole life measured against an estimated span.",
+        note: "A zoomable time instrument — one pixel per five seconds of the day, zooming out through week and year to a whole life measured against an estimated span. Spent time goes grey; what's left is in orange.",
       },
     ],
   },

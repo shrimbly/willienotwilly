@@ -221,22 +221,35 @@ export interface HoverCardInfo {
 export const AXIS_LEFT_GUTTER = 32;
 export const AXIS_TOP_GUTTER = 18;
 
-/** Design tokens — single source of truth for both canvas and DOM. */
+/**
+ * Design tokens — single source of truth for both canvas and DOM.
+ * The palette is the site's own (globals.css :root, resolved to hex): warm
+ * paper, the foreground brown as ink, and the chart-2 orange as the one
+ * accent. The accent carries a single idea — what is left. Lived cells go a
+ * quiet grey; the hours, days and weeks still ahead are tinted toward the
+ * accent; the live cell is the accent at full strength.
+ */
 export const TOKENS = {
-  bg: "#060707",
-  cellEmpty: "#151717",
-  // LIFE cells are large and the unlived remainder dominates the screen;
-  // the tighter empty value would read as bare background there.
-  cellEmptyOpen: "#262727",
-  cellFilled: "#C9CFCC",
-  hairline: "rgba(255, 255, 255, 0.09)",
-  hairlineStrong: "rgba(255, 255, 255, 0.22)",
-  text: "#DDE2E0",
-  textDim: "#7A827F",
-  textFaint: "#464B4A",
-  live: "#63E2B7",
-  // Event markers are monochrome: dark on lived (bright) cells, light on
-  // unlived (dark) ones — the `bg`/`text` tokens above, chosen per cell.
+  bg: "#FAF8F1",
+  /** Lifted surfaces (hover card, calibration dialog) — the site's popover. */
+  card: "#FFFFFF",
+  /** Dialog backdrop: paper at 72%, so the grid shows through faintly. */
+  scrim: "rgba(250, 248, 241, 0.72)",
+  // Unlived cells: paper mixed 28% toward the accent. On the open LIFE grid
+  // the remainder dominates the screen, so it takes a lighter 22% tint and
+  // the field stays paper-like.
+  cellEmpty: "#F9D3AD",
+  cellEmptyOpen: "#FADBBC",
+  // Lived cells: the site's border grey — spent time recedes.
+  cellFilled: "#D9D8D0",
+  hairline: "rgba(61, 56, 38, 0.12)",
+  hairlineStrong: "rgba(61, 56, 38, 0.3)",
+  text: "#3D3826",
+  textDim: "#85837D",
+  textFaint: "#B4B1A3",
+  live: "#F87300",
+  // Event markers: ink on lived (grey) cells, the accent on unlived (tinted)
+  // ones — the `text`/`live` tokens above, chosen per cell.
   easeOut: "cubic-bezier(0.16, 1, 0.3, 1)",
 } as const;
 

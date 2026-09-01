@@ -68,7 +68,7 @@ const FOCUS_RING =
 
 // 16px on coarse pointers: anything smaller triggers iOS Safari's focus zoom.
 const DATE_INPUT_CLASS =
-  "rounded-none border-b border-[rgba(255,255,255,0.25)] bg-transparent text-center text-[14px] [@media(pointer:coarse)]:text-[16px] focus:border-[var(--lc-text)] focus:outline-none placeholder:text-[var(--lc-text-faint)]";
+  "rounded-none border-b border-[var(--lc-hairline-strong)] bg-transparent text-center text-[14px] [@media(pointer:coarse)]:text-[16px] focus:border-[var(--lc-text)] focus:outline-none placeholder:text-[var(--lc-text-faint)]";
 
 const DATE_INPUT_STYLE: CSSProperties = {
   height: 32,
@@ -182,7 +182,7 @@ function ChipRow<T extends string>({
             className={`${FOCUS_RING} transition-colors duration-[120ms] ${
               selected
                 ? "border border-transparent bg-[var(--lc-text)] text-[var(--lc-bg)]"
-                : "border border-[rgba(255,255,255,0.25)] text-[var(--lc-text-dim)] hover:border-[rgba(255,255,255,0.45)]"
+                : "border border-[var(--lc-hairline-strong)] text-[var(--lc-text-dim)] hover:border-[var(--lc-text)]"
             }`}
             style={{
               height: 30,
@@ -690,7 +690,7 @@ export function LifeClockCalibration({
       className="absolute inset-0 z-20 overflow-y-auto"
       style={{
         ...CSS_VARS,
-        backgroundColor: "rgba(6, 7, 7, 0.72)",
+        backgroundColor: TOKENS.scrim,
         fontFamily: "var(--font-geist-mono)",
         opacity: visible ? 1 : 0,
         transition: `opacity ${transitionMs}ms ${TOKENS.easeOut}`,
@@ -702,8 +702,8 @@ export function LifeClockCalibration({
           style={{
             width: 440,
             maxWidth: "calc(100vw - 48px)",
-            backgroundColor: "#0A0B0B",
-            border: "1px solid rgba(255, 255, 255, 0.14)",
+            backgroundColor: TOKENS.card,
+            border: `1px solid ${TOKENS.hairlineStrong}`,
             padding: 28,
             opacity: visible ? 1 : 0,
             transform: reducedMotion
@@ -823,10 +823,10 @@ export function LifeClockCalibration({
               type="button"
               onClick={next}
               disabled={blocked}
-              className={`${FOCUS_RING} h-10 flex-1 transition-colors duration-[120ms] ${
+              className={`${FOCUS_RING} h-10 flex-1 transition-[background-color,border-color,color,opacity] duration-[120ms] ${
                 blocked
                   ? "cursor-default border border-[var(--lc-hairline-strong)] bg-transparent text-[var(--lc-text-dim)]"
-                  : "bg-[var(--lc-text)] text-[var(--lc-bg)] hover:bg-white active:bg-[var(--lc-cell-filled)]"
+                  : "bg-[var(--lc-text)] text-[var(--lc-bg)] hover:opacity-[0.88] active:opacity-[0.76]"
               }`}
               style={{
                 fontSize: "12px",

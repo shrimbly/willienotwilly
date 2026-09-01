@@ -71,6 +71,13 @@ const CLOCK_STYLE: CSSProperties = {
   letterSpacing: "0.02em",
   color: TOKENS.text,
 };
+// The remainder leads the readouts — the one number the accent is for. Size
+// comes from the responsive classes on the element.
+const HERO_STYLE: CSSProperties = {
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  color: TOKENS.live,
+};
 
 const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--lc-text)]";
@@ -743,14 +750,21 @@ export function LifeClockHud({
         </div>
       </div>
 
-      <div className="absolute bottom-[48px] left-[max(10px,env(safe-area-inset-left))] flex gap-8 sm:bottom-[max(14px,env(safe-area-inset-bottom))] sm:left-[max(14px,env(safe-area-inset-left))]">
+      {/* One shallow band: the remaining hero, then the small readouts beside
+          it. On phones it sits above the chip row; the stage reserve in
+          life-clock.tsx (computeMetrics) clears it. */}
+      <div className="absolute bottom-[88px] left-[max(10px,env(safe-area-inset-left))] flex items-end gap-6 sm:bottom-[max(14px,env(safe-area-inset-bottom))] sm:left-[max(14px,env(safe-area-inset-left))] sm:gap-8">
+        <div>
+          <div style={LABEL_STYLE}>REMAINING</div>
+          <div
+            ref={remainingRef}
+            className="text-[28px] leading-[32px] sm:text-[40px] sm:leading-[44px]"
+            style={{ ...HERO_STYLE, minWidth: "10ch" }}
+          />
+        </div>
         <div>
           <div style={LABEL_STYLE}>ELAPSED</div>
           <div ref={elapsedRef} style={{ ...VALUE_STYLE, minWidth: "7ch" }} />
-        </div>
-        <div>
-          <div style={LABEL_STYLE}>REMAINING</div>
-          <div ref={remainingRef} style={{ ...VALUE_STYLE, minWidth: "10ch" }} />
         </div>
         <div className="hidden sm:block">
           <div style={LABEL_STYLE}>CELL</div>
@@ -794,7 +808,8 @@ export function LifeClockHud({
 
       <div
         aria-hidden={!hint}
-        className="absolute bottom-[96px] left-1/2 -translate-x-1/2"
+        // Above the taller readout block on phones; the hero sits left on sm+.
+        className="absolute bottom-[152px] left-1/2 -translate-x-1/2 sm:bottom-[96px]"
         style={{
           ...LABEL_STYLE,
           opacity: hint ? 1 : 0,

@@ -39,10 +39,11 @@ const COLOR_EMPTY_OPEN = rawColor(TOKENS.cellEmptyOpen);
 const COLOR_FILLED = rawColor(TOKENS.cellFilled);
 const COLOR_LIVE = rawColor(TOKENS.live);
 const COLOR_TEXT = rawColor(TOKENS.text);
-const COLOR_INK_DARK = rawColor(TOKENS.bg);
+const COLOR_PAPER = rawColor(TOKENS.bg);
 
-const HAIRLINE_A = 0.09;
-const HAIRLINE_STRONG_A = 0.22;
+// Ink alphas for the line layer; kept in step with TOKENS.hairline*.
+const HAIRLINE_A = 0.12;
+const HAIRLINE_STRONG_A = 0.3;
 const CROSSHAIR_A = 0.22;
 const CROSSHAIR_TICK_A = 0.6;
 const CORNER_TICK_PX = 10;
@@ -119,13 +120,12 @@ const CELL_FRAG = /* glsl */ `
       color = uEmpty;
     }
     // Places overlay: tint the cell toward its location band. A moderate mix
-    // plus a small additive term so lived (bright) and unlived (dark) cells
+    // plus a small additive term so lived (grey) and unlived (tinted) cells
     // both take the hue while staying distinguishable. Under the hover range.
     float pa = vPlace.a * clamp(uPlaceAmount, 0.0, 1.0);
     color = mix(color, vPlace.rgb, 0.30 * pa) + vPlace.rgb * 0.06 * pa;
-    // Range highlight: a monochrome lift toward the text colour, with an
-    // additive term strong enough to read on the already-bright lived cells
-    // as well as the dark unlived ones.
+    // Range highlight: a lift toward the ink, so the span darkens on the grey
+    // lived cells and the tinted unlived ones alike.
     float inRange =
       step(uRangeStart - 0.5, vCellIndex) * step(vCellIndex, uRangeEnd + 0.5);
     float lift = inRange * uRangeAmount;
@@ -161,8 +161,9 @@ const LINE_FRAG = /* glsl */ `
 `;
 
 // Hover cell — a single quad that pops the hovered marker's cell above the
-// grid: fill in the cell's own tone, with a contrast border so the grown cell
-// reads on both bright (lived) and dark (unlived) neighbours.
+// grid: fill in the cell's own tone, with a border that separates it from its
+// neighbours — paper around a lived cell, the accent around an unlived one,
+// matching the marker ink drawn over each.
 const HOVERCELL_VERT = /* glsl */ `
   uniform vec2 uViewport;
   uniform vec2 uMin;
@@ -598,8 +599,8 @@ export class LifeClockRenderer {
   }
 
   // Pop the hovered marker's cell: a quad grown about the cell centre, filled
-  // in the cell's own tone with a contrast border so it reads on bright and
-  // dark neighbours alike. Only on the LIFE grid, only while hovering.
+  // in the cell's own tone with a separating border (paper on lived, accent on
+  // unlived). Only on the LIFE grid, only while hovering.
   private applyHoverCell(
     frame: MorphFrame,
     rubber: number,
@@ -651,7 +652,7 @@ export class LifeClockRenderer {
     u.uMin.value.set(s.x, s.y);
     u.uSize.value.set(s.w, s.h);
     (u.uColor.value as THREE.Color).copy(lived ? COLOR_FILLED : COLOR_EMPTY_OPEN);
-    (u.uBorder.value as THREE.Color).copy(lived ? COLOR_INK_DARK : COLOR_TEXT);
+    (u.uBorder.value as THREE.Color).copy(lived ? COLOR_PAPER : COLOR_LIVE);
     u.uAlpha.value = amt * data.opacity;
     const bpx = Math.max(1, Math.min(s.w, s.h) * 0.07);
     u.uBorderUv.value.set(bpx / Math.max(1, s.w), bpx / Math.max(1, s.h));

@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Life Clock",
   description:
-    "A zoomable monochrome instrument that renders your day, week, year, and life as elapsed pixels.",
+    "A zoomable instrument that renders your day, week, year, and life as elapsed pixels — what's left, in orange.",
   robots: { index: false, follow: false },
 };
 

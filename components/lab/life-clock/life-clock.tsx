@@ -92,13 +92,14 @@ interface StageMetrics {
   gridArea: Rect;
 }
 
-// Reserves clear the HUD corner blocks (two lines at the inset) and the
-// ladder rail by a few px — the grid takes everything else.
+// Reserves clear the HUD corner blocks (two lines at the top insets; the
+// remaining hero and its readouts at the bottom-left, above the chip row on
+// phones) and the ladder rail by a few px — the grid takes everything else.
 function computeMetrics(w: number, h: number): StageMetrics {
   const mobile = w < 768;
   const axisVisible = w >= 640;
   const top = (mobile ? 46 : 54) + (axisVisible ? AXIS_TOP_GUTTER : 0);
-  const bottom = mobile ? 84 : 58;
+  const bottom = mobile ? 142 : 82;
   const left = (mobile ? 14 : 18) + (axisVisible ? AXIS_LEFT_GUTTER : 0);
   const right = mobile ? 14 : 78;
   return {
@@ -665,14 +666,15 @@ export function LifeClockLab() {
       hit: NonNullable<ReturnType<typeof eventHitTest>>,
     ): HoverCardInfo => {
       const e = hit.event;
+      const now = new Date();
       return {
         key: `event:${e.id}`,
-        // Monochrome to match the icons — the kind label and shape carry the
-        // meaning, not a colour.
-        swatch: TOKENS.text,
+        // Matches the marker ink: ink for a moment already lived, the accent
+        // for one still ahead. The kind label and shape carry the meaning.
+        swatch: e.date.getTime() <= now.getTime() ? TOKENS.text : TOKENS.live,
         hollow: e.crossroad === true,
         kind: e.crossroad ? "CROSSROAD" : CERTAINTY_LABEL[e.certainty],
-        dateLine: `${formatEventDate(e.date)} · ${formatRelative(e.date, new Date())}`,
+        dateLine: `${formatEventDate(e.date)} · ${formatRelative(e.date, now)}`,
         title: e.label,
         detail: e.detail,
         basis: e.basis,
