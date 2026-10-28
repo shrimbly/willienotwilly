@@ -49,14 +49,21 @@ function CtaLink({
   );
 }
 
-/** A link that shows on focus and jumps past a demo's controls. */
+// From 640 to 767px the container is always 608px wide, so this caps the tall
+// phone-shaped demo frames at 4/5 and keeps a whole tile inside a tablet window.
+const TABLET_FRAME_CAP = "sm:max-md:max-h-[760px]";
+
+/**
+ * A link that shows on focus and jumps past a demo's controls. Until then it
+ * sits just above the frame, where the frame's overflow clips it.
+ */
 function SkipDemo({ to, label }: { to: string; label: string }) {
   return (
     <a
       href={`#${to}`}
-      className="sr-only rounded-full bg-background px-3 py-1.5 text-sm text-foreground shadow-lg focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
+      className="absolute top-3 left-3 z-50 -translate-y-[calc(100%+1rem)] rounded-full bg-background px-3 py-1.5 text-sm text-foreground opacity-0 shadow-lg focus:translate-y-0 focus:opacity-100"
     >
-      Skip the {label} demo
+      Skip demo: {label}
     </a>
   );
 }
@@ -110,7 +117,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   ))}
                 </div>
                 {externalReady && (
-                  <CtaLink href={project.href} className="squircle group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-[color,border-color] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] w-full sm:w-auto before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-[320ms] before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
+                  <CtaLink href={project.href} className="squircle group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-[color,border-color] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] w-full sm:w-auto before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-foreground before:opacity-0 before:blur-2xl before:transition-[opacity,filter] before:duration-[320ms] before:ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground/40 hover:text-background hover:before:opacity-100 hover:before:blur-none">
                     {ctaLabel}
                     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </CtaLink>
@@ -137,7 +144,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               ) : project.heroDemo ? (
                 <div
                   data-demo={project.heroDemo}
-                  className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[32px] border border-border/70 md:aspect-video sm:rounded-[40px] ${project.placeholderClass}`}
+                  className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[32px] border border-border/70 ${TABLET_FRAME_CAP} md:aspect-video sm:rounded-[40px] ${project.placeholderClass}`}
                   style={
                     {
                       ["--demo-aspect-mobile" as string]:
@@ -212,7 +219,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   {h.demo ? (
                     <div
                       data-demo={h.demo}
-                      className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[28px] border border-border/70 md:aspect-[var(--demo-aspect)] sm:rounded-[32px] ${h.placeholderClass}`}
+                      className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[28px] border border-border/70 ${TABLET_FRAME_CAP} md:aspect-[var(--demo-aspect)] sm:rounded-[32px] ${h.placeholderClass}`}
                       style={
                         {
                           ["--demo-aspect" as string]: h.aspect ?? "16/10",
@@ -461,7 +468,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   <div
                     id={`highlight-${i + 1}`}
                     tabIndex={-1}
-                    className="flex flex-col gap-2 px-1 outline-none sm:flex-row sm:items-baseline sm:justify-between sm:gap-10"
+                    className="flex flex-col gap-2 px-1 outline-none md:flex-row md:items-baseline md:justify-between md:gap-10"
                   >
                     <div className="flex items-baseline gap-4">
                       <span className="font-mono text-xs text-muted-foreground">
