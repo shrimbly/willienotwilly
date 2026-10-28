@@ -21,10 +21,28 @@ export type GalleryShot = {
   alt?: string;
 };
 
+// Live, interactive stand-ins for product videos, built from each product's
+// real styles. components/portfolio/demo-slot.tsx maps each id to a component.
+export type DemoId =
+  | "node-banana-canvas"
+  | "node-banana-node-anatomy"
+  | "node-banana-edit-video"
+  | "node-banana-agent"
+  | "node-banana-assets"
+  | "node-banana-comfy-node"
+  | "easy-peasy-ease-editor"
+  | "easy-peasy-ease-split"
+  | "easy-peasy-ease-beat-sync"
+  | "easy-peasy-ease-curves"
+  | "easy-peasy-ease-wordmark";
+
 export type Highlight = {
   title: string;
   caption: string;
   aspect?: string;
+  // Aspect ratio below the sm breakpoint, for demos that need more height on phones.
+  mobileAspect?: string;
+  demo?: DemoId;
   placeholderClass: string;
   image?: string;
   imageAlt?: string;
@@ -76,6 +94,8 @@ export type Project = {
   heroPoster?: string;
   heroImage?: string;
   heroEmbed?: string;
+  heroDemo?: DemoId;
+  heroDemoMobileAspect?: string;
   heroCredit?: ProjectCredit;
   category: ProjectCategory;
   stats: ProjectStat[];
@@ -157,64 +177,71 @@ export const projects: Project[] = [
     slug: "node-banana",
     title: "Node Banana",
     blurb:
-      "Node-based workflow builder for generative AI pipelines with Fal, Replicate, Wavespeed, Kie, and Gemini. Free and open source.",
+      "Generative media canvas for Mac and Windows. Wire image, video, audio and text models from Fal, Replicate, Gemini, OpenAI, ComfyUI and more into node graphs. Free and open source.",
     description:
-      "A free, open-source canvas for stitching together generative AI APIs. Drag nodes, route media between providers, and prototype pipelines that would otherwise live in a stack of Python scripts.",
-    meta: "1.4k stars · TypeScript",
+      "A free, open-source canvas for generative media, now a desktop app for Mac and Windows. Wire models from any provider into a graph, let an agent build the graph for you, and cut the results together on a timeline. Everything you make lands in a local library, and your keys never leave your machine.",
+    meta: "1.7k stars · TypeScript",
     year: "2026",
-    href: "https://github.com/shrimbly/node-banana",
+    href: "https://nodebanana.app",
     external: true,
+    ctaLabel: "Visit nodebanana.app",
     category: "personal",
-    placeholderClass: "bg-muted",
+    placeholderClass: "bg-[#171717]",
     video: "/videos/portfolio/banana.mp4",
     poster: "/images/portfolio/posters/banana.jpg",
+    heroDemo: "node-banana-canvas",
+    heroDemoMobileAspect: "4/5",
     stats: [
-      { label: "Stars", value: "1.4k" },
+      { label: "Stars", value: "1.7k" },
+      { label: "Release", value: "v2.3" },
+      { label: "Platform", value: "Mac · Windows" },
       { label: "License", value: "MIT" },
-      { label: "Stack", value: "TypeScript" },
     ],
     highlights: [
       {
-        title: "Bring your own provider",
+        title: "Anatomy of a node",
         caption:
-          "Built-in integrations for Replicate, Fal, Google Gemini, Wavespeed, and others.",
-        aspect: "22/9",
-        placeholderClass: "bg-white",
-        logos: [
-          { src: "/images/portfolio/providers/replicate.png", alt: "Replicate" },
-          { src: "/images/portfolio/providers/fal.png", alt: "Fal" },
-          { src: "/images/portfolio/providers/gemini.svg", alt: "Google Gemini" },
-          {
-            src: "/images/portfolio/providers/wavespeed.png",
-            alt: "Wavespeed",
-            sizeClass: "h-[3.75rem] w-auto",
-          },
-          { kind: "more", alt: "More" },
-        ],
+          "Every node is built the same way: a media card that shows the output at its native proportions with the sockets set into its border, a row for paging back through earlier runs, and a controls card underneath that opens into the settings.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#171717]",
+        demo: "node-banana-node-anatomy",
       },
       {
-        title: "Prompt variables",
+        title: "Edit Video",
         caption:
-          "Prompts adapt at run time. Drop variables into any prompt and they're substituted from upstream inputs as the graph runs.",
+          "Generated clips land on a stacked timeline: one row per clip, each starting before the clip above ends, like sequence layers in After Effects. Drag clips in time, crossfade the overlaps, ramp a clip's speed and burn in text.",
+        aspect: "16/10",
+        mobileAspect: "3/4",
+        placeholderClass: "bg-[#171717]",
+        demo: "node-banana-edit-video",
+      },
+      {
+        title: "The agent panel",
+        caption:
+          "Describe the workflow and the agent adds the nodes, writes the prompts and sets up the run. It runs on your own Claude Code or Codex login, never on API credits.",
         aspect: "16/9",
-        placeholderClass: "bg-muted",
-        video: "/videos/portfolio/nd-variables2.mp4",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#171717]",
+        demo: "node-banana-agent",
       },
       {
-        title: "Ease curve node",
+        title: "Asset library",
         caption:
-          "Bezier-controlled interpolation between any two values — drives parameter sweeps, batch renders, and motion-style outputs.",
-        aspect: "1/1",
-        placeholderClass: "bg-muted",
-        video: "/videos/portfolio/nd-ease.mp4",
+          "Everything you generate is saved as it's made and indexed in one library. Filter it, favourite and tag what you like, and open any asset to see the run that made it.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#171717]",
+        demo: "node-banana-assets",
       },
       {
-        title: "Fallback models",
+        title: "ComfyUI workflows as nodes",
         caption:
-          "When a provider rate-limits or errors, the graph quietly retries against a secondary model without dropping the run.",
-        aspect: "16/9",
-        placeholderClass: "bg-muted",
-        video: "/videos/portfolio/nd-fallback.mp4",
+          "Attach a ComfyUI workflow and it becomes a node: its inputs become sockets, its settings fold into a card underneath, and every run stays in its history.",
+        aspect: "16/10",
+        mobileAspect: "1/1",
+        placeholderClass: "bg-[#171717]",
+        demo: "node-banana-comfy-node",
       },
     ],
   },
@@ -253,23 +280,63 @@ export const projects: Project[] = [
     slug: "easy-peasy-ease",
     title: "Easy Peasy Ease",
     blurb:
-      "Browser-based video editor for seamless looped videos with Bezier speed curves and audio mixing. Client-side processing via media bunny.",
+      "Browser-based video editor for seamless looped videos with Bezier speed curves, beat sync, and audio mixing. Client-side processing via Mediabunny.",
     description:
-      "A free, open-source browser-only video editor focused on one thing: making perfect loops. Bezier-controlled speed curves let you sculpt a tail back into a head, and everything runs client-side over media bunny — no upload, no server.",
-    meta: "105 stars · TypeScript",
+      "A free, open-source browser-only video editor focused on one thing: making perfect loops. Bezier speed curves sculpt each clip's tail back into the next clip's head, cuts can snap to the beat of a track, and one long video can be split into eased sections. Everything runs client-side over Mediabunny — no upload, no server.",
+    meta: "118 stars · TypeScript",
     year: "2025",
-    href: "https://github.com/shrimbly/easy-peasy-ease",
+    href: "https://easy-peasy-ease.vercel.app",
     external: true,
+    ctaLabel: "Open the app",
     category: "personal",
-    placeholderClass: "bg-muted",
+    placeholderClass: "bg-[#0d1210]",
     video: "/videos/portfolio/ezpz.mp4",
     poster: "/images/portfolio/posters/ezpz.jpg",
+    heroDemo: "easy-peasy-ease-editor",
+    heroDemoMobileAspect: "3/4",
     stats: [
-      { label: "GitHub", value: "105 stars" },
-      { label: "Video Engine", value: "Media Bunny" },
+      { label: "GitHub", value: "118 stars" },
+      { label: "Video Engine", value: "Mediabunny" },
       { label: "Runtime", value: "100% Client" },
     ],
-    highlights: [],
+    highlights: [
+      {
+        title: "Split a video",
+        caption:
+          "Drop in one long clip, set the cut points, and every section comes back as its own eased clip, ready to loop.",
+        aspect: "16/9",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#0d1210]",
+        demo: "easy-peasy-ease-split",
+      },
+      {
+        title: "Beat sync",
+        caption:
+          "Add a track and the editor finds its tempo, then snaps every cut to the beat, the second beat, or every fourth.",
+        aspect: "16/9",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#0d1210]",
+        demo: "easy-peasy-ease-beat-sync",
+      },
+      {
+        title: "Curated curves",
+        caption:
+          "Twenty-five easing presets, all monotonic so a clip never runs backwards, or drag the handles to draw your own.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#0d1210]",
+        demo: "easy-peasy-ease-curves",
+      },
+      {
+        title: "The landing",
+        caption:
+          "The wordmark is a variable font that leans toward the pointer, set over slow light rays. Pick Stitch or Split and drop your clips in.",
+        aspect: "22/9",
+        mobileAspect: "4/3",
+        placeholderClass: "bg-[#0d1210]",
+        demo: "easy-peasy-ease-wordmark",
+      },
+    ],
   },
   {
     slug: "contact-sheet-prompting",

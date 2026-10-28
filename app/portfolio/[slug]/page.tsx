@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, Plus } from "lucide-react";
 
 import { SiteFooter } from "@/components/ui/site-footer";
 import { BlurFade } from "@/components/ui/blur-fade";
+import { DemoSlot } from "@/components/portfolio/demo-slot";
 import { HeroEmbed } from "@/components/portfolio/hero-embed";
 import { assetUrl } from "@/lib/asset-url";
 import { projects, getProjectBySlug } from "@/lib/portfolio";
@@ -121,6 +122,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     priority
                   />
                 </div>
+              ) : project.heroDemo ? (
+                <div
+                  data-demo={project.heroDemo}
+                  className="squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[32px] border border-border/70 bg-card transition-colors duration-300 sm:aspect-video sm:rounded-[40px]"
+                  style={
+                    {
+                      ["--demo-aspect-mobile" as string]:
+                        project.heroDemoMobileAspect ?? "16/9",
+                    } as React.CSSProperties
+                  }
+                >
+                  <div
+                    className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
+                    aria-hidden="true"
+                  />
+                  <DemoSlot id={project.heroDemo} eager />
+                </div>
               ) : (
                 <div className="squircle relative aspect-video w-full overflow-hidden rounded-[32px] border border-border/70 bg-card transition-colors duration-300 sm:rounded-[40px]">
                   <div
@@ -182,7 +200,21 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             {project.highlights.map((h, i) => (
               <BlurFade key={h.title} delay={60} duration={800} yOffset={16}>
                 <div className="flex flex-col gap-6">
-                  {h.phones && h.phones.length > 0 ? (
+                  {h.demo ? (
+                    <div
+                      data-demo={h.demo}
+                      className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[28px] border border-border/70 sm:aspect-[var(--demo-aspect)] sm:rounded-[32px] ${h.placeholderClass}`}
+                      style={
+                        {
+                          ["--demo-aspect" as string]: h.aspect ?? "16/10",
+                          ["--demo-aspect-mobile" as string]:
+                            h.mobileAspect ?? h.aspect ?? "16/10",
+                        } as React.CSSProperties
+                      }
+                    >
+                      <DemoSlot id={h.demo} />
+                    </div>
+                  ) : h.phones && h.phones.length > 0 ? (
                     <div
                       className={`squircle relative w-full overflow-hidden rounded-[28px] border border-border/70 sm:rounded-[32px] ${h.placeholderClass}`}
                     >
