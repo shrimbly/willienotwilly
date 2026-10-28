@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -32,28 +32,17 @@ export interface ComfyControlsCardProps {
 
 export function ComfyControlsCard({ title, values, expanded, onToggle, width, onWidthChange, panelId, onPress, children }: ComfyControlsCardProps) {
   const card = useRef<HTMLDivElement | null>(null);
-  const tappedAt = useRef(0);
-
-  // The node captures the pointer on press (to drag it), which sends the click
-  // to the node instead of this row; so a tap is read from the release.
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    const { pointerId, clientX, clientY } = event;
-    const release = (up: globalThis.PointerEvent) => {
-      if (up.pointerId !== pointerId) return;
-      window.removeEventListener("pointerup", release, true);
-      window.removeEventListener("pointercancel", cancel, true);
-      if (Math.hypot(up.clientX - clientX, up.clientY - clientY) >= 3) return;
-      tappedAt.current = up.timeStamp;
-      onToggle();
-    };
-    const cancel = () => {
-      window.removeEventListener("pointerup", release, true);
-      window.removeEventListener("pointercancel", cancel, true);
-    };
-    window.addEventListener("pointerup", release, true);
-    window.addEventListener("pointercancel", cancel, true);
-  };
+  // The width the card lays out at (layout px, so the canvas zoom never enters
+  // it): where a grip drag starts, and the grips' value while it follows the node.
+  const [laidOut, setLaidOut] = useState(0);
+  useEffect(() => {
+    const el = card.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setLaidOut(Math.round(entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const current = width ?? (laidOut || CONTROLS_MIN_W);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
@@ -71,18 +60,14 @@ export function ComfyControlsCard({ title, values, expanded, onToggle, width, on
       className="nb-controls-card overflow-visible"
       style={width !== undefined ? { width, maxWidth: "none" } : undefined}
     >
-      {/* The whole row toggles; a drag that starts on it moves the node instead. */}
+      {/* The whole row toggles; a drag that starts on it moves the node instead (and swallows the click). */}
       <div
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
         aria-controls={panelId}
         aria-label={expanded ? "Hide settings" : "Show settings"}
-        onPointerDown={onPointerDown}
-        onClick={(event) => {
-          // Only where the click does reach the row (no capture): a tap already toggled.
-          if (event.timeStamp - tappedAt.current > 500) onToggle();
-        }}
+        onClick={onToggle}
         onKeyDown={onKeyDown}
         className="grid h-[28px] min-w-0 cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto_auto] items-center gap-1.5 rounded-[9px] px-2 focus-visible:-outline-offset-2"
       >
@@ -115,8 +100,8 @@ export function ComfyControlsCard({ title, values, expanded, onToggle, width, on
         </div>
       </div>
 
-      <WidthGrip side="left" width={width} card={card} onChange={onWidthChange} />
-      <WidthGrip side="right" width={width} card={card} onChange={onWidthChange} />
+      <WidthGrip side="left" width={current} explicit={width !== undefined} onChange={onWidthChange} />
+      <WidthGrip side="right" width={current} explicit={width !== undefined} onChange={onWidthChange} />
     </div>
   );
 }
@@ -130,18 +115,19 @@ export function ComfyControlsCard({ title, values, expanded, onToggle, width, on
 function WidthGrip({
   side,
   width,
-  card,
+  explicit,
   onChange,
 }: {
   side: "left" | "right";
-  width?: number;
-  card: RefObject<HTMLDivElement | null>;
+  /** The card's current width in world px. */
+  width: number;
+  /** The width is the visitor's (not following the node). */
+  explicit: boolean;
   onChange: (width: number | undefined) => void;
 }) {
   const view = useCanvas();
   const drag = useRef<{ x0: number; w0: number; zoom: number } | null>(null);
   const sign = side === "right" ? 1 : -1;
-  const current = () => width ?? card.current?.offsetWidth ?? CONTROLS_MIN_W;
   const clamp = (w: number) => Math.round(Math.max(CONTROLS_MIN_W, Math.min(CONTROLS_RESIZE_MAX_W, w)));
 
   const onPointerDown = (event: PointerEvent<HTMLSpanElement>) => {
@@ -149,14 +135,14 @@ function WidthGrip({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { x0: event.clientX, w0: current(), zoom: view?.zoom.get() ?? 1 };
+    drag.current = { x0: event.clientX, w0: width, zoom: view?.zoom.get() ?? 1 };
   };
   const onPointerMove = (event: PointerEvent<HTMLSpanElement>) => {
     const d = drag.current;
     if (!d) return;
     const dx = ((event.clientX - d.x0) / d.zoom) * sign;
     const next = clamp(d.w0 + dx * 2);
-    if (next !== width) onChange(next);
+    if (next !== width || !explicit) onChange(next);
   };
   const end = () => (drag.current = null);
 
@@ -185,7 +171,7 @@ function WidthGrip({
         if (!step) return;
         event.preventDefault();
         event.stopPropagation();
-        onChange(clamp(current() + step * sign * (event.shiftKey ? 80 : 20)));
+        onChange(clamp(width + step * sign * (event.shiftKey ? 80 : 20)));
       }}
       className={cn(
         "group/wgrip absolute top-0 bottom-0 z-[2] flex w-[18px] cursor-ew-resize touch-none items-center",

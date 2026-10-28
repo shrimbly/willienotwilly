@@ -152,6 +152,8 @@ export function NodeBananaComfyNodeDemo() {
   const springs = useRef(new Map<NodeId, AnimationPlaybackControls[]>());
   const resized = useRef(false);
   const placing = useRef(false);
+  /** How far opening the settings panned the camera up, to undo on close. */
+  const revealed = useRef(0);
 
   // Phones get a narrower Comfy node and see it alone; wider tiles add its inputs, then the whole graph.
   useLayoutEffect(() => {
@@ -169,6 +171,8 @@ export function NodeBananaComfyNodeDemo() {
     let current = tierFor(el.clientWidth);
     place(current);
     const ro = new ResizeObserver(([entry]) => {
+      // The canvas refits on resize, which already drops the settings' reveal pan.
+      if (!view.interacted) revealed.current = 0;
       const next = tierFor(entry.contentRect.width);
       setTier(next);
       if (next === current) return;
@@ -189,9 +193,11 @@ export function NodeBananaComfyNodeDemo() {
     [graph],
   );
 
+  // A press mid-spring catches the node where it is and keeps the seat it was returning to;
+  // otherwise wherever it rests now (moved by the keys, or resized from the left) is its seat.
   const holdSeat = (id: NodeId) => {
     const moving = springs.current.get(id);
-    if (moving?.length) {
+    if (moving) {
       moving.forEach((a) => a.stop());
       springs.current.delete(id);
     } else {
@@ -210,7 +216,13 @@ export function NodeBananaComfyNodeDemo() {
       graph.moveTo(id, seat.x, seat.y);
       return;
     }
-    springs.current.set(id, [animate(node.x, seat.x, SPRING_BACK), animate(node.y, seat.y, SPRING_BACK)]);
+    const controls: AnimationPlaybackControls[] = [];
+    let left = 2;
+    const onComplete = () => {
+      if (--left === 0 && springs.current.get(id) === controls) springs.current.delete(id);
+    };
+    controls.push(animate(node.x, seat.x, { ...SPRING_BACK, onComplete }), animate(node.y, seat.y, { ...SPRING_BACK, onComplete }));
+    springs.current.set(id, controls);
   };
 
   const shell = (id: NodeId) => ({
@@ -224,15 +236,14 @@ export function NodeBananaComfyNodeDemo() {
   });
 
   // Opening the settings on a short tile pans just enough to show them above the run bar; closing pans back.
-  const revealed = useRef(0);
   useEffect(() => {
     const timer = setTimeout(() => {
       const canvas = view.element;
-      const node = root.current?.querySelector<HTMLElement>('[data-node-id="comfy"]');
-      const card = node?.querySelector<HTMLElement>("[data-controls-card]");
-      if (!canvas || !node || !card) return;
+      const card = root.current?.querySelector<HTMLElement>('[data-node-id="comfy"] [data-controls-card]');
+      if (!canvas || !card) return;
+      const pan = (to: number) => animate(view.y, to, { duration: reducedMotion ? 0 : 0.32, ease: [0.2, 0.8, 0.2, 1] });
       if (!expanded) {
-        if (revealed.current) animate(view.y, view.y.get() + revealed.current, { duration: reducedMotion ? 0 : 0.32, ease: [0.2, 0.8, 0.2, 1] });
+        if (revealed.current) pan(view.y.get() + revealed.current);
         revealed.current = 0;
         return;
       }
@@ -244,25 +255,10 @@ export function NodeBananaComfyNodeDemo() {
       const shift = Math.max(0, Math.min(over, headroom));
       if (shift < 1) return;
       revealed.current = shift;
-      animate(view.y, view.y.get() - shift, { duration: reducedMotion ? 0 : 0.32, ease: [0.2, 0.8, 0.2, 1] });
+      pan(view.y.get() - shift);
     }, 170);
     return () => clearTimeout(timer);
   }, [expanded, view, reducedMotion]);
-
-  // Focusing a field off the canvas edge makes the browser scroll the clipped canvas
-  // element itself; turn that scroll into a camera pan so the world and grid stay in step.
-  useEffect(() => {
-    const canvas = view.element;
-    if (!canvas) return;
-    const onScroll = () => {
-      const { scrollLeft, scrollTop } = canvas;
-      if (!scrollLeft && !scrollTop) return;
-      canvas.scrollTo(0, 0);
-      view.panBy(-scrollLeft, -scrollTop);
-    };
-    canvas.addEventListener("scroll", onScroll);
-    return () => canvas.removeEventListener("scroll", onScroll);
-  }, [view]);
 
   /* ------------------------------------------------------------------ render */
 
@@ -281,7 +277,10 @@ export function NodeBananaComfyNodeDemo() {
       ref={root}
       role="group"
       aria-label="Node Banana: a ComfyUI workflow running as a node"
-      onPointerDownCapture={() => setTouched(true)}
+      // A finger that lands on the tile to scroll the page is not playing with it: a
+      // touch counts once it ends without the browser taking it over (pointercancel).
+      onPointerDownCapture={(event) => event.pointerType !== "touch" && setTouched(true)}
+      onPointerUpCapture={() => setTouched(true)}
       onKeyDownCapture={() => setTouched(true)}
       onKeyDown={onKeyDown}
     >
@@ -303,7 +302,12 @@ export function NodeBananaComfyNodeDemo() {
               tier === "s" ? "bottom-3" : "bottom-4",
             )}
           >
-            <RunSplitButton onRun={run ? stop : () => queueRun()} running={run !== null} />
+            {/* The app's Run button draws no focus ring of its own; the tile's keyboard users need one. */}
+            <RunSplitButton
+              onRun={run ? stop : () => queueRun()}
+              running={run !== null}
+              className="has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-blue-500"
+            />
           </div>
         }
       >
@@ -318,7 +322,9 @@ export function NodeBananaComfyNodeDemo() {
         <PromptNode id="prompt" {...shell("prompt")} value={PROMPT} height={PROMPT_HEIGHT} />
         <ComfyAppNode
           {...shell("comfy")}
+          onPress={() => setSelected("comfy")}
           maxWidth={COMFY_MAX_W[tier]}
+          defaultWidth={LAYOUTS[tier].comfy.width}
           run={runView}
           onRun={() => queueRun()}
           history={history}

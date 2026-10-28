@@ -43,6 +43,7 @@ export function OutputNode({
         width={still.width}
         height={still.height}
         unoptimized
+        loading="eager"
         draggable={false}
         className="absolute inset-0 h-full w-full object-cover"
       />

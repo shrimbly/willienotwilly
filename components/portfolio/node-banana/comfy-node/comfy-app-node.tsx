@@ -31,9 +31,14 @@ export interface ComfyRunView {
 export interface ComfyAppNodeProps {
   graph: NodeGraph;
   selected: boolean;
+  /** A press that may become a drag (React Flow selects on press). */
   onSelect: () => void;
+  /** A press on the gap row or the controls card, which never drag: select only. */
+  onPress: () => void;
   onDragEnd: (moved: boolean) => void;
   maxWidth: number;
+  /** Double-clicking a resize edge restores this width. */
+  defaultWidth: number;
   run: ComfyRunView | null;
   onRun: () => void;
   history: ComfyRun[];
@@ -57,8 +62,10 @@ export function ComfyAppNode({
   graph,
   selected,
   onSelect,
+  onPress,
   onDragEnd,
   maxWidth,
+  defaultWidth,
   run,
   onRun,
   history,
@@ -78,7 +85,8 @@ export function ComfyAppNode({
 }: ComfyAppNodeProps) {
   const running = run !== null && run.status !== "output";
   const current = history[Math.min(index, history.length - 1)];
-  // Every still the history holds stays mounted, so paging never waits on a load.
+  // Every still the history holds stays mounted and loads at once (the demo only
+  // mounts near the viewport), so paging never waits on a load.
   const stills = [...new Map(history.map((r) => [r.still.src, r.still])).values()];
   const status = running ? run.status : null;
 
@@ -90,7 +98,7 @@ export function ComfyAppNode({
       onSelect={onSelect}
       onDragEnd={onDragEnd}
       running={running}
-      resizable={{ min: COMFY_MIN_W, max: maxWidth }}
+      resizable={{ min: COMFY_MIN_W, max: maxWidth, defaultWidth }}
       title={WORKFLOW_NAME}
       titleLogo={<ComfyWordmark className="h-3 w-auto shrink-0" />}
       subtitle={WORKFLOW_NAME}
@@ -121,7 +129,7 @@ export function ComfyAppNode({
       }
       gap={
         history.length > 1 ? (
-          <RunCarousel index={index} count={history.length} onPrev={onPrev} onNext={onNext} loading={running} onPress={onSelect} />
+          <RunCarousel index={index} count={history.length} onPrev={onPrev} onNext={onNext} loading={running} onPress={onPress} />
         ) : undefined
       }
       controls={
@@ -133,7 +141,7 @@ export function ComfyAppNode({
           width={controlsWidth}
           onWidthChange={onControlsWidthChange}
           panelId={PANEL_ID}
-          onPress={onSelect}
+          onPress={onPress}
         >
           <ComfyParameters values={params} onChange={onParamsChange} seedMode={seedMode} onSeedModeChange={onSeedModeChange} />
         </ComfyControlsCard>
@@ -147,6 +155,7 @@ export function ComfyAppNode({
           width={still.width}
           height={still.height}
           unoptimized
+          loading="eager"
           draggable={false}
           aria-hidden={still.src === current.still.src && !running ? undefined : true}
           className={cn("absolute inset-0 h-full w-full object-cover", (still.src !== current.still.src || running) && "invisible")}
@@ -182,7 +191,7 @@ function LatentPreview({ still, progress, frame }: { still: Still; progress: num
   } as CSSProperties;
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <Image src={still.src} alt="Rendering" width={still.width} height={still.height} unoptimized draggable={false} className="nb-comfy-latent" style={style} />
+      <Image src={still.src} alt="" width={still.width} height={still.height} unoptimized loading="eager" draggable={false} className="nb-comfy-latent" style={style} />
       <div className="nb-comfy-noise" style={{ opacity: 0.05 + 0.9 * left ** 1.2, backgroundPosition: `${(frame * 37) % 180}px ${(frame * 23) % 100}px` }} />
       {/* Over the picture, not beside it: it has to stay legible on whatever the latent looks like. */}
       <div className="absolute bottom-1.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 backdrop-blur-sm">

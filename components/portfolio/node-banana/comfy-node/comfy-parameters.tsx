@@ -160,6 +160,7 @@ function SeedModeMenu({ mode, onChange }: { mode: SeedMode; onChange: (mode: See
       <button
         ref={trigger}
         type="button"
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}

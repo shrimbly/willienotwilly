@@ -24,7 +24,7 @@ export interface Still {
 
 const { agent, comfyParis } = NB_ASSETS;
 
-export const STILLS = {
+const STILLS = {
   balcony: { ...comfyParis, alt: "The model in a camel coat at a wrought-iron balcony in Paris" },
   apartment: { ...agent.paris, alt: "The model in a camel coat by the tall windows of a Paris apartment" },
   palace: { ...agent.palace, alt: "The model in a camel coat in a gilded hall of mirrors" },
@@ -86,14 +86,14 @@ export const WORKFLOW_NODE_COUNT = 34;
 
 export type NodeId = "reference" | "prompt" | "comfy" | "output";
 
-export const COMFY_INPUTS: SocketSpec[] = [
+const COMFY_INPUTS: SocketSpec[] = [
   { id: "image-0", type: "image", label: "Image" },
   { id: "text-0", type: "text", label: "Prompt" },
 ];
-export const COMFY_OUTPUTS: SocketSpec[] = [{ id: "image", type: "image", label: "Image" }];
+const COMFY_OUTPUTS: SocketSpec[] = [{ id: "image", type: "image", label: "Image" }];
 
 /** OutputNode's sockets: Image, Video and Audio in. */
-export const OUTPUT_INPUTS: SocketSpec[] = [
+const OUTPUT_INPUTS: SocketSpec[] = [
   { id: "image", type: "image", label: "Image" },
   { id: "video", type: "video", label: "Video" },
   { id: "audio", type: "audio", label: "Audio" },
@@ -141,7 +141,7 @@ export const FIT_SET: Record<Tier, NodeId[]> = {
 export const FIT_PADDING: Record<Tier, { top: number; right: number; bottom: number; left: number }> = {
   s: { top: 18, right: 14, bottom: 70, left: 14 },
   m: { top: 28, right: 24, bottom: 76, left: 24 },
-  l: { top: 32, right: 32, bottom: 150, left: 32 },
+  l: { top: 40, right: 32, bottom: 110, left: 32 },
 };
 
 /** Widest the Comfy node may be dragged, so it stops short of its neighbours. */
