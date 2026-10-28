@@ -17,6 +17,17 @@
     overflow: hidden;
   }
 
+  /*
+   * The editor's 10px and 11px type. The editor is scaled down to small tiles, so it never goes under 9px on screen:
+   * --ev-min-text is 9px divided by the scale.
+   */
+  .nb .nb-ev-t10 {
+    font-size: max(10px, var(--ev-min-text, 0px));
+  }
+  .nb .nb-ev-t11 {
+    font-size: max(11px, var(--ev-min-text, 0px));
+  }
+
   /* range-edit: a 4px neutral-800 track filled neutral-300 to --p, a 12px neutral-100 thumb. */
   .nb .nb-ev-range {
     appearance: none;

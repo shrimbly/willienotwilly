@@ -22,6 +22,7 @@ import {
   MAX_START_SEC,
   MIN_CLIP_SEC,
   SNAP_THRESHOLD_PX,
+  WHERE_IT_WAS,
   audioLength,
   buildEnvelope,
   clamp,
@@ -95,9 +96,9 @@ export function makeAxis(edit: EvEdit, width: number): Axis {
   return { pps, total, timeToX: (t) => ORIGIN + t * pps, xToTime: (x) => (x - ORIGIN) / pps };
 }
 
-/** The timeline's height: ruler, the text row, Stacked's rows, the audio row and (unless compact) the strip. */
-export function timelineHeight(compact: boolean): number {
-  return 1 + GEOMETRY.ruler + GEOMETRY.overlayRow + STACK_ROWS * ROW + GEOMETRY.audioRow + (compact ? 0 : GEOMETRY.audioStrip);
+/** The timeline's height: ruler, the text row, Stacked's rows, the audio row and the strip under it, if shown. */
+export function timelineHeight(strip: boolean): number {
+  return 1 + GEOMETRY.ruler + GEOMETRY.overlayRow + STACK_ROWS * ROW + GEOMETRY.audioRow + (strip ? GEOMETRY.audioStrip : 0);
 }
 
 type Drag =
@@ -185,7 +186,7 @@ function snapEdge(t: number, targets: readonly MoveTarget[], pps: number, on: bo
 }
 
 /** A trim with the frames fixed in time (trimClipInPlace): the In edge moves the start, the Out edge the end. */
-function trimTo(edit: EvEdit, target: "clip" | "text" | "audio", id: string, edge: "in" | "out", t: number): EvEdit {
+export function trimTo(edit: EvEdit, target: "clip" | "text" | "audio", id: string, edge: "in" | "out", t: number): EvEdit {
   if (target === "clip") {
     return {
       ...edit,
@@ -253,7 +254,7 @@ function EdgeHandle({
       data-trim-handle={side}
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute inset-y-0 z-1 flex cursor-ew-resize touch-none items-center justify-center",
+        "absolute inset-y-0 z-1 flex cursor-ew-resize touch-pan-y items-center justify-center",
         side === "in" ? "left-0" : "right-0",
         active ? "bg-neutral-200" : cn("opacity-0 group-hover:opacity-100", selected ? "bg-neutral-100" : "bg-white/18"),
       )}
@@ -621,7 +622,8 @@ export interface TimelineProps {
   width: number;
   /** The editor's scale on screen: pointer travel is divided by it. */
   scale: number;
-  compact: boolean;
+  /** The strip under the audio row: + Audio, + Text and Line up. */
+  strip: boolean;
   clock: PlayheadClock;
   selection: Selection;
   snap: boolean;
@@ -643,7 +645,7 @@ export function Timeline({
   edit,
   width,
   scale,
-  compact,
+  strip,
   clock,
   selection,
   snap,
@@ -704,7 +706,7 @@ export function Timeline({
   const rowsHeight = STACK_ROWS * ROW;
   const audioTop = rowsTop + rowsHeight;
   const stripTop = audioTop + GEOMETRY.audioRow;
-  const playheadBottom = compact ? 0 : GEOMETRY.audioStrip;
+  const playheadBottom = strip ? GEOMETRY.audioStrip : 0;
 
   // ---------- Pointer ----------
 
@@ -813,7 +815,7 @@ export function Timeline({
         ? timeTargets(edit, playhead, { kind: d.target, id: d.id }).concat({
             t: d.startSec,
             kind: "edge",
-            label: "where it was",
+            label: WHERE_IT_WAS,
             edge: "start",
             row: null,
           })
@@ -1019,7 +1021,7 @@ export function Timeline({
   return (
     <div
       className={cn("relative shrink-0 overflow-hidden border-t", EDIT_LINE, PANE)}
-      style={{ height: timelineHeight(compact) }}
+      style={{ height: timelineHeight(strip) }}
       onPointerDown={onInteract}
     >
       <div ref={lanesRef} className="absolute inset-0">
@@ -1061,7 +1063,7 @@ export function Timeline({
             <span
               key={`L${t}`}
               aria-hidden="true"
-              className={cn("pointer-events-none absolute top-[9px] text-[11px] leading-[11px] tabular-nums", INK_3)}
+              className={cn("pointer-events-none absolute top-[9px] nb-ev-t11 leading-[11px] tabular-nums", INK_3)}
               style={{ left: axis.timeToX(t) + 5 }}
             >
               {text}
@@ -1122,7 +1124,7 @@ export function Timeline({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 truncate text-[11px] leading-4",
+                    "pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 truncate nb-ev-t11 leading-4",
                     line ? "text-neutral-300" : INK_3,
                   )}
                 >
@@ -1362,7 +1364,7 @@ export function Timeline({
         {edgeGuide}
 
         {/* The strip under the audio rows: + Audio, + Text and, in Stacked, Line up */}
-        {!compact && (
+        {strip && (
           <div
             className="pointer-events-none absolute inset-x-0 z-5 flex items-center gap-1 pr-4"
             style={{ top: stripTop, height: GEOMETRY.audioStrip, paddingLeft: ORIGIN - 6 }}

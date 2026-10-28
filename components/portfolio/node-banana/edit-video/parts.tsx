@@ -4,6 +4,7 @@ import { Fragment, useState, type CSSProperties, type KeyboardEvent, type ReactN
 
 import { cn } from "@/lib/utils";
 
+import { Kbd } from "../kit";
 import { formatTimecode, parseTimecode } from "./model";
 import {
   HEADER_TITLE,
@@ -19,14 +20,19 @@ import {
 // The editor's small parts: the hover label (src/components/ui/Tooltip.tsx), the rail's rows (railParts.tsx) and the
 // timecode well (TimecodeField.tsx).
 
-/** One key cap, xs (hover labels). */
-function Kbd({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="inline-flex h-4 min-w-4 select-none items-center justify-center rounded-[3px] border border-white/8 bg-white/8 px-[3px] font-sans text-[10px] font-medium leading-none text-neutral-400">
-      {children}
-    </kbd>
-  );
+/** "⇧⌘Z" → ⇧ ⌘ Z: one cap per key, as KbdGroup draws a compact shortcut. */
+function splitKeys(shortcut: string): string[] {
+  const keys: string[] = [];
+  let rest = shortcut;
+  while (rest.length > 1 && "⌘⇧⌥⌃".includes(rest[0])) {
+    keys.push(rest[0]);
+    rest = rest.slice(1);
+  }
+  return [...keys, rest];
 }
+
+/** The kit's xs cap in the app's system face (the cap's font-sans is the site's here), at the editor's least size. */
+const CAP = "font-[family-name:var(--nb-font-ui)] text-[length:max(10px,var(--ev-min-text,0px))]";
 
 /** The hover label: shown after 300ms on hover or keyboard focus of its `group` wrapper. */
 export function Tooltip({
@@ -47,17 +53,22 @@ export function Tooltip({
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute z-30 flex items-center gap-1.5 whitespace-nowrap rounded-md nb-squircle border border-white/10 bg-neutral-950 py-1 pr-1.5 pl-2 text-[10px] font-medium leading-3 text-neutral-200 opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-opacity delay-300 duration-[120ms] group-hover:opacity-100 group-has-focus-visible:opacity-100",
+        "pointer-events-none absolute z-30 flex items-center gap-1.5 whitespace-nowrap rounded-md nb-squircle border border-white/10 bg-neutral-950 py-1 pr-1.5 pl-2 nb-ev-t10 font-medium leading-3 text-neutral-200 opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-opacity delay-300 duration-[120ms] group-hover:opacity-100 group-has-focus-visible:opacity-100",
         side,
         edge,
-        keys.length === 0 && "pr-2",
       )}
     >
       {label}
-      {keys.map((key, i) => (
-        <Fragment key={key}>
+      {keys.map((shortcut, i) => (
+        <Fragment key={shortcut}>
           {i > 0 && <span className="-mx-0.5 text-neutral-500">/</span>}
-          <Kbd>{key}</Kbd>
+          <span className="inline-flex items-center gap-0.5">
+            {splitKeys(shortcut).map((key) => (
+              <Kbd key={key} className={CAP}>
+                {key}
+              </Kbd>
+            ))}
+          </span>
         </Fragment>
       ))}
     </span>

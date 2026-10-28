@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, type MouseEvent, type ReactNode } from "react";
-import { Blend, Magnet, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { Blend, ImagePlus, Magnet, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -108,12 +108,14 @@ export interface StageProps {
   onSnap: (on: boolean) => void;
   onCrossfade: (on: boolean) => void;
   onMode: (mode: "track" | "stacked") => void;
+  onFrameToCanvas: () => void;
 }
 
 /**
  * The stage (EditorStage.tsx, EditorTransport.tsx): the preview frame, which composites the stack at the playhead
  * (each live clip at its share of the picture, top row in front, the text layers' washes and words over them), and
- * the control row under it.
+ * the control row under it. The row has no zoom or Fit, which the app drops at this width too; narrower still it drops
+ * Frame to canvas, then Go to start and Go to end, so Play stays centred under the frame.
  */
 export function Stage({
   edit,
@@ -131,6 +133,7 @@ export function Stage({
   onSnap,
   onCrossfade,
   onMode,
+  onFrameToCanvas,
 }: StageProps) {
   const placed = useMemo(() => placedClips(edit), [edit]);
   const stacked = edit.mode === "stacked";
@@ -300,7 +303,7 @@ export function Stage({
           </div>
 
           <div className="flex items-center gap-2">
-            <ControlButton label="Go to start" className="@max-[420px]:hidden" onClick={() => onGoTo("start")}>
+            <ControlButton label="Go to start" className="@max-[491px]:hidden" onClick={() => onGoTo("start")}>
               <SkipBack size={16} strokeWidth={1.5} />
             </ControlButton>
             <div className="group relative flex">
@@ -319,12 +322,15 @@ export function Stage({
               </button>
               <Tooltip label={running ? "Pause" : "Play"} shortcut="Space" placement="top" />
             </div>
-            <ControlButton label="Go to end" className="@max-[420px]:hidden" onClick={() => onGoTo("end")}>
+            <ControlButton label="Go to end" className="@max-[491px]:hidden" onClick={() => onGoTo("end")}>
               <SkipForward size={16} strokeWidth={1.5} />
             </ControlButton>
           </div>
 
           <div className="flex items-center justify-end gap-0.5">
+            <ControlButton label="Frame to canvas" className="@max-[559px]:hidden" onClick={onFrameToCanvas}>
+              <ImagePlus size={16} strokeWidth={1.5} />
+            </ControlButton>
             <ControlButton label="Mute all" pressed={!soundOn} onClick={() => onSoundOn(!soundOn)}>
               {soundOn ? <Volume2 size={16} strokeWidth={1.5} /> : <VolumeX size={16} strokeWidth={1.5} />}
             </ControlButton>

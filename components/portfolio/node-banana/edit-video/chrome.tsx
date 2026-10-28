@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AudioLines, ChevronRight, LayoutGrid, List, PanelLeft, PanelLeftClose, Redo2, Undo2 } from "lucide-react";
+import { AudioLines, ChevronRight, LayoutGrid, List, PanelLeft, PanelLeftClose, Plus, Redo2, Type, Undo2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -131,7 +131,7 @@ export function EditHeader({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
-          className="absolute inset-x-0 bottom-0 h-0.5"
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--nb-edit-line)]"
         >
           <div className="nb-ev-progress h-full bg-neutral-100" style={{ width: `${percent}%` }} />
         </div>
@@ -147,13 +147,16 @@ export interface MediaPaneProps {
   onLayout: (layout: "list" | "grid") => void;
   onHide: () => void;
   onPick: (selection: Selection) => void;
+  onAddText: () => void;
+  onAddTextDisabled: boolean;
 }
 
 /**
- * The edit's media (MediaPane.tsx): 264px on the pane, its header with List | Grid and Hide media, then the videos
- * and sounds the edit uses. A row the selected clip comes from is lit; a press on one selects its clip.
+ * The edit's media (MediaPane.tsx): 264px on the pane, its header with List | Grid, Add media (off: the demo has no
+ * asset library), Add text and Hide media, then the videos and sounds the edit uses. A row the selected clip comes
+ * from is lit; a press on one selects its clip.
  */
-export function MediaPane({ edit, selection, layout, onLayout, onHide, onPick }: MediaPaneProps) {
+export function MediaPane({ edit, selection, layout, onLayout, onHide, onPick, onAddText, onAddTextDisabled }: MediaPaneProps) {
   const selectedSource =
     selection?.kind === "clip" ? edit.clips.find((c) => c.id === selection.id)?.source : selection?.kind === "audio" ? "audio" : null;
   const items = SOURCES.map((source) => ({
@@ -179,6 +182,18 @@ export function MediaPane({ edit, selection, layout, onLayout, onHide, onPick }:
               <Tooltip label={label} placement="bottom" />
             </div>
           ))}
+        </div>
+        <div className="group relative flex shrink-0">
+          <button type="button" aria-label="Add media" disabled className={HEADER_ICON_BUTTON}>
+            <Plus size={16} strokeWidth={1.5} />
+          </button>
+          <Tooltip label="The asset library is off" placement="bottom" />
+        </div>
+        <div className="group relative flex shrink-0">
+          <button type="button" aria-label="Add text" disabled={onAddTextDisabled} className={HEADER_ICON_BUTTON} onClick={onAddText}>
+            <Type size={16} strokeWidth={1.5} />
+          </button>
+          <Tooltip label={onAddTextDisabled ? "A text layer is at the playhead" : "Add text"} placement="bottom" />
         </div>
         <div className="group relative flex shrink-0">
           <button
@@ -215,7 +230,7 @@ export function MediaPane({ edit, selection, layout, onLayout, onHide, onPick }:
               <span className="flex min-w-0 flex-col gap-1">
                 <span aria-hidden="true" className={cn("relative aspect-video w-full overflow-hidden rounded-md", EDIT_FIELD)}>
                   {cover}
-                  <span className="absolute bottom-1 left-1 rounded-[4px] bg-black/60 px-1 text-[10px] leading-4 text-neutral-100 tabular-nums">
+                  <span className="absolute bottom-1 left-1 rounded-[4px] bg-black/60 px-1 nb-ev-t10 leading-4 text-neutral-100 tabular-nums">
                     {length}
                   </span>
                 </span>
@@ -286,7 +301,7 @@ export function MediaPane({ edit, selection, layout, onLayout, onHide, onPick }:
               >
                 {edit.audio.name}
               </span>
-              <span className={cn("shrink-0 tabular-nums", INK_3, list ? "text-xs" : "text-[11px]")}>
+              <span className={cn("shrink-0 tabular-nums", INK_3, list ? "text-xs" : "nb-ev-t11")}>
                 {formatTimecode(edit.audio.duration, 0)}
               </span>
             </button>

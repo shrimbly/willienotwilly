@@ -140,8 +140,6 @@ export const EASINGS = {
   easeInQuartOutQuad: asymmetric(BASE.easeInQuart, BASE.easeOutQuad),
 };
 
-/** The ramp presets, in the library's order (every monotone easing but linear). */
-export const RAMP_PRESETS = Object.keys(EASINGS) as EaseName[];
 export const DEFAULT_RAMP: EaseName = "easeInOutSine";
 
 const BEZIERS: Partial<Record<EaseName, BezierHandles>> = {
