@@ -159,6 +159,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Keep keyboard focus and anchor jumps clear of the fixed site footer. */
+  html {
+    scroll-padding-bottom: 6.5rem;
+    @media (width >= 40rem) {
+      scroll-padding-bottom: 5.5rem;
+    }
+  }
   body {
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);

@@ -49,6 +49,18 @@ function CtaLink({
   );
 }
 
+/** A link that shows on focus and jumps past a demo's controls. */
+function SkipDemo({ to, label }: { to: string; label: string }) {
+  return (
+    <a
+      href={`#${to}`}
+      className="sr-only rounded-full bg-background px-3 py-1.5 text-sm text-foreground shadow-lg focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
+    >
+      Skip the {label} demo
+    </a>
+  );
+}
+
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const project = getProjectBySlug(slug);
@@ -133,6 +145,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     } as React.CSSProperties
                   }
                 >
+                  <SkipDemo to="highlights" label={project.title} />
                   <DemoSlot id={project.heroDemo} eager />
                 </div>
               ) : (
@@ -192,7 +205,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             </div>
           </BlurFade>
 
-          <div className="flex flex-col gap-20 sm:gap-28">
+          <div id="highlights" tabIndex={-1} className="flex flex-col gap-20 outline-none sm:gap-28">
             {project.highlights.map((h, i) => (
               <BlurFade key={h.title} delay={60} duration={800} yOffset={16}>
                 <div className="flex flex-col gap-6">
@@ -208,6 +221,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                         } as React.CSSProperties
                       }
                     >
+                      <SkipDemo to={`highlight-${i + 1}`} label={h.title} />
                       <DemoSlot id={h.demo} />
                     </div>
                   ) : h.phones && h.phones.length > 0 ? (
@@ -444,7 +458,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                       )}
                     </div>
                   )}
-                  <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-10">
+                  <div
+                    id={`highlight-${i + 1}`}
+                    tabIndex={-1}
+                    className="flex flex-col gap-2 px-1 outline-none sm:flex-row sm:items-baseline sm:justify-between sm:gap-10"
+                  >
                     <div className="flex items-baseline gap-4">
                       <span className="font-mono text-xs text-muted-foreground">
                         {String(i + 1).padStart(2, "0")}

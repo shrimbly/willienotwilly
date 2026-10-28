@@ -13,6 +13,8 @@ interface BlurFadeProps {
   as?: keyof React.JSX.IntrinsicElements;
 }
 
+const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
 export function BlurFade({
   children,
   className = "",
@@ -25,14 +27,14 @@ export function BlurFade({
 }: BlurFadeProps) {
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
+  // Shown without the transition, e.g. because keyboard focus landed inside
+  // before it scrolled into view.
+  const [instant, setInstant] = useState(false);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
-    }
     const obs = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -41,6 +43,7 @@ export function BlurFade({
             if (once) obs.disconnect();
           } else if (!once) {
             setVisible(false);
+            setSettled(false);
           }
         }
       },
@@ -51,18 +54,35 @@ export function BlurFade({
   }, [once]);
 
   const Element = Tag as unknown as React.ElementType;
+  // Once revealed, drop the filter, transform and will-change so a block
+  // holding live content doesn't keep its own compositing layer.
+  const done = visible && (settled || instant);
 
   return (
     <Element
       ref={ref as React.RefObject<HTMLElement>}
-      className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        filter: visible ? "blur(0px)" : `blur(${blur})`,
-        transform: visible ? "translate3d(0,0,0)" : `translate3d(0,${yOffset}px,0)`,
-        transition: `opacity ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, filter ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`,
-        willChange: "opacity, filter, transform",
+      className={`${className} motion-reduce:transform-none! motion-reduce:opacity-100! motion-reduce:filter-none! motion-reduce:transition-none!`}
+      onFocus={() => {
+        if (visible) return;
+        setInstant(true);
+        setVisible(true);
       }}
+      onTransitionEnd={(e: React.TransitionEvent) => {
+        if (e.target === e.currentTarget && visible) setSettled(true);
+      }}
+      style={
+        done
+          ? undefined
+          : {
+              opacity: visible ? 1 : 0,
+              filter: visible ? "blur(0px)" : `blur(${blur})`,
+              transform: visible ? "translate3d(0,0,0)" : `translate3d(0,${yOffset}px,0)`,
+              transition: instant
+                ? "none"
+                : `opacity ${duration}ms ${EASE} ${delay}ms, filter ${duration}ms ${EASE} ${delay}ms, transform ${duration}ms ${EASE} ${delay}ms`,
+              willChange: visible ? undefined : "opacity, filter, transform",
+            }
+      }
     >
       {children}
     </Element>
