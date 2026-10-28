@@ -28,7 +28,8 @@ export function BlurFade({
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
   // Shown without the transition, e.g. because keyboard focus landed inside
-  // before it scrolled into view.
+  // before it scrolled into view. The focus-within classes below show it in
+  // the same frame, before React has re-rendered.
   const [instant, setInstant] = useState(false);
   const [settled, setSettled] = useState(false);
 
@@ -61,7 +62,7 @@ export function BlurFade({
   return (
     <Element
       ref={ref as React.RefObject<HTMLElement>}
-      className={`${className} motion-reduce:transform-none! motion-reduce:opacity-100! motion-reduce:filter-none! motion-reduce:transition-none!`}
+      className={`${className} motion-reduce:transform-none! motion-reduce:opacity-100! motion-reduce:filter-none! motion-reduce:transition-none! focus-within:transform-none! focus-within:opacity-100! focus-within:filter-none! focus-within:transition-none!`}
       onFocus={() => {
         if (visible) return;
         setInstant(true);

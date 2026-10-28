@@ -44,8 +44,9 @@ const demos: Record<DemoId, ComponentType> = {
 
 /**
  * Renders a demo once its frame comes within a screen or so of the viewport,
- * so a page doesn't download and boot every demo up front. `eager` mounts
- * straight away (and on the server), for a hero.
+ * or once focus reaches the frame (its skip link), so a page doesn't download
+ * and boot every demo up front. `eager` mounts straight away (and on the
+ * server), for a hero.
  */
 export function DemoSlot({ id, eager = false }: { id: DemoId; eager?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -61,7 +62,13 @@ export function DemoSlot({ id, eager = false }: { id: DemoId; eager?: boolean })
       { rootMargin: "1000px 0px" },
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    const frame = el.parentElement;
+    const mount = () => setNear(true);
+    frame?.addEventListener("focusin", mount);
+    return () => {
+      observer.disconnect();
+      frame?.removeEventListener("focusin", mount);
+    };
   }, [near]);
 
   if (!near) return <div ref={ref} className="absolute inset-0" aria-hidden="true" />;
