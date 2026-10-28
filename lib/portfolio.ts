@@ -293,7 +293,7 @@ export const projects: Project[] = [
     video: "/videos/portfolio/ezpz.mp4",
     poster: "/images/portfolio/posters/ezpz.jpg",
     heroDemo: "easy-peasy-ease-editor",
-    heroDemoMobileAspect: "3/4",
+    heroDemoMobileAspect: "2/3",
     stats: [
       { label: "GitHub", value: "118 stars" },
       { label: "Video Engine", value: "Mediabunny" },
@@ -330,7 +330,7 @@ export const projects: Project[] = [
       {
         title: "The landing",
         caption:
-          "The wordmark is a variable font that leans toward the pointer, set over slow light rays. Pick Stitch or Split and drop your clips in.",
+          "The wordmark is a variable font whose letters thin as the pointer passes over them, set over slow light rays. Pick Stitch or Split, then drop your clips in.",
         aspect: "22/9",
         mobileAspect: "4/3",
         placeholderClass: "bg-[#0d1210]",
