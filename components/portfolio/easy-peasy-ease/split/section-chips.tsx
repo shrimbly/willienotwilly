@@ -37,7 +37,11 @@ export function SectionChips({
   }, [progress, active]);
 
   return (
-    <div className={cn("flex min-w-0", count > 12 ? "gap-px" : "gap-1", className)}>
+    <div
+      role="group"
+      aria-label="Created clips"
+      className={cn("flex min-w-0", count > 12 ? "gap-px" : "gap-1", className)}
+    >
       {Array.from({ length: count }, (_, i) => {
         const isActive = i === active;
         return (

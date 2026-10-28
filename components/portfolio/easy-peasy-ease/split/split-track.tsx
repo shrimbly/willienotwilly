@@ -15,6 +15,8 @@ import { FILMSTRIP_CELLS } from "./virtual-source";
 
 const NUDGE_SMALL = 0.1;
 const NUDGE_LARGE = 1;
+/** Horizontal travel (px) before a touch on the track counts as a scrub. */
+const TOUCH_SLOP = 6;
 
 const pct = (time: number, duration: number) => `${(clamp(time, 0, duration) / duration) * 100}%`;
 
@@ -82,7 +84,7 @@ interface SplitTrackProps {
  * Changes: the filmstrip is baked (8 sprite tiles, no frame extraction);
  * positions are percentages and the playhead is moved imperatively from a
  * motion value; the track is touch-pan-y so the page still scrolls (the
- * marker handles keep touch-none), and a touch only scrubs once it moves.
+ * marker handles keep touch-none), and a touch only scrubs once it moves sideways.
  */
 export function SplitTrack({
   duration,
@@ -99,9 +101,12 @@ export function SplitTrack({
 }: SplitTrackProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
+  const markerRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const draggingIndexRef = useRef<number | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-  const scrubRef = useRef<{ pointerId: number; touchPending: boolean } | null>(null);
+  const scrubRef = useRef<{ pointerId: number; startX: number; startY: number; pending: boolean } | null>(
+    null,
+  );
 
   const sections = useMemo(() => deriveSections(duration, splitTimes), [duration, splitTimes]);
   const selectedSplit =
@@ -127,36 +132,49 @@ export function SplitTrack({
   };
 
   // ---- Scrubbing (click / drag on the empty track) ----
+  const scrubTo = (clientX: number) => {
+    onSelectedSplitChange(null);
+    onSeek(timeFromClientX(clientX));
+  };
+
   const endScrub = () => {
-    if (!scrubRef.current) return;
+    const scrub = scrubRef.current;
+    if (!scrub) return;
     scrubRef.current = null;
-    onScrubbingChange?.(false);
+    if (!scrub.pending) onScrubbingChange?.(false);
   };
 
   const handleTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    onSelectedSplitChange(null);
-    const touch = e.pointerType === "touch";
-    scrubRef.current = { pointerId: e.pointerId, touchPending: touch };
-    onScrubbingChange?.(true);
-    // A touch may be the start of a page scroll; only seek once it proves horizontal.
-    if (!touch) {
-      e.preventDefault();
-      onSeek(timeFromClientX(e.clientX));
-    }
+    // A touch may be the start of a page scroll, so it stays pending (no
+    // pause, no seek, selection kept) until it moves along the track or lifts.
+    const pending = e.pointerType === "touch";
+    scrubRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, pending };
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (!pending) {
+      e.preventDefault();
+      onScrubbingChange?.(true);
+      scrubTo(e.clientX);
+    }
   };
 
   const handleTrackPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const scrub = scrubRef.current;
     if (!scrub || scrub.pointerId !== e.pointerId) return;
-    scrub.touchPending = false;
-    onSeek(timeFromClientX(e.clientX));
+    if (scrub.pending) {
+      const dx = Math.abs(e.clientX - scrub.startX);
+      const dy = Math.abs(e.clientY - scrub.startY);
+      // Mostly vertical: the browser is about to pan the page and cancel this pointer.
+      if (dx < TOUCH_SLOP || dx < dy) return;
+      scrub.pending = false;
+      onScrubbingChange?.(true);
+    }
+    scrubTo(e.clientX);
   };
 
   const handleTrackPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const scrub = scrubRef.current;
-    if (scrub?.touchPending && e.type === "pointerup") onSeek(timeFromClientX(e.clientX));
+    // A touch that never moved is a tap: seek there.
+    if (scrubRef.current?.pending && e.type === "pointerup") scrubTo(e.clientX);
     endScrub();
   };
 
@@ -211,11 +229,19 @@ export function SplitTrack({
     setDraggingIndex(index);
   };
 
+  const removeAt = (index: number) => {
+    onSplitTimesChange(removeSplit(splitTimes, index, duration));
+    onSelectedSplitChange(null);
+    // Markers are keyed by position: the next split takes over this button, or
+    // after the last one focus moves back a marker instead of falling to <body>.
+    const target = Math.min(index, splitTimes.length - 2);
+    if (target >= 0) markerRefs.current[target]?.focus();
+  };
+
   const handleMarkerKeyDown = (index: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      onSplitTimesChange(removeSplit(splitTimes, index, duration));
-      onSelectedSplitChange(null);
+      removeAt(index);
       return;
     }
     const step = e.shiftKey ? NUDGE_LARGE : NUDGE_SMALL;
@@ -326,6 +352,9 @@ export function SplitTrack({
               />
               {/* Draggable handle: a finger-sized 32×64 target centred on the line. */}
               <button
+                ref={(el) => {
+                  markerRefs.current[index] = el;
+                }}
                 type="button"
                 aria-label={`Split point ${index + 1} at ${formatTime(t)}. Drag to move, Delete to remove.`}
                 className="absolute left-0 top-1/2 flex h-16 w-8 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -355,8 +384,7 @@ export function SplitTrack({
                   onDoubleClick={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSplitTimesChange(removeSplit(splitTimes, index, duration));
-                    onSelectedSplitChange(null);
+                    removeAt(index);
                   }}
                 >
                   <X className="h-3.5 w-3.5" />

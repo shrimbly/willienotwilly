@@ -110,10 +110,24 @@ export const EDIT_MAP = createVirtualMap([
   { sourceStart: 0, sourceEnd: SOURCE_DURATION, duration: SOURCE_DURATION, easing: (p) => p },
 ]);
 
-/** "Create N clips": every section eased into `outputDuration`, back to back. */
+let lastSequence: { splitTimes: number[]; outputDuration: number; preset: string; map: VirtualMap } | null =
+  null;
+
+/**
+ * "Create N clips": every section eased into `outputDuration`, back to back.
+ * The same arguments return the same map, so a handler that swaps the map
+ * straight away and the render that follows hand the engine one identity.
+ */
 export function createSequenceMap(splitTimes: number[], outputDuration: number, preset: string) {
+  if (
+    lastSequence?.splitTimes === splitTimes &&
+    lastSequence.outputDuration === outputDuration &&
+    lastSequence.preset === preset
+  ) {
+    return lastSequence.map;
+  }
   const bezier = getPresetBezier(preset);
-  return createVirtualMap(
+  const map = createVirtualMap(
     deriveSections(SOURCE_DURATION, splitTimes).map((section) => ({
       sourceStart: section.start,
       sourceEnd: section.end,
@@ -121,4 +135,6 @@ export function createSequenceMap(splitTimes: number[], outputDuration: number, 
       easing: bezier,
     })),
   );
+  lastSequence = { splitTimes, outputDuration, preset, map };
+  return map;
 }

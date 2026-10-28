@@ -21,10 +21,10 @@ import { ScrubbableNumberField } from "../kit/scrubbable-number-field";
 import { usePopoverRoom } from "./use-popover-room";
 import { SOURCE_DURATION, SOURCE_NAME } from "./virtual-source";
 
-export const SECTION_LENGTH_MIN = 0.5;
-export const SECTION_LENGTH_MAX = Math.max(SECTION_LENGTH_MIN, Math.floor(SOURCE_DURATION));
+const SECTION_LENGTH_MIN = 0.5;
+const SECTION_LENGTH_MAX = Math.max(SECTION_LENGTH_MIN, Math.floor(SOURCE_DURATION));
 
-const clipsLabel = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
+export const clipsLabel = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
 
 interface SplitControlsProps {
   mode: "edit" | "sequence";
@@ -73,8 +73,7 @@ export function SplitAside({
   const curveRef = useRef<HTMLDivElement>(null);
   const room = usePopoverRoom(curveRef, boundsRef, { side: "bottom", align: "start", maxHeight: 280 });
 
-  const effectiveSectionLength = Math.min(sectionLength, SECTION_LENGTH_MAX);
-  const previewCount = sectionCountForLength(SOURCE_DURATION, effectiveSectionLength);
+  const previewCount = sectionCountForLength(SOURCE_DURATION, sectionLength);
   const totalOutput = sections.length * outputDuration;
   const avgSection = sections.length > 0 ? SOURCE_DURATION / sections.length : 0;
 
@@ -84,7 +83,7 @@ export function SplitAside({
       aria-label="Split settings"
       className={cn(
         // Short landscape tiles (608×342) tighten the rhythm so the footer stays inside.
-        "w-[248px] shrink-0 flex-col gap-2.5 self-start rounded-[12px] border border-border bg-secondary p-3 [@container_epe-split_(max-height:360px)]:gap-2 @min-[720px]/epe:w-[272px] @min-[880px]/epe:w-[320px] @min-[880px]/epe:gap-4 @min-[880px]/epe:p-4 @min-[1100px]/epe:w-[360px]",
+        "w-[248px] shrink-0 flex-col gap-2.5 self-start rounded-[12px] border border-border bg-secondary p-3 [@container_epe-split_(max-height:360px)]:gap-1.5 @min-[720px]/epe:w-[272px] @min-[880px]/epe:w-[320px] @min-[880px]/epe:gap-4 @min-[880px]/epe:p-4 @min-[1100px]/epe:w-[360px] @min-[1280px]/epe:w-[400px]",
         className,
       )}
     >
@@ -112,7 +111,7 @@ export function SplitAside({
             scrubStep={0.1}
             precision={1}
             unit="seconds"
-            value={effectiveSectionLength}
+            value={sectionLength}
             onChange={onSectionLengthChange}
             className="w-full grid-cols-[1.75rem_minmax(0,1fr)_1.75rem] @min-[880px]/epe:grid-cols-[2rem_minmax(4rem,1fr)_2rem]"
           />
@@ -140,15 +139,12 @@ export function SplitAside({
 
       <EpeButton type="button" variant="outline" size="sm" onClick={onSplitEvenly} className="w-full gap-2">
         <Wand2 className="h-4 w-4" />
-        Split evenly every {effectiveSectionLength}s
+        Split evenly every {sectionLength}s
       </EpeButton>
 
-      {/* The kit picker's rows keep motion's filter: blur(0px), which makes each row
-          the options' offsetParent in Chrome and breaks its scroll-to-selected;
-          dropping the filter lets the open popover land on the current curve. */}
       <div
         ref={curveRef}
-        className="space-y-1.5 border-t border-border/60 pt-2.5 [&_[role=listbox]_[role=presentation]]:filter-none! [@container_epe-split_(max-height:360px)]:border-t-0 [@container_epe-split_(max-height:360px)]:pt-0 @min-[880px]/epe:pt-4"
+        className="space-y-1.5 border-t border-border/60 pt-2.5 [@container_epe-split_(max-height:360px)]:border-t-0 [@container_epe-split_(max-height:360px)]:pt-0 @min-[880px]/epe:pt-4"
         style={{ "--epe-split-popover-h": `${room.maxHeight}px` } as CSSProperties}
       >
         <FieldLabel htmlFor={`${id}-easing`}>Curve</FieldLabel>
@@ -165,7 +161,7 @@ export function SplitAside({
       </div>
 
       {/* Summary */}
-      <div className="rounded-[12px] border border-border/60 bg-background/40 px-3 py-2 text-xs">
+      <div className="rounded-[12px] border border-border/60 bg-background/40 px-3 py-2 text-xs [@container_epe-split_(max-height:360px)]:py-1.5">
         <div className="flex items-center justify-between gap-2 font-mono tabular-nums">
           <span className="text-muted-foreground">
             {clipsLabel(sections.length)} · avg {avgSection.toFixed(1)}s
@@ -173,12 +169,12 @@ export function SplitAside({
           <span className="font-semibold">{formatTime(totalOutput)} total</span>
         </div>
         {sections.length >= MAX_SECTIONS && (
-          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground)">
+          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground) [@container_epe-split_(max-height:360px)]:mt-1">
             At the {MAX_SECTIONS}-clip maximum.
           </p>
         )}
         {sections.some((s) => s.duration < MIN_SECTION_DURATION + 0.05) && (
-          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground)">Some clips are very short.</p>
+          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground) [@container_epe-split_(max-height:360px)]:mt-1">Some clips are very short.</p>
         )}
       </div>
 
@@ -261,7 +257,7 @@ export function SplitPhoneBar({
       )}
       <div
         ref={curveRef}
-        className="min-w-0 flex-1 [&_[role=listbox]_[role=presentation]]:filter-none!"
+        className="min-w-0 flex-1"
         style={{ "--epe-split-popover-h": `${room.maxHeight}px` } as CSSProperties}
       >
         <label htmlFor={`${id}-easing`} className="sr-only">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useMotionValueEvent } from "motion/react";
 import { Pause, Play, Scissors } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -20,7 +20,7 @@ import { EpeButton } from "./kit/epe-button";
 import { EpeRoot } from "./kit/epe-root";
 import { RetimedVideo } from "./kit/retimed-video";
 import { SectionChips } from "./split/section-chips";
-import { SECTION_LENGTH_MAX, SplitAside, SplitPhoneBar } from "./split/split-aside";
+import { SplitAside, SplitPhoneBar, clipsLabel } from "./split/split-aside";
 import { SplitAtPlayheadButton, SplitTrack } from "./split/split-track";
 import { useVirtualPlayback } from "./split/use-virtual-playback";
 import {
@@ -36,10 +36,10 @@ type Mode = "edit" | "sequence";
 const INITIAL_TIME = 6;
 const INITIAL_SPLITS = computeEvenSplitTimes(SOURCE_DURATION, DEFAULT_SECTION_LENGTH);
 
-// The product's mode-swap reveal (page.tsx modeRevealVariant), for the track header.
+// The product's mode-swap reveal (page.tsx modeRevealVariant through BlurFade), for the track header.
 const headerReveal = {
   hidden: (dir: number) => ({ x: dir * -4, opacity: 0, filter: "blur(4px)" }),
-  visible: { x: 0, opacity: 1, filter: "blur(0px)" },
+  visible: { x: 0, opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } },
   exit: (dir: number) => ({
     x: dir * 4,
     opacity: 0,
@@ -47,15 +47,7 @@ const headerReveal = {
     transition: { duration: 0.22, ease: [0.4, 0, 1, 1] as const },
   }),
 };
-
-// Same resting styles as headerReveal (so server and client markup agree), swapped instantly.
-const headerSwapReduced = {
-  hidden: { x: 0, opacity: 0, filter: "blur(0px)" },
-  visible: headerReveal.visible,
-  exit: { x: 0, opacity: 0, filter: "blur(0px)", transition: { duration: 0 } },
-};
-
-const clipsLabel = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
+const headerRevealTransition = { delay: 0.04, duration: 0.34, ease: [0.22, 1, 0.36, 1] as const };
 
 /**
  * Easy Peasy Ease's "Split a video" editor (VideoSplitEditor + SplitTrack)
@@ -68,8 +60,7 @@ export function EasyPeasyEaseSplitDemo() {
   const rootRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
   const resumeAfterScrubRef = useRef(false);
-  const { active, inView } = useDemoActive(rootRef);
-  const reducedMotion = useReducedMotion() ?? false;
+  const { active, inView, reducedMotion } = useDemoActive(rootRef);
 
   const [mode, setMode] = useState<Mode>("edit");
   const [splitTimes, setSplitTimes] = useState(INITIAL_SPLITS);
@@ -143,10 +134,9 @@ export function EasyPeasyEaseSplitDemo() {
     updateSplits(insertSplit(splitTimes, t, SOURCE_DURATION));
   };
 
-  const effectiveSectionLength = Math.min(sectionLength, SECTION_LENGTH_MAX);
   const splitEvenly = () => {
     setSelectedSplit(null);
-    updateSplits(computeEvenSplitTimes(SOURCE_DURATION, effectiveSectionLength));
+    updateSplits(computeEvenSplitTimes(SOURCE_DURATION, sectionLength));
   };
   const clearSplits = () => {
     setSelectedSplit(null);
@@ -186,8 +176,9 @@ export function EasyPeasyEaseSplitDemo() {
       className="p-2"
     >
       <p className="sr-only">
-        Drag a diamond marker to move a cut, double-click the track or use Split at playhead to add one, then press
-        Create clips to play every section back to back through the chosen curve.
+        Drag a diamond marker to move a cut, or focus it and use the arrow keys; Delete removes it. Double-click the
+        track or use Split at playhead to add one, then press Create clips to play every section back to back
+        through the chosen curve.
       </p>
 
       {/* A size container, so phone vs landscape follows the tile's shape, not its width. */}
@@ -234,15 +225,16 @@ export function EasyPeasyEaseSplitDemo() {
             {/* The split track */}
             <div className="shrink-0 space-y-2 px-1 @min-[880px]/epe:space-y-3">
               <div className="relative flex h-6 items-center @min-[880px]/epe:h-8">
+                {/* Under reduced motion BlurFade skips the reveal and the exit: an instant swap. */}
                 <AnimatePresence initial={false} mode="popLayout" custom={revealDir}>
                   <motion.div
                     key={mode}
                     custom={revealDir}
-                    variants={reducedMotion ? headerSwapReduced : headerReveal}
-                    initial="hidden"
+                    variants={headerReveal}
+                    initial={reducedMotion ? false : "hidden"}
                     animate="visible"
-                    exit="exit"
-                    transition={{ duration: reducedMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
+                    exit={reducedMotion ? undefined : "exit"}
+                    transition={reducedMotion ? { duration: 0 } : headerRevealTransition}
                     className="flex h-full min-w-0 flex-1 items-center justify-between gap-2"
                   >
                     {sequencing ? (
