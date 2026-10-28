@@ -1,0 +1,359 @@
+/*
+ * Easy Peasy Ease, scoped. Ported from the working tree of
+ * easy-peasy-ease/app/globals.css. Every rule lives under `.epe` (set by
+ * EpeRoot together with `dark`), so nothing here reaches the portfolio.
+ *
+ * The portfolio's @theme is inline, so utilities such as bg-primary or
+ * text-muted-foreground compile to var(--primary) etc. and pick up the values
+ * below. `.epe.epe` outranks the portfolio's `.dark {}` block on the same
+ * element regardless of stylesheet order.
+ */
+
+.epe.epe {
+  color-scheme: dark;
+  --radius: 0.5rem;
+  --background: oklch(0.22 0.02 212.538);
+  --foreground: oklch(0.96 0.006 212.538);
+  --card: oklch(0.24 0.02 212.538);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.24 0.02 212.538);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.86 0.07 125.737);
+  --brand-strong: oklch(0.951 0.121 125.737);
+  --primary-foreground: oklch(0.2 0.02 212.538);
+  --secondary: oklch(0.18 0.02 212.538);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.2 0.02 212.538);
+  --muted-foreground: oklch(0.78 0.024 214.493);
+  --body-muted-foreground: oklch(0.852 0.024 214.493);
+  --accent: oklch(0.28 0.02 212.538);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.577 0.235 27.325);
+  --danger-foreground: oklch(0.8 0.114 25);
+  --success: oklch(0.78 0.13 155);
+  --success-foreground: oklch(0.84 0.13 155);
+  --warning: oklch(0.82 0.13 85);
+  --warning-foreground: oklch(0.865 0.11 85);
+  --border: oklch(0.315 0.023 209.607);
+  --control-border: oklch(0.58 0.023 212.538);
+  --input: var(--control-border);
+  --ring: var(--primary);
+  --chart-1: var(--brand-strong);
+  --chart-2: oklch(0.88 0.105 126);
+  --chart-3: oklch(0.8 0.09 126);
+  --chart-4: oklch(0.72 0.08 126);
+  --chart-5: oklch(0.64 0.07 126);
+  --sidebar: oklch(0.2 0.02 212.538);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(0.2 0.02 212.538);
+  --sidebar-accent: oklch(0.25 0.02 212.538);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: oklch(0.315 0.023 209.607);
+  --sidebar-ring: var(--primary);
+  --destructive-foreground: oklch(0.99 0.002 212.538);
+  --ambient-light: oklch(0.889 0.027 234);
+
+  --app-font-sans: "Helvetica Neue", Helvetica, sans-serif;
+  /*
+   * The product declares --app-font-mono: var(--font-dm-mono), … on :root,
+   * but next/font defines --font-dm-mono on <body>, so on :root the value is
+   * invalid at computed time and every font-mono element inherits Helvetica
+   * Neue (see the reference screenshots: "00:00 / 00:04", "1.50", the ruler).
+   * Reproduce what ships; <EpeRoot mono="dm-mono"> opts into DM Mono.
+   */
+  --app-font-mono: var(--app-font-sans);
+  /* The portfolio's font-mono utility reads --font-geist-mono. */
+  --font-geist-mono: var(--app-font-mono);
+
+  --app-shadow-2xs: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.05);
+  --app-shadow-xs: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.05);
+  --app-shadow-sm: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.1), 0 1px 2px -1px oklch(0.18 0.02 212.538 / 0.1);
+  --app-shadow: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.1), 0 1px 2px -1px oklch(0.18 0.02 212.538 / 0.1);
+  --app-shadow-md: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.1), 0 2px 4px -1px oklch(0.18 0.02 212.538 / 0.1);
+  --app-shadow-lg: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.1), 0 4px 6px -1px oklch(0.18 0.02 212.538 / 0.1);
+  --app-shadow-xl: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.1), 0 8px 10px -1px oklch(0.18 0.02 212.538 / 0.1);
+  --app-shadow-2xl: 0 1px 3px 0px oklch(0.18 0.02 212.538 / 0.25);
+  /* The portfolio's shadow-* utilities read these names. */
+  --shadow-2xs: var(--app-shadow-2xs);
+  --shadow-xs: var(--app-shadow-xs);
+  --shadow-sm: var(--app-shadow-sm);
+  --shadow: var(--app-shadow);
+  --shadow-md: var(--app-shadow-md);
+  --shadow-lg: var(--app-shadow-lg);
+  --shadow-xl: var(--app-shadow-xl);
+  --shadow-2xl: var(--app-shadow-2xl);
+  --tracking-normal: 0em;
+
+  --ease-out-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-interactive: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.epe.epe[data-mono="dm-mono"] {
+  --app-font-mono: var(--font-dm-mono), "DM Mono", monospace;
+}
+
+@media (color-gamut: p3) {
+  .epe.epe {
+    --destructive: oklch(0.577 0.245 27.325);
+  }
+}
+
+@layer base {
+  /* The product's <body>: bg-background text-foreground font-sans antialiased.
+     Layered (unlike the tokens above) so utilities on EpeRoot still win. */
+  .epe {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--app-font-sans);
+    font-size: 1rem;
+    font-weight: 400;
+    font-style: normal;
+    line-height: 1.5;
+    letter-spacing: normal;
+    text-align: start;
+    text-transform: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .epe :is(h1, h2, h3) {
+    text-wrap: balance;
+  }
+
+  .epe :is(button, [role="button"], a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Native range sliders; the split point comes from --slider-fill. */
+  .epe input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 0.5rem;
+    cursor: pointer;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      var(--primary) var(--slider-fill, 0%),
+      color-mix(in srgb, var(--primary) 25%, transparent) var(--slider-fill, 0%)
+    );
+  }
+  .epe input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .epe input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1rem;
+    width: 1rem;
+    border-radius: 9999px;
+    border: 2px solid var(--background);
+    background-color: var(--primary);
+    box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.4);
+    transition: scale 150ms ease-out;
+  }
+  .epe input[type="range"]::-moz-range-thumb {
+    height: 1rem;
+    width: 1rem;
+    border-radius: 9999px;
+    border: 2px solid var(--background);
+    background-color: var(--primary);
+    box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.4);
+    transition: scale 150ms ease-out;
+  }
+  .epe input[type="range"]::-moz-range-track {
+    background: transparent;
+  }
+  .epe input[type="range"]:active::-webkit-slider-thumb {
+    scale: 1.15;
+  }
+  .epe input[type="range"]:active::-moz-range-thumb {
+    scale: 1.15;
+  }
+  .epe input[type="range"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Native checkboxes: clip-path check drawn in palette colours. */
+  .epe input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    height: 1rem;
+    width: 1rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    border: 1px solid var(--control-border);
+    background-color: transparent;
+    transition:
+      background-color 150ms ease-out,
+      border-color 150ms ease-out;
+  }
+  .epe input[type="checkbox"]::before {
+    content: "";
+    height: 0.625rem;
+    width: 0.625rem;
+    scale: 0;
+    transition: scale 120ms ease-out;
+    background-color: var(--primary-foreground);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  .epe input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+  }
+  .epe input[type="checkbox"]:checked::before {
+    scale: 1;
+  }
+  .epe input[type="checkbox"]:hover:not(:disabled):not(:checked) {
+    border-color: var(--muted-foreground);
+  }
+  .epe input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .epe input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Product classes, epe- prefixed: landing-surface -> epe-landing-surface etc. */
+.epe .epe-landing-surface {
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.035) inset,
+    0 24px 70px oklch(0 0 0 / 0.16);
+}
+
+.epe .epe-landing-drop-zone {
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 48%),
+    color-mix(in srgb, var(--secondary) 42%, transparent);
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.035) inset,
+    0 18px 48px oklch(0 0 0 / 0.1);
+  transition-property: border-color, background-color, box-shadow, transform;
+  transition-duration: 260ms;
+  transition-timing-function: var(--ease-interactive);
+}
+
+.epe .epe-landing-drop-zone:focus-visible {
+  transform: none;
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.06) inset,
+    0 24px 70px oklch(0 0 0 / 0.2),
+    0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.epe .epe-motion-icon {
+  transition-property: color, transform, filter;
+  transition-duration: 260ms;
+  transition-timing-function: var(--ease-interactive);
+}
+
+.epe .group:focus-visible .epe-motion-icon {
+  color: var(--primary);
+  transform: none;
+  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--primary) 25%, transparent));
+}
+
+.epe .epe-landing-drop-zone:focus-visible .epe-upload-motion-icon {
+  color: var(--foreground);
+  filter: drop-shadow(0 6px 14px oklch(1 0 0 / 0.18));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .epe .epe-landing-drop-zone:hover:not(:focus-visible):not(:active) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.06) inset,
+      0 24px 70px oklch(0 0 0 / 0.2),
+      0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  .epe .group:hover:not(:focus-visible) .epe-motion-icon {
+    color: var(--primary);
+    transform: translateY(-3px) scale(1.06);
+    filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--primary) 25%, transparent));
+  }
+
+  .epe .epe-landing-drop-zone:hover:not(:focus-visible) .epe-upload-motion-icon {
+    color: var(--foreground);
+    filter: drop-shadow(0 6px 14px oklch(1 0 0 / 0.18));
+  }
+
+  .epe .epe-landing-footer-link:hover:not(:focus-visible) {
+    transform: translateY(-1px);
+  }
+}
+
+.epe .epe-landing-drop-zone:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Tempo dot in the beat-snap pill: sharp hit on the beat, eased decay.
+   Usage: style={{ animation: `epe-beat-pulse ${period}s ease-out infinite` }} */
+@keyframes epe-beat-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes epe-reduced-motion-loading {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .epe .epe-beat-pulse-dot {
+    animation: none !important;
+  }
+  .epe .animate-spin {
+    animation: epe-reduced-motion-loading 800ms ease-in-out infinite !important;
+  }
+  .epe .epe-landing-drop-zone,
+  .epe .epe-motion-icon,
+  .epe .epe-landing-footer-link {
+    transform: none !important;
+  }
+  .epe :is(button, [role="button"], [role="tab"]):active {
+    scale: 1 !important;
+  }
+}
+
+.epe .epe-timeline-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--border) 70%, transparent)
+    color-mix(in srgb, var(--background) 70%, transparent);
+  scrollbar-gutter: stable both-edges;
+}
+.epe .epe-timeline-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+.epe .epe-timeline-scrollbar::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+  border-radius: 999px;
+}
+.epe .epe-timeline-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--background) 80%, transparent);
+}
+.epe .epe-timeline-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--border) 100%, transparent);
+}
