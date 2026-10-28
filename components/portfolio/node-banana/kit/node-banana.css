@@ -1,0 +1,634 @@
+/*
+ * Node Banana, scoped under .nb. Tokens and anatomy ported from the app
+ * (src/app/globals.css, src/components/nodes/*, src/components/edges/*) and
+ * the landing site's replicas (site/src/styles/global.css).
+ *
+ * Everything sits in the components layer, so a Tailwind utility on a kit
+ * element still wins, as it would against the app's own component styles.
+ */
+@layer components {
+  .nb {
+    /* Surfaces */
+    --nb-ground: #0a0a0a;
+    --nb-window: #0f0f0f;
+    --nb-canvas: #171717;
+    --nb-card: #262626;
+    --nb-card-border: rgb(64 64 64 / 0.6);
+    --nb-panel: #2a2a2a;
+    --nb-well: #1a1a1a;
+    --nb-well-hover: #1f1f1f;
+    --nb-chrome-border: #404040;
+    --nb-pane: #0a0a0a;
+    --nb-scrim: rgb(0 0 0 / 0.6);
+    --nb-scrim-heavy: rgb(0 0 0 / 0.9);
+    --nb-glass: rgb(38 38 38 / 0.92);
+
+    /* States */
+    --nb-selection: #3b82f6;
+    --nb-running: #3b82f6;
+    --nb-error: #ef4444;
+    --nb-link: #60a5fa;
+
+    /* Ink */
+    --nb-ink: #e5e5e5;
+    --nb-ink-2: #a3a3a3;
+    --nb-ink-3: #8a8a8a;
+    --nb-ink-dim: #737373;
+    --nb-node-text: #f5f5f5;
+
+    /* Data types (src/lib/edges/colors.ts) */
+    --nb-handle-image: #10b981;
+    --nb-handle-text: #3b82f6;
+    --nb-handle-video: #ec4899;
+    --nb-handle-audio: #a855f7;
+    --nb-handle-3d: #f97316;
+    --nb-handle-easeCurve: #bef264;
+    --nb-handle-reference: #6b7280;
+
+    /* Edit Video */
+    --nb-editor-chrome: #1a1a1a;
+    --nb-editor-well: #0f0f0f;
+    --nb-edit-line: #1a1a1a;
+    --nb-edit-field: #141414;
+    --nb-edit-pressed: #1f1f1f;
+    --nb-edit-switch-off: #333333;
+    --nb-edit-clip: #161616;
+    --nb-edit-wave: #5c5c5c;
+    --nb-edit-wave-active: #a3a3a3;
+    --nb-edit-tick: #333333;
+    --nb-edit-slot: #121212;
+
+    /* Window controls */
+    --nb-light-close: #ff5f57;
+    --nb-light-minimize: #febc2e;
+    --nb-light-fullscreen: #28c840;
+    --nb-light-symbol: #1b1b1b;
+
+    /* Shape */
+    --nb-radius-card: 12px;
+    --nb-radius-media: 8px;
+    --nb-radius-controls: 10px;
+    --nb-radius-well: 8px;
+    --nb-radius-window: 12px;
+    --nb-shadow-well: inset 0 1px 1.5px rgb(0 0 0 / 0.3), inset 0 0 0 1px rgb(0 0 0 / 0.12), 0 1px 0 rgb(255 255 255 / 0.025);
+    --nb-shadow-menu: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+    --nb-shadow-dialog: 0 24px 64px -12px rgb(0 0 0 / 0.65);
+    --nb-shadow-edit-menu: 0 16px 40px rgb(0 0 0 / 0.5);
+    --nb-shadow-chrome: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+
+    /* Type */
+    --nb-font-display: var(--nb-font-space-grotesk), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --nb-font-mono: var(--nb-font-jetbrains-mono), "SF Mono", Menlo, Consolas, monospace;
+    --nb-font-hand: var(--nb-font-caveat), cursive;
+    --nb-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+    /* Motion */
+    --nb-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --nb-ease-draw: cubic-bezier(0.4, 0, 0.2, 1);
+    --nb-ease-dialog: cubic-bezier(0.2, 0, 0, 1);
+
+    container-type: size;
+    container-name: nb;
+    isolation: isolate;
+    overflow: hidden;
+    color-scheme: dark;
+    background-color: var(--nb-canvas);
+    color: var(--nb-ink);
+    font-family: var(--nb-font-ui);
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+
+  /* The portfolio paints every border its own light grey; the app's chrome border is #404040. */
+  .nb *,
+  .nb *::before,
+  .nb *::after {
+    border-color: var(--nb-chrome-border);
+  }
+
+  .nb :focus-visible {
+    outline: 2px solid var(--nb-selection);
+    outline-offset: 2px;
+  }
+
+  .nb ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .nb ::-webkit-scrollbar-track,
+  .nb ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .nb ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+
+  /* ---------- Token helpers (the app's @theme utilities, prefixed) ---------- */
+
+  .nb .nb-text-node { font-size: 10px; line-height: 14px; }
+  .nb .nb-font-ui { font-family: var(--nb-font-ui); }
+  .nb .nb-font-display { font-family: var(--nb-font-display); }
+  .nb .nb-font-mono { font-family: var(--nb-font-mono); }
+  .nb .nb-font-hand { font-family: var(--nb-font-hand); }
+  .nb .nb-tracking-eyebrow { letter-spacing: 0.08em; }
+  .nb .nb-tracking-display { letter-spacing: -0.03em; }
+  .nb .nb-text-ink-3 { color: var(--nb-ink-3); }
+  .nb .nb-text-link { color: var(--nb-link); }
+
+  .nb .nb-bg-canvas { background-color: var(--nb-canvas); }
+  .nb .nb-bg-window { background-color: var(--nb-window); }
+  .nb .nb-bg-card { background-color: var(--nb-card); }
+  .nb .nb-bg-panel { background-color: var(--nb-panel); }
+  .nb .nb-bg-well { background-color: var(--nb-well); }
+  .nb .nb-bg-pane { background-color: var(--nb-pane); }
+  .nb .nb-bg-editor-chrome { background-color: var(--nb-editor-chrome); }
+  .nb .nb-bg-editor-well { background-color: var(--nb-editor-well); }
+  .nb .nb-bg-edit-field { background-color: var(--nb-edit-field); }
+  .nb .nb-bg-edit-clip { background-color: var(--nb-edit-clip); }
+  .nb .nb-bg-edit-pressed { background-color: var(--nb-edit-pressed); }
+  .nb .nb-bg-edit-slot { background-color: var(--nb-edit-slot); }
+  .nb .nb-border-card { border-color: var(--nb-card-border); }
+  .nb .nb-border-chrome { border-color: var(--nb-chrome-border); }
+  .nb .nb-border-edit-line { border-color: var(--nb-edit-line); }
+
+  .nb .nb-rounded-card { border-radius: var(--nb-radius-card); }
+  .nb .nb-rounded-media { border-radius: var(--nb-radius-media); }
+  .nb .nb-rounded-controls { border-radius: var(--nb-radius-controls); }
+  .nb .nb-rounded-well { border-radius: var(--nb-radius-well); }
+
+  .nb .nb-shadow-well { box-shadow: var(--nb-shadow-well); }
+  .nb .nb-shadow-menu { box-shadow: var(--nb-shadow-menu); }
+  .nb .nb-shadow-dialog { box-shadow: var(--nb-shadow-dialog); }
+  .nb .nb-shadow-edit-menu { box-shadow: var(--nb-shadow-edit-menu); }
+
+  /* menuSurfaceClass: "bg-card border border-chrome-border rounded-md shadow-menu" */
+  .nb .nb-menu-surface {
+    background-color: var(--nb-card);
+    border: 1px solid var(--nb-chrome-border);
+    border-radius: 6px;
+    box-shadow: var(--nb-shadow-menu);
+  }
+
+  /* CHROME_SURFACE (src/components/chromeStyles.ts): floating glass for canvas chrome. */
+  .nb .nb-chrome-surface {
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background-color: var(--nb-glass);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--nb-shadow-chrome);
+  }
+
+  /* fade-rule: the chat's hairlines, brighter in the middle. */
+  .nb .nb-fade-rule {
+    border-image: linear-gradient(to right, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.045)) 1;
+  }
+
+  /* The app's dotted canvas: 1px #404040 dots on a 20px grid over #171717. */
+  .nb .nb-dot-grid {
+    background-color: var(--nb-canvas);
+    background-image: radial-gradient(circle, var(--nb-chrome-border) var(--nb-grid-dot, 0.6px), transparent calc(var(--nb-grid-dot, 0.6px) + 0.5px));
+    background-size: var(--nb-grid-gap, 20px) var(--nb-grid-gap, 20px);
+    background-position: var(--nb-grid-x, 10px) var(--nb-grid-y, 10px);
+  }
+
+  /* ---------- Canvas ---------- */
+
+  .nb .nb-canvas {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .nb .nb-canvas[data-pannable] { cursor: grab; }
+  .nb .nb-canvas[data-panning] { cursor: grabbing; }
+  .nb .nb-world {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+  }
+
+  /* ---------- Nodes (src/components/nodes/NodeShell.tsx) ---------- */
+
+  .nb .nb-node {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--nb-font-ui);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .nb .nb-node[data-flow] {
+    position: relative;
+  }
+  .nb .nb-node[data-draggable] { cursor: grab; touch-action: pan-y; }
+  .nb .nb-node[data-dragging] { cursor: grabbing; z-index: 2; }
+  .nb .nb-node[data-selected] { z-index: 1; }
+  .nb .nb-node[data-dragging][data-selected] { z-index: 2; }
+  .nb .nb-node img,
+  .nb .nb-node video { -webkit-user-drag: none; }
+
+  /* Floating header, 26px above the media card. */
+  .nb .nb-node__header {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -26px;
+    touch-action: none;
+  }
+
+  .nb .nb-media-card {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    padding: 4px;
+    border: 1px solid var(--nb-card-border);
+    border-radius: var(--nb-radius-card);
+    background-color: var(--nb-card);
+    overflow: visible;
+    transition-property: box-shadow, border-color;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .nb .nb-media-card[data-selected] {
+    border-color: var(--nb-selection);
+    box-shadow:
+      0 0 0 2px rgb(59 130 246 / 0.4),
+      0 10px 15px -3px rgb(59 130 246 / 0.25),
+      0 4px 6px -4px rgb(59 130 246 / 0.25);
+  }
+  .nb .nb-media-card[data-running]:not([data-selected]) { box-shadow: 0 0 0 1px rgb(59 130 246 / 0.2); }
+  .nb .nb-media-card[data-running] { border-color: var(--nb-running); }
+  .nb .nb-media-card[data-error] { border-color: var(--nb-error); }
+
+  .nb .nb-media-clip {
+    position: relative;
+    width: 100%;
+    border-radius: var(--nb-radius-media);
+    overflow: hidden;
+    contain: layout style;
+  }
+  .nb .nb-media-clip[data-unclipped] { overflow: visible; }
+  .nb .nb-media-clip > img,
+  .nb .nb-media-clip > video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .nb .nb-trailing {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .nb .nb-gap-row {
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nb .nb-controls-card {
+    position: relative;
+    width: calc(100% - 24px);
+    max-width: 360px;
+    border: 1px solid var(--nb-card-border);
+    border-radius: var(--nb-radius-controls);
+    background-color: var(--nb-card);
+    overflow: hidden;
+  }
+
+  /* Sockets sit in the card border: first centred 24px from the top, then every 30px. */
+  .nb .nb-socket {
+    position: absolute;
+    width: 18px;
+    height: 28px;
+  }
+  .nb .nb-socket > svg { display: block; overflow: visible; }
+  .nb .nb-socket[data-interactive] { cursor: crosshair; touch-action: none; }
+  .nb .nb-socket[data-interactive]::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    top: -3px;
+    width: 30px;
+    height: 34px;
+    border-radius: 50%;
+  }
+  .nb .nb-socket[data-highlight] .nb-socket__hole { fill: currentColor; stroke-opacity: 1; }
+
+  /* Corner-shape squircles where the engine has them; plain radius elsewhere. */
+  @supports (corner-shape: squircle) {
+    .nb .nb-squircle,
+    .nb .nb-media-card,
+    .nb .nb-media-clip,
+    .nb .nb-controls-card,
+    .nb .nb-chrome-surface,
+    .nb .nb-menu-surface {
+      corner-shape: squircle;
+    }
+  }
+
+  /* ---------- Noodles (src/components/edges/EditableEdge.tsx) ---------- */
+
+  .nb .nb-noodles {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .nb .nb-noodle {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .nb .nb-noodle-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 15px;
+    pointer-events: stroke;
+  }
+  .nb .nb-noodle-group:hover .nb-noodle,
+  .nb .nb-noodle-group[data-selected] .nb-noodle {
+    stroke: var(--nb-noodle-active);
+    stroke-opacity: 1;
+  }
+
+  /* Draw-on (the site's entry): pathLength 1, dash from full to none. */
+  .nb .nb-noodle--draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: nb-draw 560ms var(--nb-ease-draw) both;
+    animation-delay: var(--nb-draw-delay, 0ms);
+  }
+
+  /* Running comet: one 1.8s beat per noodle, whatever its length (pathLength 100),
+     so a node's inputs arrive together; the last 18% is a rest. */
+  .nb .nb-noodle-running { pointer-events: none; }
+  .nb .nb-noodle-running path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation-duration: 1.8s;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+    animation-iteration-count: infinite;
+  }
+  .nb .nb-noodle-running__tail {
+    stroke-dasharray: 18 200;
+    opacity: 0.3;
+    animation-name: nb-edge-running-tail;
+  }
+  .nb .nb-noodle-running__head {
+    stroke-dasharray: 6 200;
+    animation-name: nb-edge-running-head;
+  }
+  .nb .nb-noodle-running[data-paused] path { animation-play-state: paused; }
+
+  /* Reduced motion (or a still frame): nothing travels; the head along the whole
+     noodle over a faint glow from the tail. */
+  .nb .nb-noodle-running[data-static] path { animation: none; stroke-dasharray: none; }
+  .nb .nb-noodle-running[data-static] .nb-noodle-running__tail { opacity: 0.18; }
+  .nb .nb-noodle-running[data-static] .nb-noodle-running__head { opacity: 0.85; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nb .nb-noodle-running path { animation: none; stroke-dasharray: none; }
+    .nb .nb-noodle-running__tail { opacity: 0.18; }
+    .nb .nb-noodle-running__head { opacity: 0.85; }
+    .nb .nb-noodle--draw { animation: none; stroke-dashoffset: 0; }
+  }
+
+  /* ---------- Agent edit shimmer (src/app/agent-theme.css) ---------- */
+
+  .nb [data-agent-shimmer] .nb-controls-card { position: relative; }
+  .nb [data-agent-shimmer] :is(.nb-media-card, .nb-controls-card)::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: 20;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.08) 40%,
+      rgb(255 255 255 / 0.24) 50%,
+      rgb(255 255 255 / 0.08) 60%,
+      transparent 70%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28);
+    animation: nb-agent-shimmer 1.4s linear forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nb [data-agent-shimmer] :is(.nb-media-card, .nb-controls-card)::after {
+      background-image: none;
+      background-color: rgb(255 255 255 / 0.06);
+      animation: nb-agent-glow 2.4s ease-out forwards;
+    }
+  }
+
+  /* Shimmering status text ("Thinking…", "Edit workflow…"): ai-elements/shimmer.tsx as CSS. */
+  .nb .nb-text-shimmer {
+    --nb-shimmer-spread: calc(var(--nb-shimmer-chars, 12) * 2px);
+    color: transparent;
+    background-image:
+      linear-gradient(90deg, #0000 calc(50% - var(--nb-shimmer-spread)), #e5e5e5, #0000 calc(50% + var(--nb-shimmer-spread))),
+      linear-gradient(#8a8a8a, #8a8a8a);
+    background-size: 250% 100%, auto;
+    background-repeat: no-repeat, padding-box;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: nb-text-shimmer 1s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nb .nb-text-shimmer { animation: none; background-image: none; color: var(--nb-ink-3); }
+  }
+
+  /* Entry: a node rises in (the site's node-in), staggered by --nb-i. */
+  .nb .nb-enter {
+    animation: nb-node-in 480ms var(--nb-ease-out) both;
+    animation-delay: calc(170ms + var(--nb-i, 1) * 90ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nb .nb-enter { animation: none; }
+  }
+
+  /* Menus and popovers fall in from their trigger (dropIn). */
+  .nb .nb-drop-in { animation: nb-drop-in 0.15s ease-out; }
+
+  /* ---------- Desktop window (site/src/styles/global.css + the app's WorkflowTabs) ---------- */
+
+  .nb .nb-app {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--nb-window);
+    overflow: hidden;
+  }
+  .nb .nb-app[data-framed] {
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: var(--nb-radius-window);
+    box-shadow: var(--nb-shadow-dialog);
+  }
+  .nb .nb-app[data-fade] {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+  }
+
+  .nb .nb-app__lights {
+    position: absolute;
+    top: 11px;
+    left: 10px;
+    z-index: 2;
+    display: flex;
+  }
+  .nb .nb-app__light {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 24px;
+    border-radius: var(--nb-radius-controls);
+  }
+  .nb .nb-app__light::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--nb-light);
+    opacity: 0.45;
+  }
+  .nb .nb-app__light--close { --nb-light: var(--nb-light-close); }
+  .nb .nb-app__light--minimize { --nb-light: var(--nb-light-minimize); }
+  .nb .nb-app__light--fullscreen { --nb-light: var(--nb-light-fullscreen); }
+
+  .nb .nb-app__tabs {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    height: 38px;
+    min-width: 0;
+    flex-shrink: 0;
+    padding-left: 12px;
+    padding-right: 8px;
+    font-family: var(--nb-font-ui);
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .nb .nb-app[data-lights] .nb-app__tabs { padding-left: 0; margin-left: 84px; }
+
+  /* Tab ears: the shown tab flows into the canvas frame with concave corners at its feet. */
+  .nb .nb-tab__ear { position: absolute; bottom: 1px; width: 9px; height: 9px; pointer-events: none; }
+  .nb .nb-tab__ear--left { left: -8px; }
+  .nb .nb-tab__ear--right { right: -8px; transform: scaleX(-1); }
+
+  /* The canvas frame under the tab strip (page.tsx: workflow-canvas-frame). */
+  .nb .nb-app__frame {
+    position: relative;
+    flex: 1 1 0%;
+    min-height: 0;
+    margin: 0 4px 4px;
+    border: 1px solid var(--nb-card-border);
+    border-radius: 8px 8px var(--nb-radius-window) var(--nb-radius-window);
+    background-color: var(--nb-canvas);
+    overflow: hidden;
+    container-type: size;
+  }
+  .nb .nb-app[data-fade] .nb-app__frame {
+    margin-bottom: 0;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* The Agent pill: the canvas chrome's glass card (AgentButton). */
+  .nb .nb-apill {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 4px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: var(--nb-radius-card);
+    background: var(--nb-glass);
+    box-shadow: var(--nb-shadow-chrome);
+    font-family: var(--nb-font-ui);
+  }
+  .nb .nb-apill__btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 11px 0 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--nb-ink);
+    transition: background-color 120ms ease-out, color 120ms ease-out;
+  }
+  .nb .nb-apill__btn:hover { background: rgb(255 255 255 / 0.07); color: #fff; }
+
+  /* ---------- Keyframes ---------- */
+
+  @keyframes nb-edge-running-tail {
+    0% { stroke-dashoffset: 20; }
+    82%, 100% { stroke-dashoffset: -100; }
+  }
+  @keyframes nb-edge-running-head {
+    0% { stroke-dashoffset: 8; }
+    82%, 100% { stroke-dashoffset: -112; }
+  }
+  @keyframes nb-draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes nb-agent-shimmer {
+    from { background-position: 160% 0; opacity: 1; }
+    80% { opacity: 1; }
+    to { background-position: -60% 0; opacity: 0; }
+  }
+  @keyframes nb-agent-glow {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes nb-text-shimmer {
+    from { background-position: 100% center, 0 0; }
+    to { background-position: 0% center, 0 0; }
+  }
+  @keyframes nb-node-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes nb-drop-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+}
