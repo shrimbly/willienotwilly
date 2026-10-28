@@ -123,17 +123,18 @@
   }
 }
 
-/* Phone plots: hug the left edge so the hint clears the in-out curves. */
-@container epe-editor-curve (max-height: 179px) {
-  .epe .epe-editor-hint {
-    left: 0.375rem;
-  }
+/*
+ * The field column's hint (landscape tiles carry it in the plot's readout
+ * row instead). Phones have no room under the fields; 640–767px tiles
+ * (608px wide, 2:3) have plenty.
+ */
+.epe .epe-editor-hint {
+  display: none;
 }
 
-/* Too small a plot to carry the hint over the curve. */
-@container epe-editor-curve (max-width: 119px) or (max-height: 119px) {
+@container epe-editor (orientation: portrait) and (min-height: 700px) {
   .epe .epe-editor-hint {
-    display: none;
+    display: block;
   }
 }
 

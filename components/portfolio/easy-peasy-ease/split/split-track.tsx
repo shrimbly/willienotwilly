@@ -15,7 +15,7 @@ import { FILMSTRIP_CELLS } from "./virtual-source";
 
 const NUDGE_SMALL = 0.1;
 const NUDGE_LARGE = 1;
-/** Horizontal travel (px) before a touch on the track counts as a scrub. */
+/** Horizontal travel (px) before a touch on the track (or a marker) counts as a scrub (or a drag). */
 const TOUCH_SLOP = 6;
 
 const pct = (time: number, duration: number) => `${(clamp(time, 0, duration) / duration) * 100}%`;
@@ -23,7 +23,10 @@ const pct = (time: number, duration: number) => `${(clamp(time, 0, duration) / d
 /**
  * The product's "+ Split at playhead" button (SplitTrack header). The demo
  * renders it in the header on wide tiles and in the playback row on narrow
- * ones, so it lives outside the track.
+ * ones, so it lives outside the track. It turns off whenever the playing
+ * playhead nears a split (and right after a click adds one), so it is
+ * aria-disabled rather than disabled: a disabled button drops keyboard focus
+ * to <body>.
  */
 export function SplitAtPlayheadButton({
   enabled,
@@ -41,8 +44,8 @@ export function SplitAtPlayheadButton({
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={!enabled}
+      onClick={enabled ? onClick : undefined}
+      aria-disabled={!enabled || undefined}
       className={cn(
         "relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[8px] border border-(color:--control-border) bg-background px-2.5 text-xs font-medium transition-colors after:absolute after:inset-x-0 after:inset-y-[-4px] after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         enabled ? "hover:bg-accent hover:text-accent-foreground" : "cursor-not-allowed opacity-50",
@@ -83,8 +86,9 @@ interface SplitTrackProps {
  *
  * Changes: the filmstrip is baked (8 sprite tiles, no frame extraction);
  * positions are percentages and the playhead is moved imperatively from a
- * motion value; the track is touch-pan-y so the page still scrolls (the
- * marker handles keep touch-none), and a touch only scrubs once it moves sideways.
+ * motion value; the track and the marker handles are touch-pan-y so the
+ * page still scrolls, and a touch only scrubs (or drags a marker) once it
+ * moves sideways.
  */
 export function SplitTrack({
   duration,
@@ -105,6 +109,9 @@ export function SplitTrack({
   const draggingIndexRef = useRef<number | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const scrubRef = useRef<{ pointerId: number; startX: number; startY: number; pending: boolean } | null>(
+    null,
+  );
+  const markerPressRef = useRef<{ index: number; pointerId: number; startX: number; startY: number } | null>(
     null,
   );
 
@@ -217,16 +224,39 @@ export function SplitTrack({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draggingIndex, splitTimes, duration, onSplitTimesChange, onSeek, onScrubbingChange]);
 
-  const startMarkerDrag = (index: number) => (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    e.preventDefault();
+  const beginMarkerDrag = (index: number) => {
     onSelectedSplitChange(index);
     // Jump the preview to the grabbed split immediately, before any drag.
     onSeek(splitTimes[index]);
     onScrubbingChange?.(true);
     draggingIndexRef.current = index;
     setDraggingIndex(index);
+  };
+
+  const handleMarkerPointerDown = (index: number) => (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    // As on the track, a touch may be a page scroll: it drags only once it
+    // moves sideways, and a tap selects through onClick.
+    if (e.pointerType === "touch") {
+      markerPressRef.current = { index, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY };
+      return;
+    }
+    e.preventDefault();
+    beginMarkerDrag(index);
+  };
+
+  const handleMarkerPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const press = markerPressRef.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    const dx = Math.abs(e.clientX - press.startX);
+    if (dx < TOUCH_SLOP || dx < Math.abs(e.clientY - press.startY)) return;
+    markerPressRef.current = null;
+    beginMarkerDrag(press.index);
+  };
+
+  const endMarkerPress = () => {
+    markerPressRef.current = null;
   };
 
   const removeAt = (index: number) => {
@@ -357,8 +387,11 @@ export function SplitTrack({
                 }}
                 type="button"
                 aria-label={`Split point ${index + 1} at ${formatTime(t)}. Drag to move, Delete to remove.`}
-                className="absolute left-0 top-1/2 flex h-16 w-8 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                onPointerDown={startMarkerDrag(index)}
+                className="absolute left-0 top-1/2 flex h-16 w-8 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-pan-y items-center justify-center active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                onPointerDown={handleMarkerPointerDown(index)}
+                onPointerMove={handleMarkerPointerMove}
+                onPointerUp={endMarkerPress}
+                onPointerCancel={endMarkerPress}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectedSplitChange(index);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, type CSSProperties, type RefObject } from "react";
+import { useEffect, useId, useRef, type CSSProperties, type MouseEvent, type RefObject } from "react";
 import { ArrowLeft, Scissors, Wand2 } from "lucide-react";
 
 import {
@@ -25,6 +25,31 @@ const SECTION_LENGTH_MIN = 0.5;
 const SECTION_LENGTH_MAX = Math.max(SECTION_LENGTH_MIN, Math.floor(SOURCE_DURATION));
 
 export const clipsLabel = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
+
+/**
+ * Back and Create trade places when the mode flips: the phone bar swaps one
+ * for the other and the aside disables Back. Either would drop keyboard focus
+ * to <body>, so a press that had focus hands it to the button for the new
+ * mode (Create while editing, Back while the sequence plays).
+ */
+function useModeFocusHandoff(mode: "edit" | "sequence") {
+  const backRef = useRef<HTMLButtonElement>(null);
+  const createRef = useRef<HTMLButtonElement>(null);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    (mode === "edit" ? createRef : backRef).current?.focus();
+  }, [mode]);
+
+  const handOff = (action: () => void) => (event: MouseEvent<HTMLButtonElement>) => {
+    pendingRef.current = event.currentTarget === document.activeElement;
+    action();
+  };
+
+  return { backRef, createRef, handOff };
+}
 
 interface SplitControlsProps {
   mode: "edit" | "sequence";
@@ -72,6 +97,7 @@ export function SplitAside({
   const id = useId();
   const curveRef = useRef<HTMLDivElement>(null);
   const room = usePopoverRoom(curveRef, boundsRef, { side: "bottom", align: "start", maxHeight: 280 });
+  const { backRef, createRef, handOff } = useModeFocusHandoff(mode);
 
   const previewCount = sectionCountForLength(SOURCE_DURATION, sectionLength);
   const totalOutput = sections.length * outputDuration;
@@ -82,8 +108,8 @@ export function SplitAside({
       role="group"
       aria-label="Split settings"
       className={cn(
-        // Short landscape tiles (608×342) tighten the rhythm so the footer stays inside.
-        "w-[248px] shrink-0 flex-col gap-2.5 self-start rounded-[12px] border border-border bg-secondary p-3 [@container_epe-split_(max-height:360px)]:gap-1.5 @min-[720px]/epe:w-[272px] @min-[880px]/epe:w-[320px] @min-[880px]/epe:gap-4 @min-[880px]/epe:p-4 @min-[1100px]/epe:w-[360px] @min-[1280px]/epe:w-[400px]",
+        // As tall as the preview column, with the summary and Back / Create pinned to its foot.
+        "w-[248px] shrink-0 flex-col gap-2.5 rounded-[12px] border border-border bg-secondary p-3 @min-[720px]/epe:w-[272px] @min-[880px]/epe:w-[320px] @min-[880px]/epe:gap-4 @min-[880px]/epe:p-4 @min-[1100px]/epe:w-[360px] @min-[1280px]/epe:w-[400px]",
         className,
       )}
     >
@@ -144,7 +170,7 @@ export function SplitAside({
 
       <div
         ref={curveRef}
-        className="space-y-1.5 border-t border-border/60 pt-2.5 [@container_epe-split_(max-height:360px)]:border-t-0 [@container_epe-split_(max-height:360px)]:pt-0 @min-[880px]/epe:pt-4"
+        className="space-y-1.5 border-t border-border/60 pt-2.5 @min-[880px]/epe:pt-4"
         style={{ "--epe-split-popover-h": `${room.maxHeight}px` } as CSSProperties}
       >
         <FieldLabel htmlFor={`${id}-easing`}>Curve</FieldLabel>
@@ -160,8 +186,8 @@ export function SplitAside({
         />
       </div>
 
-      {/* Summary */}
-      <div className="rounded-[12px] border border-border/60 bg-background/40 px-3 py-2 text-xs [@container_epe-split_(max-height:360px)]:py-1.5">
+      {/* Summary: sits on the footer, so a tall aside opens its gap above what Create will make. */}
+      <div className="mt-auto rounded-[12px] border border-border/60 bg-background/40 px-3 py-2 text-xs">
         <div className="flex items-center justify-between gap-2 font-mono tabular-nums">
           <span className="text-muted-foreground">
             {clipsLabel(sections.length)} · avg {avgSection.toFixed(1)}s
@@ -169,22 +195,24 @@ export function SplitAside({
           <span className="font-semibold">{formatTime(totalOutput)} total</span>
         </div>
         {sections.length >= MAX_SECTIONS && (
-          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground) [@container_epe-split_(max-height:360px)]:mt-1">
-            At the {MAX_SECTIONS}-clip maximum.
-          </p>
+          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground)">At the {MAX_SECTIONS}-clip maximum.</p>
         )}
         {sections.some((s) => s.duration < MIN_SECTION_DURATION + 0.05) && (
-          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground) [@container_epe-split_(max-height:360px)]:mt-1">Some clips are very short.</p>
+          <p className="mt-1.5 text-[11px] text-(color:--warning-foreground)">Some clips are very short.</p>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5 [@container_epe-split_(max-height:360px)]:border-t-0 [@container_epe-split_(max-height:360px)]:pt-0 @min-[880px]/epe:pt-4">
+      <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5 @min-[880px]/epe:pt-4">
         <div className="hidden items-center justify-between @min-[720px]/epe:flex">
+          {/* aria-disabled, not disabled: clearing turns it off under the focus that pressed it. */}
           <button
             type="button"
-            onClick={onClearSplits}
-            disabled={splitCount === 0}
-            className="relative h-8 rounded-sm px-2 text-xs text-muted-foreground underline-offset-4 after:absolute after:inset-x-0 after:inset-y-[-4px] after:content-[''] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 disabled:no-underline"
+            onClick={splitCount === 0 ? undefined : onClearSplits}
+            aria-disabled={splitCount === 0 || undefined}
+            className={cn(
+              "relative h-8 rounded-sm px-2 text-xs text-muted-foreground underline-offset-4 after:absolute after:inset-x-0 after:inset-y-[-4px] after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+              splitCount === 0 ? "cursor-not-allowed opacity-40" : "hover:underline",
+            )}
           >
             Clear splits
           </button>
@@ -194,9 +222,10 @@ export function SplitAside({
         </div>
         <div className="flex gap-2">
           <EpeButton
+            ref={backRef}
             type="button"
             variant="outline"
-            onClick={onBack}
+            onClick={handOff(onBack)}
             disabled={mode === "edit"}
             className="gap-2"
             aria-label="Back"
@@ -206,6 +235,7 @@ export function SplitAside({
             <span className="hidden @min-[700px]/epe:inline">Back</span>
           </EpeButton>
           <EpeButton
+            ref={createRef}
             type="button"
             onClick={onCreate}
             disabled={sections.length === 0}
@@ -246,11 +276,12 @@ export function SplitPhoneBar({
   const id = useId();
   const curveRef = useRef<HTMLDivElement>(null);
   const room = usePopoverRoom(curveRef, boundsRef, { side: "top", align: "start", maxHeight: 280 });
+  const { backRef, createRef, handOff } = useModeFocusHandoff(mode);
 
   return (
     <div className={cn("flex shrink-0 items-center gap-2", className)}>
       {mode === "sequence" && (
-        <EpeButton type="button" variant="outline" onClick={onBack} className="gap-2">
+        <EpeButton ref={backRef} type="button" variant="outline" onClick={handOff(onBack)} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Back
         </EpeButton>
@@ -275,7 +306,13 @@ export function SplitPhoneBar({
         />
       </div>
       {mode === "edit" && (
-        <EpeButton type="button" onClick={onCreate} disabled={sectionCount === 0} className="gap-2">
+        <EpeButton
+          ref={createRef}
+          type="button"
+          onClick={handOff(onCreate)}
+          disabled={sectionCount === 0}
+          className="gap-2"
+        >
           <Scissors className="h-4 w-4" />
           Create {clipsLabel(sectionCount)}
         </EpeButton>

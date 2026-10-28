@@ -16,7 +16,6 @@ import {
 } from "./editor/editor-clips";
 import { EditorInspector } from "./editor/editor-inspector";
 import { useClipHold } from "./editor/use-clip-hold";
-import { useScrubClickGuard } from "./editor/use-scrub-click-guard";
 import { EpeRoot } from "./kit/epe-root";
 import { RetimedVideo } from "./kit/retimed-video";
 import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback";
@@ -82,7 +81,6 @@ export function EasyPeasyEaseEditorDemo() {
   useMotionValueEvent(playback.clipIndex, "change", setFollowIndex);
 
   const hold = useClipHold({ followIndex, playback });
-  const scrubClickGuard = useScrubClickGuard();
   const selected = Math.min(hold.holdIndex ?? followIndex, clips.length - 1);
   const current = clips[selected];
 
@@ -218,19 +216,17 @@ export function EasyPeasyEaseEditorDemo() {
               />
             </div>
 
-            <div className="contents" {...scrubClickGuard}>
-              <VideoTimeline
-                segments={segments}
-                currentTime={playback.time}
-                selectedSegmentId={current.id}
-                onSeek={handleSeek}
-                onSegmentSelect={handleSegmentSelect}
-                zoomValue={zoom}
-                onZoomChange={setZoom}
-                viewportClassName="rounded-t-none rounded-b-[12px] pb-2 @min-[768px]/epe:pb-3"
-                className="epe-editor-timeline"
-              />
-            </div>
+            <VideoTimeline
+              segments={segments}
+              currentTime={playback.time}
+              selectedSegmentId={current.id}
+              onSeek={handleSeek}
+              onSegmentSelect={handleSegmentSelect}
+              zoomValue={zoom}
+              onZoomChange={setZoom}
+              viewportClassName="rounded-t-none rounded-b-[12px] pb-2 @min-[768px]/epe:pb-3"
+              className="epe-editor-timeline"
+            />
           </div>
 
           <div className="epe-editor-inspector-cell">

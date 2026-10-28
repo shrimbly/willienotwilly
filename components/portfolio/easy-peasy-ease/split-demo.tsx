@@ -32,8 +32,8 @@ import {
 
 type Mode = "edit" | "sequence";
 
-/** Resting frame (and reduced-motion still): the front three-quarter view, inside clip 2. */
-const INITIAL_TIME = 6;
+/** Resting frame (and reduced-motion still): the headlamp and front wheel, inside clip 3. */
+const INITIAL_TIME = 13;
 const INITIAL_SPLITS = computeEvenSplitTimes(SOURCE_DURATION, DEFAULT_SECTION_LENGTH);
 
 // The product's mode-swap reveal (page.tsx modeRevealVariant through BlurFade), for the track header.

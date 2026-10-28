@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { CubicBezierEditor } from "../kit/cubic-bezier-editor";
 import { EasingCurvePicker } from "../kit/easing-curve-picker";
 import { EpeButton } from "../kit/epe-button";
-import { FieldLabel, fieldLabelClassName } from "../kit/field-label";
+import { FieldLabel } from "../kit/field-label";
 import { ScrubbableNumberField } from "../kit/scrubbable-number-field";
 import {
   SegmentedControlIndicator,
@@ -20,6 +20,10 @@ import {
 import { MAX_CLIP_SECONDS, MIN_CLIP_SECONDS, type EditorClip } from "./editor-clips";
 
 const TABS = ["Video", "Audio"] as const;
+
+// The curves tile's hint, in its treatment: muted sentence case, off the plot.
+const HINT = "Pick a curve or drag a handle";
+const HINT_CLASS = "text-xs text-balance text-(color:--body-muted-foreground)";
 
 // Not useId: the hero is server-rendered through next/dynamic, and when its
 // lazy chunk suspends during hydration React replays it without its tree
@@ -120,7 +124,7 @@ export function EditorInspector({
           <div className="epe-editor-panel">
             <div className="epe-editor-header flex min-w-0 items-center gap-3">
               <div className="flex shrink-0 items-center gap-3">
-                <h4 className="text-lg font-semibold text-foreground">Clip {clipIndex + 1}</h4>
+                <p className="text-lg font-semibold text-foreground">Clip {clipIndex + 1}</p>
                 {clip.loopIteration > 1 && (
                   <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Loop {clip.loopIteration}
@@ -170,31 +174,40 @@ export function EditorInspector({
                     fullWidth
                   />
                 </div>
+                {/* Portrait tiles with room under the fields; the plot has no readout row there. */}
+                <p
+                  aria-hidden="true"
+                  className={cn(
+                    HINT_CLASS,
+                    "epe-editor-hint mt-auto transition-opacity duration-500 motion-reduce:transition-none",
+                    !showHint && "opacity-0",
+                  )}
+                >
+                  {HINT}
+                </p>
               </div>
 
               <div className="epe-editor-curve">
-                <div className="epe-editor-curve-box relative">
+                <div className="epe-editor-curve-box">
                   <CubicBezierEditor
                     value={clip.bezier}
                     onChange={onBezierChange}
                     progress={progress}
                     aspect="square"
                     plotClassName="max-w-none"
+                    readout={showHint ? false : undefined}
                     className="min-w-0"
                   />
-                  {/* Upper left, under the top edge: clear of the in-out curves and their handles. */}
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      fieldLabelClassName,
-                      "epe-editor-hint pointer-events-none absolute left-3 top-[16%] leading-[1.4] transition-opacity duration-300 motion-reduce:transition-none",
-                      !showHint && "opacity-0",
-                    )}
-                  >
-                    Drag a
-                    <br />
-                    handle
-                  </span>
+                  {/* Holds the Point 1 / Point 2 row (same 12px gap, one 16px line)
+                      until the first edit, so the swap moves nothing. */}
+                  {showHint && (
+                    <p
+                      aria-hidden="true"
+                      className={cn(HINT_CLASS, "mt-3 hidden justify-center @min-[640px]/epe:flex")}
+                    >
+                      {HINT}
+                    </p>
+                  )}
                 </div>
 
                 <div className="epe-editor-actions gap-2">

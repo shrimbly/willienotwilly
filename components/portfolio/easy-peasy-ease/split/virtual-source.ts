@@ -11,13 +11,14 @@ import {
 import type { RetimeClip } from "../kit/retime-engine";
 
 /**
- * The split demo's "one long video": car-1, car-2 and car-3 played back to
- * back (one continuous orbit around the car, 15.25 s). Nothing is re-encoded;
- * the retime engine gets one clip per file and a map whose `index` is the
- * file, so a section that straddles two files simply cuts between their
- * <video> elements.
+ * The split demo's "one long video": car-4, car-5 and car-6 played back to
+ * back (rear three-quarter, along the flank to the front wheel, then the
+ * grille and headlamp; 15.25 s). The hero already plays car-1 to car-3.
+ * Nothing is re-encoded; the retime engine gets one clip per file and a map
+ * whose `index` is the file, so a section that straddles two files simply
+ * cuts between their <video> elements.
  */
-const FILES = CAR_CLIPS.slice(0, 3);
+const FILES = CAR_CLIPS.slice(3, 6);
 
 export const FILE_DURATION = FILES[0].duration;
 export const SOURCE_DURATION = FILE_DURATION * FILES.length;
