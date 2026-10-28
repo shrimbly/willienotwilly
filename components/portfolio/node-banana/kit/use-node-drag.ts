@@ -20,7 +20,7 @@ const DRAG_SLOP = 3;
 /** React Flow moves a selected node 5px per arrow press, 20px with shift. */
 const KEY_STEP = 5;
 
-/** A drag ends with a click on whatever was under the pointer; swallow it so a drag never toggles a card. */
+/** A drag ends with a click on the node or whatever was under the pointer; swallow it so a drag never toggles a card. */
 function suppressNextClick() {
   const stop = (event: MouseEvent) => {
     event.stopPropagation();
@@ -41,6 +41,20 @@ export interface NodeDragOptions {
   constrain?: (x: number, y: number) => { x: number; y: number };
 }
 
+interface Press {
+  pointerId: number;
+  px: number;
+  py: number;
+  x: number;
+  y: number;
+  zoom: number;
+  moved: boolean;
+  /** The node: it takes the pointer capture once the press becomes a drag. */
+  el: HTMLElement;
+  /** Drops the window listeners that end a press released off the node. */
+  detach: () => void;
+}
+
 /**
  * Drag a graph node by pointer, in world px (pointer delta ÷ zoom), with the
  * arrow keys as React Flow has them. Writes the node's motion values, so
@@ -49,11 +63,22 @@ export interface NodeDragOptions {
 export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | undefined, options: NodeDragOptions = {}) {
   const view = useCanvas();
   const [dragging, setDragging] = useState(false);
-  const state = useRef<{ pointerId: number; px: number; py: number; x: number; y: number; zoom: number; moved: boolean } | null>(null);
+  const state = useRef<Press | null>(null);
   const opts = useRef(options);
   useEffect(() => {
     opts.current = options;
   });
+  useEffect(() => () => state.current?.detach(), []);
+
+  const finish = useCallback((pointerId: number) => {
+    const s = state.current;
+    if (!s || s.pointerId !== pointerId) return;
+    state.current = null;
+    s.detach();
+    setDragging(false);
+    if (s.moved) suppressNextClick();
+    opts.current.onDragEnd?.(s.moved);
+  }, []);
 
   const move = useCallback(
     (x: number, y: number) => {
@@ -72,45 +97,60 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
       const node = graph.node(id);
       if (!node) return;
       opts.current.onSelect?.();
+      state.current?.detach();
+      // The pointer is only captured once the press turns into a drag: capturing
+      // on press would retarget the click to the node, so a summary row or any
+      // other clickable content inside it would never hear it.
+      const { pointerId } = event;
+      const release = (up: PointerEvent) => finish(up.pointerId);
+      window.addEventListener("pointerup", release, true);
+      window.addEventListener("pointercancel", release, true);
       state.current = {
-        pointerId: event.pointerId,
+        pointerId,
         px: event.clientX,
         py: event.clientY,
         x: node.x.get(),
         y: node.y.get(),
         zoom: view?.zoom.get() ?? 1,
         moved: false,
+        el: event.currentTarget,
+        detach: () => {
+          window.removeEventListener("pointerup", release, true);
+          window.removeEventListener("pointercancel", release, true);
+        },
       };
-      event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [graph, id, view],
+    [graph, id, view, finish],
   );
 
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       const s = state.current;
       if (!s || event.pointerId !== s.pointerId) return;
+      // A mouse released outside the window never sends its pointerup.
+      if (event.pointerType === "mouse" && event.buttons === 0) {
+        finish(s.pointerId);
+        return;
+      }
       const dx = event.clientX - s.px;
       const dy = event.clientY - s.py;
       if (!s.moved) {
         if (Math.hypot(dx, dy) < DRAG_SLOP) return;
         s.moved = true;
+        try {
+          s.el.setPointerCapture(s.pointerId);
+        } catch {
+          // The pointer already lifted; its pointerup ends the press.
+        }
         setDragging(true);
         opts.current.onDragStart?.();
       }
       move(s.x + dx / s.zoom, s.y + dy / s.zoom);
     },
-    [move],
+    [move, finish],
   );
 
-  const end = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    const s = state.current;
-    if (!s || event.pointerId !== s.pointerId) return;
-    state.current = null;
-    setDragging(false);
-    if (s.moved) suppressNextClick();
-    opts.current.onDragEnd?.(s.moved);
-  }, []);
+  const end = useCallback((event: ReactPointerEvent<HTMLElement>) => finish(event.pointerId), [finish]);
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {

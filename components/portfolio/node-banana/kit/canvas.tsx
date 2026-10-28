@@ -273,6 +273,22 @@ export function Canvas({
     };
   }, [view]);
 
+  // The canvas clips but is still a scroll container: focusing a field past its
+  // edge (tabbing, scrollIntoView) scrolls the element itself and slides the
+  // world off the dots. Hand any such scroll to the camera instead.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onScroll = () => {
+      const { scrollLeft, scrollTop } = el;
+      if (!scrollLeft && !scrollTop) return;
+      el.scrollTo(0, 0);
+      view.panBy(-scrollLeft, -scrollTop);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [view]);
+
   // ⌘/ctrl + wheel (and trackpad pinch, which arrives as ctrl + wheel) zooms; a
   // plain wheel is never captured. Safari's trackpad pinch comes as gesture events.
   useEffect(() => {

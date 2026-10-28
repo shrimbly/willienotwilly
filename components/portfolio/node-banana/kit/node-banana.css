@@ -478,6 +478,8 @@
 
   /* Menus and popovers fall in from their trigger (dropIn). */
   .nb .nb-drop-in { animation: nb-drop-in 0.15s ease-out; }
+  /* A list flipped above its trigger rises out of it instead. */
+  .nb .nb-drop-in[data-side="top"] { animation-name: nb-drop-up; }
 
   /* ---------- Desktop window (site/src/styles/global.css + the app's WorkflowTabs) ---------- */
 
@@ -629,6 +631,10 @@
   }
   @keyframes nb-drop-in {
     from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes nb-drop-up {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
     to { opacity: 1; transform: none; }
   }
 }

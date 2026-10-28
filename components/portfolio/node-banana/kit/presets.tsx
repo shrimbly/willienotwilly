@@ -24,12 +24,20 @@ import {
 } from "./models";
 import { NodeCard, type NodeCardProps } from "./node-card";
 import { ProviderBadge, type ProviderId } from "./provider-badge";
+import { NODE_DEFAULT_W } from "./tokens";
 
 // The app's own node types, composed from NodeCard with their real sockets,
 // summary rows and settings (src/components/nodes/*.tsx). Every NodeCard prop
 // still passes through (graph, id, selected, onSelect, running, shimmer…).
 
 type ShellProps = Omit<NodeCardProps, "title" | "media" | "gap" | "controls" | "children">;
+
+/** A resizable preset's edges double-click back to its type's default width, as the app's do. */
+function resetTo(resizable: ShellProps["resizable"], width: number): ShellProps["resizable"] {
+  if (!resizable) return resizable;
+  const spec = resizable === true ? {} : resizable;
+  return spec.defaultWidth !== undefined || spec.onReset ? spec : { ...spec, defaultWidth: width };
+}
 
 export interface NodeImage {
   src: string;
@@ -173,6 +181,7 @@ export function GenerateImageNode({
   return (
     <NodeCard
       {...shell}
+      resizable={resetTo(shell.resizable, NODE_DEFAULT_W.generateImage)}
       title={title ?? name}
       provider={shell.titleIcon ? undefined : provider}
       running={running}
@@ -245,6 +254,7 @@ export function ImageInputNode({
   return (
     <NodeCard
       {...shell}
+      resizable={resetTo(shell.resizable, NODE_DEFAULT_W.imageInput)}
       title={title}
       inputs={inputs}
       outputs={outputs}
@@ -292,6 +302,7 @@ export function PromptNode({
   return (
     <NodeCard
       {...shell}
+      resizable={resetTo(shell.resizable, NODE_DEFAULT_W.prompt)}
       title={title}
       inputs={inputs}
       outputs={outputs}
@@ -363,6 +374,7 @@ export function GenerateVideoNode({
   return (
     <NodeCard
       {...shell}
+      resizable={resetTo(shell.resizable, NODE_DEFAULT_W.generateVideo)}
       title={title ?? modelLabel}
       provider={shell.titleIcon ? undefined : provider}
       running={running}

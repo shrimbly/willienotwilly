@@ -1,7 +1,7 @@
 export { NbRoot, type NbRootProps } from "./nb-root";
 export { Canvas, CanvasView, useCanvas, useCanvasView, type CanvasProps, type CanvasViewOptions, type Padding } from "./canvas";
 export { NodeGraph, useGraphVersion, useNodeGraph, type GraphEdgeSpec, type GraphNode, type GraphNodeSpec } from "./graph";
-export { NodeCard, NodeHeader, GhostButton, MenuRow, MenuDivider, Kbd, type NodeCardProps, type NodeMedia } from "./node-card";
+export { NodeCard, NodeHeader, GhostButton, MenuRow, MenuDivider, Kbd, type NodeCardProps, type NodeMedia, type NodeResize } from "./node-card";
 export { ControlsCard, SummaryValues, ellipsisClass, type ControlsCardProps, type SummaryRowProps } from "./controls-card";
 export {
   Field,

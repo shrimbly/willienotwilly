@@ -28,6 +28,15 @@ import { useNodeDrag, useTrailingOffset } from "./use-node-drag";
 /** How tall the media clip is: from the width and an aspect (w/h), a fixed height, or its content. */
 export type NodeMedia = { aspect: number } | { height: number } | "auto";
 
+export interface NodeResize {
+  min?: number;
+  max?: number;
+  /** Double-clicking a resize edge restores this width, as the app restores its type's default. */
+  defaultWidth?: number;
+  /** Double-clicking a resize edge calls this instead (it wins over defaultWidth). */
+  onReset?: () => void;
+}
+
 export interface NodeCardProps {
   /** Place the node on a canvas graph: position, width and sockets come from it. */
   graph?: NodeGraph;
@@ -51,7 +60,7 @@ export interface NodeCardProps {
   /** Controls card trails the media card when the node moves (default true). */
   trailing?: boolean;
   /** Width-only resize from either edge while selected (on a graph), as NodeResizeControl. */
-  resizable?: boolean | { min?: number; max?: number };
+  resizable?: boolean | NodeResize;
 
   /** Header title (uppercase in the header). */
   title: string;
@@ -160,8 +169,8 @@ export function NodeCard(props: NodeCardProps) {
     <>
       {resize && graph && id && (
         <>
-          <ResizeEdge side="left" graph={graph} id={id} min={resize.min} max={resize.max} />
-          <ResizeEdge side="right" graph={graph} id={id} min={resize.min} max={resize.max} />
+          <ResizeEdge side="left" graph={graph} id={id} {...resize} />
+          <ResizeEdge side="right" graph={graph} id={id} {...resize} />
         </>
       )}
       <NodeHeader {...props} showControls={props.headerControls === "always" || (props.headerControls !== "never" && (hovered || selected))} />
@@ -236,14 +245,28 @@ export function NodeCard(props: NodeCardProps) {
 /**
  * An invisible 16px ew-resize strip centred on the node's edge (React Flow's
  * line resize control, as NodeShell uses it), with arrow keys for keyboards.
+ * A double-click restores the default width, keeping the left edge put as
+ * React Flow does.
  */
-function ResizeEdge({ side, graph, id, min = NODE_MIN_W, max = 1200 }: { side: "left" | "right"; graph: NodeGraph; id: string; min?: number; max?: number }) {
+function ResizeEdge({
+  side,
+  graph,
+  id,
+  min = NODE_MIN_W,
+  max = 1200,
+  defaultWidth,
+  onReset,
+}: NodeResize & { side: "left" | "right"; graph: NodeGraph; id: string }) {
   const view = useCanvas();
   const start = useRef<{ px: number; w: number; x: number; y: number; z: number } | null>(null);
   const apply = (s: { w: number; x: number; y: number }, delta: number) => {
     const w = Math.round(Math.min(max, Math.max(min, side === "right" ? s.w + delta : s.w - delta)));
     graph.setWidth(id, w);
     if (side === "left") graph.moveTo(id, s.x + (s.w - w), s.y);
+  };
+  const reset = () => {
+    if (onReset) onReset();
+    else if (defaultWidth !== undefined) graph.setWidth(id, Math.round(Math.min(max, Math.max(min, defaultWidth))));
   };
   return (
     <div
@@ -266,6 +289,11 @@ function ResizeEdge({ side, graph, id, min = NODE_MIN_W, max = 1200 }: { side: "
       }}
       onPointerUp={() => (start.current = null)}
       onPointerCancel={() => (start.current = null)}
+      onDoubleClick={(e) => {
+        if (!onReset && defaultWidth === undefined) return;
+        e.stopPropagation();
+        reset();
+      }}
       onKeyDown={(e) => {
         const node = graph.node(id);
         const d = e.key === "ArrowRight" ? 10 : e.key === "ArrowLeft" ? -10 : 0;

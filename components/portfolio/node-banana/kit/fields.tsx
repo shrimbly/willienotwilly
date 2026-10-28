@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
-  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -67,6 +66,45 @@ export interface SelectOption {
 const normalize = (options: ReadonlyArray<SelectOption | string>): SelectOption[] =>
   options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
 
+/** The list's gap from the trigger, its margin from the tile edges, and its tallest scroll area (host px). */
+const LIST_GAP = 4;
+const LIST_MARGIN = 6;
+const LIST_MAX_H = 240;
+/** Never shrink the list below three rows (and its padding) to make it fit. */
+const LIST_MIN_H = 3 * 22 + 8;
+
+/** Where the open list sits: host px (the host may be under the canvas zoom), and the room around the trigger. */
+interface ListPlace {
+  host: HTMLElement;
+  scale: number;
+  left: number;
+  /** Top of a list that opens downward. */
+  top: number;
+  /** Bottom offset of a list that opens upward. */
+  bottom: number;
+  minWidth: number;
+  /** Room between the trigger and the visible edges of the tile, less the gap and margin. */
+  room: { above: number; below: number; leftEdge: number; rightEdge: number };
+}
+
+/** The client rect left visible by every clipping ancestor of `el` (and the viewport). */
+function visibleRect(el: HTMLElement) {
+  let top = 0;
+  let left = 0;
+  let bottom = window.innerHeight;
+  let right = window.innerWidth;
+  for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+    const style = getComputedStyle(n);
+    if (style.overflowX === "visible" && style.overflowY === "visible") continue;
+    const r = n.getBoundingClientRect();
+    top = Math.max(top, r.top);
+    left = Math.max(left, r.left);
+    bottom = Math.min(bottom, r.bottom);
+    right = Math.min(right, r.right);
+  }
+  return { top, left, bottom, right };
+}
+
 export interface SelectWellProps {
   value: string;
   options: ReadonlyArray<SelectOption | string>;
@@ -81,6 +119,8 @@ export interface SelectWellProps {
  * The node-size dropdown: a well with a 10px chevron, and a menu-surface
  * listbox of 22px rows. The list is mounted on the node (or the demo root),
  * so the controls card's clip never cuts it, and it scales with the canvas.
+ * It opens upward when the tile has more room above the trigger than below,
+ * and scrolls when neither side has room for all of it.
  */
 export function SelectWell({ value, options, onChange, disabled, placeholder, className, ...rest }: SelectWellProps) {
   // Only used while the list is open, which never happens on the server.
@@ -90,9 +130,10 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
   const selected = list[selectedIndex];
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [place, setPlace] = useState<{ host: HTMLElement; style: CSSProperties } | null>(null);
+  const [place, setPlace] = useState<ListPlace | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -108,20 +149,45 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
     const h = host.getBoundingClientRect();
     const t = trigger.getBoundingClientRect();
     const scale = host.offsetWidth > 0 ? h.width / host.offsetWidth : 1;
+    const clip = visibleRect(host);
     setPlace({
       host,
-      style: {
-        position: "absolute",
-        zIndex: 60,
-        left: (t.left - h.left) / scale,
-        top: (t.bottom - h.top) / scale + 4,
-        minWidth: Math.max(t.width / scale, 160),
-        maxWidth: 280,
+      scale,
+      left: (t.left - h.left) / scale,
+      top: (t.bottom - h.top) / scale + LIST_GAP,
+      bottom: host.offsetHeight - (t.top - h.top) / scale + LIST_GAP,
+      minWidth: Math.max(t.width / scale, 160),
+      room: {
+        above: (t.top - clip.top) / scale - LIST_GAP - LIST_MARGIN,
+        below: (clip.bottom - t.bottom) / scale - LIST_GAP - LIST_MARGIN,
+        leftEdge: (clip.left - h.left) / scale + LIST_MARGIN,
+        rightEdge: (clip.right - h.left) / scale - LIST_MARGIN,
       },
     });
     setActive(selectedIndex);
     setOpen(true);
   };
+
+  // Measure the list as first laid out (at its full height) and settle its
+  // side, height and horizontal position before it paints. These are written
+  // to the element; React's style for it never names them.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    const scroller = scrollerRef.current;
+    if (!place || !el || !scroller) return;
+    const { room } = place;
+    const height = el.offsetHeight;
+    const up = height > room.below && room.above > room.below;
+    const space = up ? room.above : room.below;
+    // The scroll area sits inside the surface's 1px border.
+    if (height > space) scroller.style.maxHeight = `${Math.max(LIST_MIN_H, Math.min(LIST_MAX_H, space - 2))}px`;
+    const width = el.offsetWidth;
+    const left = place.left + width > room.rightEdge ? Math.max(room.leftEdge, room.rightEdge - width) : place.left;
+    el.style.left = `${left}px`;
+    el.style.top = up ? "" : `${place.top}px`;
+    el.style.bottom = up ? `${place.bottom}px` : "";
+    el.dataset.side = up ? "top" : "bottom";
+  }, [place]);
 
   const pick = (o: SelectOption) => {
     if (o.disabled) return;
@@ -141,10 +207,18 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, [open, close]);
 
+  // Keep the active option in view by scrolling the list alone: scrollIntoView
+  // would also scroll the clipped canvas and the page.
   useLayoutEffect(() => {
-    if (!open || active < 0) return;
-    listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [open, active]);
+    const scroller = scrollerRef.current;
+    if (!open || active < 0 || !scroller) return;
+    const item = scroller.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    if (!item) return;
+    const top = item.offsetTop - scroller.offsetTop;
+    const bottom = top + item.offsetHeight;
+    if (top < scroller.scrollTop) scroller.scrollTop = top;
+    else if (bottom > scroller.scrollTop + scroller.clientHeight) scroller.scrollTop = bottom - scroller.clientHeight;
+  }, [open, active, place]);
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
     if (!open) {
@@ -215,12 +289,12 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
             role="listbox"
             aria-label={rest["aria-label"]}
             className="nodrag nb-menu-surface nb-drop-in nb-font-ui overflow-hidden outline-none"
-            style={place.style}
+            style={{ position: "absolute", zIndex: 60, minWidth: place.minWidth, maxWidth: 280 }}
             onKeyDown={onKeyDown}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <div className="max-h-[240px] overflow-y-auto overscroll-contain py-1">
+            <div ref={scrollerRef} className="max-h-[240px] overflow-y-auto overscroll-contain py-1">
               {list.map((o, i) => {
                 const section = sections[i];
                 return (
