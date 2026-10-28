@@ -21,13 +21,6 @@ interface SyncedAudioOptions {
 
 type AudioContextConstructor = typeof AudioContext;
 
-interface AudioSyncStats {
-  /** Buffer sources started (plays, loop wraps, seeks, drift corrections). */
-  starts: number;
-  /** Heard position minus playhead, seconds, per frame. */
-  drift: number[];
-}
-
 /** Restart the source only when it is audibly off the playhead. */
 const DRIFT_TOLERANCE = 0.035;
 
@@ -39,7 +32,9 @@ const DRIFT_TOLERANCE = 0.035;
  * Web Audio rather than an <audio> element: a buffer source starts at an exact
  * position, so a cut and its kick stay together without the repeated seeks
  * (and audible stutter) a media element needs to chase a moving clock.
- * Nothing is fetched or created until `unlock()` runs from the visitor's click.
+ * Nothing is fetched or created until `unlock()` runs from the visitor's click,
+ * and the context is suspended whenever nothing should be heard (paused, off
+ * screen, tab hidden, sound off), so the audio thread idles with the demo.
  */
 export function useSyncedAudio({
   src,
@@ -113,6 +108,13 @@ export function useSyncedAudio({
 
   useEffect(() => {
     const context = contextRef.current;
+    if (!context || context.state === "closed") return;
+    // Resuming outside a gesture is allowed once unlock() has run in one.
+    void (live ? context.resume() : context.suspend()).catch(() => {});
+  }, [live]);
+
+  useEffect(() => {
+    const context = contextRef.current;
     const gain = gainRef.current;
     if (!live || !context || !gain || !buffer) return;
 
@@ -120,21 +122,14 @@ export function useSyncedAudio({
     // Track position (unwrapped, seconds) heard at context time `at`; negative = not started yet.
     let anchor = { position: 0, at: 0 };
     let lastTime = Number.NaN;
-    // Dev-only accuracy readout for the screenshot harness.
-    const stats =
-      process.env.NODE_ENV === "production"
-        ? null
-        : ((window as unknown as { __epeBeatAudio?: AudioSyncStats }).__epeBeatAudio ??= {
-            starts: 0,
-            drift: [],
-          });
 
     // Context time being heard right now: the output timestamp, interpolated
     // to this instant, is smooth where currentTime jumps a render callback at
-    // a time and runs ahead of the speakers by the output latency.
+    // a time and runs ahead of the speakers by the output latency. While the
+    // device starts, the stamp reads 0 and is no use.
     const heardNow = () => {
       const stamp = context.getOutputTimestamp?.();
-      if (stamp?.contextTime !== undefined && stamp.performanceTime !== undefined && stamp.performanceTime > 0) {
+      if (stamp?.contextTime && stamp.performanceTime) {
         return stamp.contextTime + (performance.now() - stamp.performanceTime) / 1000;
       }
       return context.currentTime - (context.outputLatency || 0);
@@ -162,7 +157,6 @@ export function useSyncedAudio({
       else node.start(now - position, 0);
       source = node;
       anchor = { position, at: now };
-      if (stats) stats.starts += 1;
     };
 
     const sync = (t: number) => {
@@ -178,8 +172,10 @@ export function useSyncedAudio({
       const target = t - offset;
       const heard = heardNow();
       if (source && !jumped) {
+        // The context clock has not moved since the start (the output device
+        // is still waking): nothing is heard yet, so there is no drift to fix.
+        if (context.currentTime <= anchor.at) return;
         const position = anchor.position + (heard - anchor.at);
-        if (stats && stats.drift.push(position - target) > 600) stats.drift.shift();
         if (Math.abs(position - target) < DRIFT_TOLERANCE) return;
       }
       // A source started now is heard one output latency later, so start that far ahead.

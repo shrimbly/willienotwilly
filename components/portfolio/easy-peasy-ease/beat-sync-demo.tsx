@@ -241,9 +241,18 @@ export function EasyPeasyEaseBeatSyncDemo() {
   };
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const next =
+      event.key === "ArrowLeft" || event.key === "ArrowRight"
+        ? tab === 0
+          ? 1
+          : 0
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? 1
+            : null;
+    if (next === null) return;
     event.preventDefault();
-    const next = tab === 0 ? 1 : 0;
     setTab(next);
     tabRefs.current[next]?.focus({ preventScroll: true });
   };
@@ -260,7 +269,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const panelId = `${fieldId}-panel`;
 
   const segmentSettings = (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex h-full flex-col gap-4">
       <div className="flex min-w-0 items-center gap-3">
         <h4 className="shrink-0 text-lg font-semibold text-foreground">Clip {selectedClip + 1}</h4>
         <p
@@ -270,7 +279,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
           {CAR_CLIPS[selectedClip].name}
         </p>
       </div>
-      <div className="space-y-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex items-start gap-3">
           <div className="shrink-0 space-y-1.5">
             <FieldLabel htmlFor={durationId}>Seconds</FieldLabel>
@@ -303,15 +312,20 @@ export function EasyPeasyEaseBeatSyncDemo() {
             />
           </div>
         </div>
-        <CubicBezierEditor
-          value={selectedCurve.bezier}
-          onChange={(bezier) =>
-            updateSelectedCurve({ preset: findPresetForBezier(bezier) ?? CUSTOM_CURVE, bezier })
-          }
-          progress={playback.activeIndex === selectedClip ? playback.clipProgress : undefined}
-          readout={false}
-          className="min-w-0"
-        />
+        {/* The plot takes the largest square the panel has left, so the
+            inspector never scrolls (a scrolling panel would catch the wheel).
+            1rem stays free below it for the handles' 40px hit areas. */}
+        <div className="min-h-0 flex-1 [container-type:size]">
+          <CubicBezierEditor
+            value={selectedCurve.bezier}
+            onChange={(bezier) =>
+              updateSelectedCurve({ preset: findPresetForBezier(bezier) ?? CUSTOM_CURVE, bezier })
+            }
+            progress={playback.activeIndex === selectedClip ? playback.clipProgress : undefined}
+            readout={false}
+            className="mx-auto w-[min(100cqw,100cqh-1rem)] min-w-0"
+          />
+        </div>
       </div>
     </div>
   );

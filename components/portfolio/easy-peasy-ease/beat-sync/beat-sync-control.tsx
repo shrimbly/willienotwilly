@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
  * Port of easy-peasy-ease/components/BeatSyncControl.tsx (verbatim markup).
  *
  * Added for the portfolio:
+ * - The BPM readout is role="img", so its aria-label is announced (a label
+ *   on a plain span is ignored).
  * - `pulsePaused` holds the tempo dot while the demo is off screen.
  * - `pulseClock` phase-locks the dot to the playhead while playing, so it
  *   peaks on the beats the cuts land on (the product's dot free-runs).
@@ -100,7 +102,11 @@ export function BeatSyncControl({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <span className="flex items-center gap-1.5 pl-1 pr-1.5" aria-label={`${Math.round(bpm)} beats per minute`}>
+      <span
+        role="img"
+        aria-label={`${Math.round(bpm)} beats per minute`}
+        className="flex items-center gap-1.5 pl-1 pr-1.5"
+      >
         <span
           ref={dotRef}
           aria-hidden

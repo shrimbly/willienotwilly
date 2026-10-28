@@ -22,10 +22,14 @@ import { AudioScrubber } from "./waveform";
  * audio lane under the timeline (waveform, offset drag, beat grid, beat pill).
  *
  * Changes from the product:
- * - The drag/keyboard surface is a sibling layer under the pill and the
- *   remove button instead of their parent, so those stay real buttons to
- *   assistive tech. It is a slider: arrows nudge the offset by 0.01 s
- *   (Shift 0.1 s), or by one beat while snapping; Enter/Space selects.
+ * - The drag/keyboard surface is a layer inside the lane, and the pill and
+ *   the remove button are siblings of the lane instead of its children, so
+ *   they stay real buttons to assistive tech. The surface is a slider:
+ *   arrows nudge the offset by 0.01 s (Shift 0.1 s), or by one beat while
+ *   snapping; Enter/Space selects.
+ * - Below 640px (container) the pill and the remove button sit in a row
+ *   above the lane, which is h-14 like the clip track, instead of covering
+ *   most of a phone-width waveform. From 640px they overlay it as shipped.
  * - The drag surface is touch-action: pan-y so a vertical swipe still
  *   scrolls the page on phones.
  * - `currentTime` may be a motion value (progress line without re-renders).
@@ -58,7 +62,6 @@ interface AudioWaveformVisualizationProps {
   pulseActive?: boolean;
 }
 
-const AUDIO_TRACK_HEIGHT = 72;
 /** easy-peasy-ease/lib/beat-detection MIN_ANALYSIS_SECONDS. */
 const MIN_ANALYSIS_SECONDS = 8;
 
@@ -265,7 +268,49 @@ export function AudioWaveformVisualization({
   const offsetMin = 0 - Math.round(audioDurationSeconds);
 
   return (
-    <div className="w-full space-y-2" style={{ width: `${trackWidth}px` }}>
+    <div className="relative" style={{ width: `${trackWidth}px` }}>
+      {/* A row of its own on phones; display: contents from 640px, where both
+          overlay the lane (positioned against this wrapper, 1px border in). */}
+      <div className="mb-1.5 flex items-center gap-2 @min-[640px]/epe:contents">
+        {beats && onBeatSubdivisionChange && (
+          <BeatSyncControl
+            bpm={beats.bpm}
+            period={beats.period}
+            value={beatSubdivision}
+            onValueChange={onBeatSubdivisionChange}
+            onApply={onBeatApply}
+            isUpdating={isBeatUpdating}
+            pulsePaused={!pulseActive}
+            pulseClock={
+              typeof currentTime === "number"
+                ? undefined
+                : { time: currentTime, beatTime: firstBeatVideoTime(beats, effectiveOffset), locked: isPlaying }
+            }
+            // Capped so it wraps instead of reaching under the remove button.
+            className="z-10 flex-wrap @min-[640px]/epe:absolute @min-[640px]/epe:top-[9px] @min-[640px]/epe:left-[9px] @min-[640px]/epe:max-w-[calc(100%-3.5rem)]"
+          />
+        )}
+        {/* Analysis ran on a full-length track but found no steady grid. */}
+        {!beats && onBeatSubdivisionChange && audioDurationSeconds >= MIN_ANALYSIS_SECONDS && (
+          <span className="pointer-events-none z-10 rounded-[8px] border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm @min-[640px]/epe:absolute @min-[640px]/epe:top-[9px] @min-[640px]/epe:left-[9px]">
+            No steady beat
+          </span>
+        )}
+        {onRemove && (
+          <EpeButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Remove ${fileName} audio track`}
+            className="z-10 ml-auto text-muted-foreground hover:bg-secondary/80 hover:text-foreground @min-[640px]/epe:absolute @min-[640px]/epe:top-[9px] @min-[640px]/epe:right-[9px]"
+            onClick={onRemove}
+            disabled={isLoading}
+          >
+            <Trash2 className="h-4 w-4" />
+          </EpeButton>
+        )}
+      </div>
+
       <div
         className={cn(
           "relative overflow-hidden rounded-[8px] border border-border bg-secondary/20 transition",
@@ -292,39 +337,20 @@ export function AudioWaveformVisualization({
             isDragging && "cursor-grabbing",
           )}
         />
-        {onRemove && (
-          <EpeButton
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Remove ${fileName} audio track`}
-            className="absolute top-2 right-2 z-10 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-            // pointerdown must not reach the track: its drag handler captures
-            // the pointer, which retargets the click away from this button.
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRemove();
-            }}
-            disabled={isLoading}
-          >
-            <Trash2 className="h-4 w-4" />
-          </EpeButton>
-        )}
-        <div className="flex h-[72px]">
+        <div className="flex h-14 @min-[640px]/epe:h-[72px]">
           {/* Silence/gap at the start when offset > 0 */}
           {silenceWidthPixels > 0 && (
             <div className="shrink-0 bg-secondary/30" style={{ width: `${silenceWidthPixels}px` }} />
           )}
           {/* The actual waveform */}
           {waveformWidthPixels > 0 && visiblePeaks.length > 0 && (
-            <div style={{ width: `${waveformWidthPixels}px` }} className="shrink-0">
+            <div style={{ width: `${waveformWidthPixels}px` }} className="h-full shrink-0">
               <AudioScrubber
                 data={visiblePeaks}
                 currentTime={currentTime}
                 startTime={silenceAtStart}
                 duration={Math.max(0, timelineDuration - silenceAtStart)}
-                height={AUDIO_TRACK_HEIGHT}
+                height="100%"
                 barWidth={3}
                 barGap={1}
                 barRadius={2}
@@ -360,32 +386,6 @@ export function AudioWaveformVisualization({
               />
             )}
           </div>
-        )}
-
-        {/* Beat snap pill; capped so it wraps instead of reaching under the
-            remove button on narrow tracks. */}
-        {beats && onBeatSubdivisionChange && (
-          <BeatSyncControl
-            bpm={beats.bpm}
-            period={beats.period}
-            value={beatSubdivision}
-            onValueChange={onBeatSubdivisionChange}
-            onApply={onBeatApply}
-            isUpdating={isBeatUpdating}
-            pulsePaused={!pulseActive}
-            pulseClock={
-              typeof currentTime === "number"
-                ? undefined
-                : { time: currentTime, beatTime: firstBeatVideoTime(beats, effectiveOffset), locked: isPlaying }
-            }
-            className="absolute top-2 left-2 z-10 max-w-[calc(100%-3.5rem)] flex-wrap"
-          />
-        )}
-        {/* Analysis ran on a full-length track but found no steady grid. */}
-        {!beats && onBeatSubdivisionChange && audioDurationSeconds >= MIN_ANALYSIS_SECONDS && (
-          <span className="pointer-events-none absolute top-2 left-2 z-10 rounded-[8px] border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
-            No steady beat
-          </span>
         )}
       </div>
     </div>
