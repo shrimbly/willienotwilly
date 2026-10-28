@@ -1,0 +1,201 @@
+"use client";
+
+import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
+import { ChevronDown } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+import { ComfyWordmark, ellipsisClass, useCanvas } from "../kit";
+
+// ComfyAppNode's controls card (src/components/nodes/ui/ControlsCard.tsx with
+// the site's comfy variant): the Comfy wordmark in a 44px icon column, the
+// summary row as the toggle, the settings panel under it, and a WidthGrip on
+// each edge (WidthGrip.tsx) that resizes the card symmetrically.
+
+/** Controls resize bounds (src/components/nodes/ui/tokens.ts). */
+const CONTROLS_MIN_W = 160;
+const CONTROLS_RESIZE_MAX_W = 720;
+
+export interface ComfyControlsCardProps {
+  title: string;
+  values: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  /** Explicit width in world px; undefined follows the node (node − 24, at most 360). */
+  width?: number;
+  onWidthChange: (width: number | undefined) => void;
+  panelId: string;
+  /** Pressing anywhere on the card (the node selects on press, as React Flow does). */
+  onPress?: () => void;
+  children: ReactNode;
+}
+
+export function ComfyControlsCard({ title, values, expanded, onToggle, width, onWidthChange, panelId, onPress, children }: ComfyControlsCardProps) {
+  const card = useRef<HTMLDivElement | null>(null);
+  const tappedAt = useRef(0);
+
+  // The node captures the pointer on press (to drag it), which sends the click
+  // to the node instead of this row; so a tap is read from the release.
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const { pointerId, clientX, clientY } = event;
+    const release = (up: globalThis.PointerEvent) => {
+      if (up.pointerId !== pointerId) return;
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", cancel, true);
+      if (Math.hypot(up.clientX - clientX, up.clientY - clientY) >= 3) return;
+      tappedAt.current = up.timeStamp;
+      onToggle();
+    };
+    const cancel = () => {
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", cancel, true);
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", cancel, true);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onToggle();
+    }
+  };
+
+  return (
+    <div
+      ref={card}
+      data-controls-card
+      onPointerDownCapture={onPress}
+      className="nb-controls-card overflow-visible"
+      style={width !== undefined ? { width, maxWidth: "none" } : undefined}
+    >
+      {/* The whole row toggles; a drag that starts on it moves the node instead. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        aria-label={expanded ? "Hide settings" : "Show settings"}
+        onPointerDown={onPointerDown}
+        onClick={(event) => {
+          // Only where the click does reach the row (no capture): a tap already toggled.
+          if (event.timeStamp - tappedAt.current > 500) onToggle();
+        }}
+        onKeyDown={onKeyDown}
+        className="grid h-[28px] min-w-0 cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto_auto] items-center gap-1.5 rounded-[9px] px-2 focus-visible:-outline-offset-2"
+      >
+        <span className="flex h-4 w-[44px] items-center text-neutral-500">
+          <ComfyWordmark className="h-3 w-auto" label="ComfyUI" />
+        </span>
+        <span className={cn("nb-text-node min-w-0 text-neutral-200", ellipsisClass)}>{title}</span>
+        <span className="flex min-w-0 items-center">{values}</span>
+        <span aria-hidden className="flex h-4 w-4 items-center justify-center text-neutral-500">
+          <ChevronDown
+            size={12}
+            strokeWidth={2}
+            className="transition-transform duration-200 motion-reduce:transition-none"
+            style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </span>
+      </div>
+
+      <div
+        className="grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
+        {/* The card no longer clips (the grips reach outside it), so the panel rounds its own corners. */}
+        <div className="min-h-0 overflow-hidden rounded-b-[9px]">
+          <div id={panelId} className="nodrag nb-bg-panel flex flex-col gap-1 px-2 pt-1.5 pb-2">
+            {children}
+          </div>
+        </div>
+      </div>
+
+      <WidthGrip side="left" width={width} card={card} onChange={onWidthChange} />
+      <WidthGrip side="right" width={width} card={card} onChange={onWidthChange} />
+    </div>
+  );
+}
+
+/**
+ * A grab strip along one edge of the controls card. The bar sits at the
+ * card's edge and the hit zone reaches 12px past it (the site's hit area);
+ * the card is centred, so moving one edge by dx changes the width by 2·dx.
+ * Double-click hands the width back to the node.
+ */
+function WidthGrip({
+  side,
+  width,
+  card,
+  onChange,
+}: {
+  side: "left" | "right";
+  width?: number;
+  card: RefObject<HTMLDivElement | null>;
+  onChange: (width: number | undefined) => void;
+}) {
+  const view = useCanvas();
+  const drag = useRef<{ x0: number; w0: number; zoom: number } | null>(null);
+  const sign = side === "right" ? 1 : -1;
+  const current = () => width ?? card.current?.offsetWidth ?? CONTROLS_MIN_W;
+  const clamp = (w: number) => Math.round(Math.max(CONTROLS_MIN_W, Math.min(CONTROLS_RESIZE_MAX_W, w)));
+
+  const onPointerDown = (event: PointerEvent<HTMLSpanElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x0: event.clientX, w0: current(), zoom: view?.zoom.get() ?? 1 };
+  };
+  const onPointerMove = (event: PointerEvent<HTMLSpanElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = ((event.clientX - d.x0) / d.zoom) * sign;
+    const next = clamp(d.w0 + dx * 2);
+    if (next !== width) onChange(next);
+  };
+  const end = () => (drag.current = null);
+
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize settings (${side} edge)`}
+      aria-valuenow={width}
+      aria-valuemin={CONTROLS_MIN_W}
+      aria-valuemax={CONTROLS_RESIZE_MAX_W}
+      title="Drag to resize · double-click to reset"
+      tabIndex={0}
+      data-nodrag=""
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onChange(undefined);
+      }}
+      onKeyDown={(event) => {
+        const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onChange(clamp(current() + step * sign * (event.shiftKey ? 80 : 20)));
+      }}
+      className={cn(
+        "group/wgrip absolute top-0 bottom-0 z-[2] flex w-[18px] cursor-ew-resize touch-none items-center",
+        side === "left" ? "-left-3 justify-end" : "-right-3 justify-start",
+      )}
+    >
+      <i
+        aria-hidden
+        className="mx-1 block h-6 w-[2px] rounded-full bg-neutral-500/0 transition-colors group-hover/wgrip:bg-neutral-400/80 group-focus-visible/wgrip:bg-neutral-400/80 group-active/wgrip:bg-neutral-300"
+      />
+    </span>
+  );
+}

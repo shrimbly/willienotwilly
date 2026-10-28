@@ -1,0 +1,122 @@
+/*
+ * The agent panel demo, scoped under .nb. Where the floating window sits on
+ * the canvas frame (AgentPanel's frame: top-right, 400px), how it becomes a
+ * sheet over a portrait tile, and the small motions the app gets from
+ * tw-animate-css (animate-in fade-in-0 slide-in-from-bottom-2).
+ */
+@layer components {
+  .nb .nb-agent-window {
+    position: absolute;
+    z-index: 20;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(400px, max(300px, 50cqw));
+    container: nb-agent-panel / size;
+  }
+  .nb .nb-agent-replay {
+    position: absolute;
+    z-index: 10;
+    left: 12px;
+    bottom: 12px;
+  }
+  .nb .nb-agent-window[data-entering] {
+    animation: nb-agent-panel-in 150ms var(--nb-ease-out) both;
+  }
+
+  @container (min-width: 900px) {
+    .nb .nb-agent-window {
+      top: 16px;
+      right: 16px;
+      bottom: 16px;
+    }
+  }
+
+  /* A tall tile: no window chrome, the canvas a strip above, the window a sheet over the rest. */
+  @container nb (orientation: portrait) {
+    .nb .nb-agent-demo > .nb-app__lights,
+    .nb .nb-agent-demo > .nb-app__tabs {
+      display: none;
+    }
+    .nb .nb-agent-demo > .nb-app__frame {
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .nb .nb-agent-window {
+      top: 26%;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      width: auto;
+    }
+    /* Top right: the graph's last column starts lower there. */
+    .nb .nb-agent-replay {
+      top: 8px;
+      bottom: auto;
+      left: auto;
+      right: 8px;
+    }
+  }
+
+  /* A short window: the empty state gives way as the app's does on a short screen. */
+  @container nb-agent-panel (height < 470px) {
+    .nb .nb-agent-empty {
+      gap: 10px;
+      padding-top: 12px;
+      padding-bottom: 4px;
+    }
+    .nb .nb-agent-empty__lead {
+      display: none;
+    }
+  }
+  @container nb-agent-panel (height < 360px) {
+    .nb .nb-agent-rows > :nth-child(n + 3),
+    .nb .nb-agent-billing {
+      display: none;
+    }
+  }
+
+  /* Suggestion rows ruled with the chat's fade-rule hairline. */
+  .nb .nb-agent-rows > * + * {
+    border-top: 1px solid;
+    border-image: linear-gradient(to right, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.045)) 1;
+  }
+
+  .nb .nb-agent-fade-in {
+    animation: nb-agent-fade-in 150ms ease-out both;
+  }
+  .nb .nb-agent-backdrop {
+    animation: nb-agent-fade-in 200ms var(--nb-ease-dialog) both;
+  }
+  .nb .nb-agent-viewer {
+    animation: nb-agent-viewer-in 200ms var(--nb-ease-dialog) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nb .nb-agent-window[data-entering],
+    .nb .nb-agent-fade-in,
+    .nb .nb-agent-backdrop,
+    .nb .nb-agent-viewer {
+      animation: none;
+    }
+  }
+
+  @keyframes nb-agent-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  @keyframes nb-agent-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes nb-agent-viewer-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98) translateY(4px);
+    }
+  }
+}

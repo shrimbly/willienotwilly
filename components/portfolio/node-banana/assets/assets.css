@@ -1,0 +1,20 @@
+/*
+ * Node Banana Assets demo, scoped under .nb. The view's own look comes from
+ * the kit's tokens and Tailwind utilities; this only covers what utilities
+ * cannot say.
+ */
+@layer components {
+  /* Wheel scrolling chains on to the page at either end of the grid. */
+  .nb .nb-assets-scroller {
+    overscroll-behavior: auto;
+    scrollbar-gutter: stable;
+  }
+
+  /* On touch screens a swipe over the tile scrolls the page, never the grid. */
+  @media (pointer: coarse) {
+    .nb .nb-assets-scroller {
+      overflow-y: hidden;
+      scrollbar-gutter: auto;
+    }
+  }
+}

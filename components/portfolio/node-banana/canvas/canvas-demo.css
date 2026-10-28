@@ -1,0 +1,12 @@
+/* The hero canvas's entry, after the landing site's fold (global.css 626–684):
+   nodes rise in from 170ms + i × 90ms (the kit's .nb-enter), noodles draw on
+   from 520ms + i × 80ms. Both wait while the tile has not been seen yet. */
+@layer components {
+  .nb .nb-hero-canvas .nb-noodle--draw {
+    animation-delay: calc(var(--nb-draw-delay, 0ms) + 520ms);
+  }
+  .nb [data-nb-intro="hold"] .nb-enter,
+  .nb [data-nb-intro="hold"] .nb-noodle--draw {
+    animation-play-state: paused;
+  }
+}

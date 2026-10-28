@@ -1,0 +1,250 @@
+/*
+ * Anatomy callouts over the Node Banana canvas, in the landing site's
+ * annotation voice: JetBrains Mono eyebrows (site .eyebrow: 0.08em, uppercase,
+ * ink-3), Space Grotesk 500 for the line under each (site .fact__text), and
+ * hairline leaders. Everything is scoped under .nb.
+ */
+@layer components {
+  .nb .nb-anat {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 320ms var(--nb-ease-out);
+  }
+  .nb .nb-anat[data-ready] { opacity: 1; }
+
+  .nb .nb-anat__svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Corner brackets (and socket rings) round the highlighted part. */
+  .nb .nb-anat__mark {
+    fill: none;
+    stroke: var(--nb-ink);
+    stroke-width: 1.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity 180ms ease-out;
+  }
+  .nb .nb-anat__part[data-active] .nb-anat__mark { opacity: 1; }
+
+  .nb .nb-anat__leader {
+    display: none;
+    fill: none;
+    stroke: rgb(255 255 255 / 0.16);
+    stroke-width: 1;
+    stroke-linejoin: round;
+    transition: stroke 180ms ease-out;
+  }
+  .nb .nb-anat__dot {
+    display: none;
+    fill: #525252;
+    stroke: var(--nb-canvas);
+    stroke-width: 1.5;
+    transition: fill 180ms ease-out;
+  }
+  .nb .nb-anat__part[data-active] .nb-anat__leader { stroke: var(--nb-ink); }
+  .nb .nb-anat__part[data-active] .nb-anat__dot { fill: var(--nb-ink); }
+
+  /* ---------- Wide tiles: the callout column ---------- */
+
+  .nb .nb-anat__label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: none;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    color: inherit;
+    cursor: default;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nb .nb-anat__eyebrow {
+    display: block;
+    font-family: var(--nb-font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nb-ink-2);
+    transition: color 180ms ease-out;
+  }
+  .nb .nb-anat__text {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--nb-font-display);
+    font-size: 12px;
+    line-height: 17px;
+    font-weight: 500;
+    color: var(--nb-ink-3);
+    text-wrap: pretty;
+    transition: color 180ms ease-out;
+  }
+  .nb .nb-anat[data-has-active] .nb-anat__eyebrow { color: var(--nb-ink-3); }
+  .nb .nb-anat .nb-anat__label[data-active] .nb-anat__eyebrow { color: var(--nb-node-text); }
+  .nb .nb-anat .nb-anat__label[data-active] .nb-anat__text { color: #d4d4d4; }
+
+  /* ---------- Narrow tiles: numbered markers and the legend ---------- */
+
+  .nb .nb-anat__marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    padding: 0;
+    border: 1px solid var(--nb-chrome-border);
+    border-radius: 999px;
+    background: var(--nb-card);
+    box-shadow: var(--nb-shadow-menu);
+    font-family: var(--nb-font-mono);
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--nb-ink-2);
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out;
+  }
+  /* A finger-sized hit area round the 18px dot. */
+  .nb .nb-anat__marker::before {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: 999px;
+  }
+  .nb .nb-anat__marker[data-active] {
+    border-color: var(--nb-ink);
+    background: var(--nb-ink);
+    color: var(--nb-canvas);
+  }
+
+  .nb .nb-anat__legend {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 16px 14px;
+    border-top: 1px solid rgb(255 255 255 / 0.06);
+    background: var(--nb-canvas);
+    pointer-events: auto;
+  }
+  .nb .nb-anat__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .nb .nb-anat__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--nb-font-mono);
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nb-ink-3);
+    -webkit-tap-highlight-color: transparent;
+    transition: color 180ms ease-out;
+  }
+  .nb .nb-anat__chip-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--nb-chrome-border);
+    border-radius: 999px;
+    background: var(--nb-card);
+    font-size: 9px;
+    letter-spacing: 0;
+    color: var(--nb-ink-2);
+    transition: background-color 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out;
+  }
+  .nb .nb-anat__chip[data-active] { color: var(--nb-node-text); }
+  .nb .nb-anat__chip[data-active] .nb-anat__chip-num {
+    border-color: var(--nb-ink);
+    background: var(--nb-ink);
+    color: var(--nb-canvas);
+  }
+  .nb .nb-anat__legend-text {
+    height: 34px;
+    margin: 6px 0 0;
+    overflow: hidden;
+    font-family: var(--nb-font-display);
+    font-size: 12px;
+    line-height: 17px;
+    font-weight: 500;
+    color: var(--nb-ink-2);
+    text-wrap: pretty;
+  }
+
+  /* ---------- The one hint ---------- */
+
+  .nb .nb-anat__hint {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    margin: 0;
+    font-family: var(--nb-font-mono);
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nb-ink-3);
+    transition: opacity 400ms ease-out;
+  }
+  .nb .nb-anat__hint[data-hidden] { opacity: 0; }
+  .nb .nb-anat__hint-hover { display: none; }
+  @media (hover: hover) {
+    .nb .nb-anat__hint-hover { display: inline; }
+    .nb .nb-anat__hint-touch { display: none; }
+  }
+
+  /* The inputs fade into the tile's left edge. */
+  .nb .nb-anat-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 14%;
+    pointer-events: none;
+    background: linear-gradient(to right, var(--nb-canvas), rgb(23 23 23 / 0));
+  }
+
+  @container nb (min-width: 520px) {
+    .nb .nb-anat__hint { top: auto; bottom: 14px; left: 18px; }
+    .nb .nb-anat__leader,
+    .nb .nb-anat__dot { display: inline; }
+    .nb .nb-anat__label { display: block; }
+    .nb .nb-anat__marker,
+    .nb .nb-anat__legend { display: none; }
+  }
+  @container nb (min-width: 900px) {
+    .nb .nb-anat__eyebrow { font-size: 12px; }
+    .nb .nb-anat__text { font-size: 13px; line-height: 18px; }
+  }
+}
