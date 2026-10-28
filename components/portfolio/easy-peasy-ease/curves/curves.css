@@ -1,0 +1,171 @@
+/*
+ * Layout for the "Curated curves" demo. The tile is 4/5 on phones and 16/10
+ * above, and the two can be the same width (608px), so the layout follows the
+ * frame's orientation and height (a size container), not its width.
+ */
+
+.epe .epe-curves-frame {
+  container: epe-curves / size;
+}
+
+.epe .epe-curves-layout {
+  display: grid;
+  height: 100%;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-areas: "preview" "editor" "gallery";
+}
+
+.epe .epe-curves-preview {
+  grid-area: preview;
+}
+
+.epe .epe-curves-aside {
+  grid-area: editor;
+  min-width: 0;
+}
+
+.epe .epe-curves-gallery {
+  grid-area: gallery;
+  min-width: 0;
+  container: epe-curves-strip / inline-size;
+}
+
+/* Portrait: the inspector collapses to the bare editor at 16:9, as the
+   product's CubicBezierEditor does below sm. */
+.epe .epe-curves-plot {
+  aspect-ratio: 16 / 9;
+}
+
+.epe .epe-curves-inspector-only {
+  display: none;
+}
+
+/* Preset strip: column-major so a horizontal scroll reveals the next presets
+   in picker order. Row count grows with the frame. */
+.epe .epe-curves-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--epe-curves-rows, 1), auto);
+  /* A whole number of options plus a half in view, so the next one peeks. */
+  grid-auto-columns: max(4.5rem, calc((100% - 3 * 0.375rem) / 3.5));
+  gap: 0.375rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--border) 80%, transparent) transparent;
+}
+
+@container epe-curves-strip (min-width: 26rem) {
+  .epe .epe-curves-grid {
+    grid-auto-columns: max(4.5rem, calc((100% - 4 * 0.375rem) / 4.5));
+  }
+}
+
+@container epe-curves-strip (min-width: 34rem) {
+  .epe .epe-curves-grid {
+    grid-auto-columns: max(4.5rem, calc((100% - 5 * 0.375rem) / 5.5));
+  }
+}
+
+/* Fade whichever edge has more presets past it (set by CurveGallery). */
+.epe .epe-curves-grid[data-more-after="true"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+.epe .epe-curves-grid[data-more-before="true"] {
+  mask-image: linear-gradient(to right, transparent, #000 2rem);
+}
+.epe .epe-curves-grid[data-more-before="true"][data-more-after="true"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent
+  );
+}
+
+@container epe-curves (orientation: landscape) {
+  .epe .epe-curves-layout {
+    grid-template-columns: minmax(0, 1fr) var(--epe-curves-aside-width);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "preview editor" "gallery editor";
+    /* Square plot that fills the height: aside chrome without the header. */
+    --epe-curves-aside-width: clamp(15rem, calc(100cqh - 7.25rem), 48cqw);
+  }
+
+  .epe .epe-curves-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--secondary);
+  }
+
+  .epe .epe-curves-plot {
+    aspect-ratio: 1;
+    max-width: none;
+  }
+
+  .epe .epe-curves-inspector-only {
+    display: flex;
+  }
+
+  .epe .epe-curves-header {
+    display: none;
+  }
+
+  .epe .epe-curves-grid {
+    --epe-curves-rows: 2;
+  }
+}
+
+/* The 608px landscape tile: one field fits beside nothing, so the curve
+   picker keeps the row and the hint gives way to the speed readout. */
+@container epe-curves (orientation: landscape) and (max-width: 39.99rem) {
+  .epe .epe-curves-layout {
+    /* No readout below 640px either, so the plot can take that height. */
+    --epe-curves-aside-width: clamp(15rem, calc(100cqh - 5.5rem), 48cqw);
+  }
+
+  .epe .epe-curves-wide-only {
+    display: none;
+  }
+}
+
+@container epe-curves (orientation: landscape) and (min-height: 30rem) {
+  .epe .epe-curves-layout {
+    /* Header row and roomier padding join in. */
+    --epe-curves-aside-width: clamp(15rem, calc(100cqh - 10.25rem), 50cqw);
+  }
+
+  .epe .epe-curves-aside {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .epe .epe-curves-header {
+    display: flex;
+  }
+
+  .epe .epe-curves-grid {
+    --epe-curves-rows: 3;
+  }
+}
+
+/* Tall enough for every preset at once: the picker's grid, five across. */
+@container epe-curves (orientation: landscape) and (min-height: 42rem) {
+  .epe .epe-curves-grid {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: none;
+    overflow: visible;
+    mask-image: none;
+  }
+}

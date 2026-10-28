@@ -1,0 +1,59 @@
+/* Easy Peasy Ease landing tile. Every selector sits under the .epe scope. */
+
+/* The tile is a short window onto a tall page, so it sizes against its own
+   height as well as its width (cqh), and drops the least essential rows as it
+   gets shorter. */
+.epe .epe-wm-frame {
+  container: epe-wm / size;
+}
+
+@container epe-wm (height < 520px) {
+  .epe .epe-wm-footer {
+    display: none;
+  }
+}
+
+@container epe-wm (height < 330px) {
+  .epe .epe-wm-version {
+    display: none;
+  }
+}
+
+@container epe-wm (height < 285px) {
+  .epe .epe-wm-intro {
+    display: none;
+  }
+}
+
+/* TextPressure's per-letter transition, in CSS so the reduced-motion branch
+   does not change the server-rendered style attribute. */
+.epe .epe-wm-char {
+  transition: font-variation-settings 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* :hover does not apply while a file is dragged over the page, so the
+   drag-over state borrows the drop zone's hover look (easy-peasy-ease.css). */
+.epe .epe-landing-drop-zone[data-drag-over] {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.06) inset,
+    0 24px 70px oklch(0 0 0 / 0.2),
+    0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.epe .epe-landing-drop-zone[data-drag-over] .epe-upload-motion-icon {
+  color: var(--foreground);
+  transform: translateY(-3px) scale(1.06);
+  filter: drop-shadow(0 6px 14px oklch(1 0 0 / 0.18));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .epe .epe-wm-char {
+    transition: none;
+  }
+
+  .epe .epe-landing-drop-zone[data-drag-over],
+  .epe .epe-landing-drop-zone[data-drag-over] .epe-upload-motion-icon {
+    transform: none;
+  }
+}

@@ -1,0 +1,220 @@
+/*
+ * Layout of the Easy Peasy Ease hero editor (editor-demo.tsx). The product
+ * switches from flex-col to a row at lg; the tile is 16:9 on desktop and 3:4
+ * on phones, so here the switch follows the tile's orientation and the denser
+ * variants follow its height. Every selector is scoped under .epe.
+ */
+
+.epe .epe-editor-shell {
+  container: epe-editor / size;
+}
+
+/* Portrait (phones): the product's flex-col, inspector below the preview. */
+.epe .epe-editor-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.epe .epe-editor-inspector-cell {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.epe .epe-editor-tabs {
+  display: none;
+}
+
+/* The curve on the left, the clip header and the two fields on the right. */
+.epe .epe-editor-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9.75rem;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "curve header"
+    "curve fields";
+  gap: 0.5rem 0.75rem;
+  min-height: clamp(9.5rem, 30cqh, 16rem);
+}
+
+.epe .epe-editor-body {
+  display: contents;
+}
+
+.epe .epe-editor-header {
+  grid-area: header;
+}
+
+.epe .epe-editor-fields {
+  grid-area: fields;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.epe .epe-editor-curve {
+  grid-area: curve;
+  container: epe-editor-curve / size;
+  min-height: 0;
+}
+
+/* The editor box is square: as large as the cell allows. */
+.epe .epe-editor-curve-box {
+  width: min(100cqw, 100cqh);
+  margin-inline: auto;
+}
+
+.epe .epe-editor-actions {
+  display: none;
+}
+
+@container epe-editor (orientation: portrait) and (max-width: 329px) {
+  .epe .epe-editor-panel {
+    grid-template-columns: minmax(0, 1fr) 8rem;
+  }
+}
+
+@container epe-editor (orientation: portrait) and (max-height: 439px) {
+  .epe .epe-editor-timeline,
+  .epe .epe-editor-header {
+    display: none;
+  }
+
+  .epe .epe-editor-panel {
+    grid-template-areas:
+      "curve fields"
+      "curve fields";
+    min-height: 0;
+  }
+
+  /* Without the timeline, the controls bar closes the connected card. */
+  .epe .epe-editor-controls {
+    border-bottom-width: 1px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+  }
+}
+
+/* Too small a plot to carry the hint over the curve. */
+@container epe-editor-curve (max-width: 139px) {
+  .epe .epe-editor-hint {
+    display: none;
+  }
+}
+
+/* Landscape (desktop, tablets, phones on their side): the product's lg row. */
+@container epe-editor (orientation: landscape) {
+  .epe .epe-editor-layout {
+    flex-direction: row;
+    padding: 0.75rem;
+  }
+
+  /* Narrowest width that still fits "Update All Clips" on one line. */
+  .epe .epe-editor-inspector-cell {
+    width: 20.75rem;
+  }
+
+  .epe .epe-editor-inspector {
+    padding: 1rem;
+  }
+
+  .epe .epe-editor-tabs {
+    display: block;
+  }
+
+  .epe .epe-editor-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .epe .epe-editor-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+
+  .epe .epe-editor-fields {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .epe .epe-editor-curve-field {
+    flex: 1 1 0%;
+  }
+
+  /* The plot, its readout and the Update buttons share the leftover height. */
+  .epe .epe-editor-curve {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
+    gap: 0.75rem;
+  }
+
+  /* Leaves room for the Update buttons under the plot. */
+  .epe .epe-editor-curve-box {
+    width: min(100cqw, 100cqh - 2.75rem);
+  }
+
+  .epe .epe-editor-actions {
+    display: flex;
+  }
+}
+
+/* From 640px the plot also has its "Point 1 / Point 2" readout. */
+@container epe-editor (orientation: landscape) and (min-width: 640px) {
+  .epe .epe-editor-curve-box {
+    width: min(100cqw, 100cqh - 4.5rem);
+  }
+}
+
+/* The product's lg:w-[360px] xl:w-[400px]. */
+@container epe-editor (orientation: landscape) and (min-width: 860px) {
+  .epe .epe-editor-inspector-cell {
+    width: 22.5rem;
+  }
+}
+
+@container epe-editor (orientation: landscape) and (min-width: 1240px) {
+  .epe .epe-editor-inspector-cell {
+    width: 25rem;
+  }
+}
+
+/*
+ * Short desktop tiles: the stage becomes its own `epe` container so the kit's
+ * md: variants (tall timeline track, 32px ruler) follow the stage's width and
+ * the preview keeps its height.
+ */
+@container epe-editor (orientation: landscape) and (max-height: 599px) {
+  .epe .epe-editor-stage {
+    container: epe / inline-size;
+  }
+}
+
+@container epe-editor (orientation: landscape) and (max-height: 479px) {
+  .epe .epe-editor-tabs {
+    display: none;
+  }
+
+  .epe .epe-editor-inspector {
+    padding: 0.75rem;
+  }
+
+  .epe .epe-editor-panel {
+    gap: 0.75rem;
+  }
+}
+
+/* Phones on their side and small tablets: the timeline's selection names the clip. */
+@container epe-editor (orientation: landscape) and (max-height: 399px) {
+  .epe .epe-editor-header {
+    display: none;
+  }
+}
