@@ -9,4 +9,12 @@
   .nb [data-nb-intro="hold"] .nb-noodle--draw {
     animation-play-state: paused;
   }
+
+  /* Portrait frames (isCompact: height > 0.9 × width) lay the workflows out
+     from the top-left corner, where the "Drag a node" hint would sit. */
+  @container (aspect-ratio < 10 / 9) {
+    .nb .nb-hero-hint {
+      display: none;
+    }
+  }
 }

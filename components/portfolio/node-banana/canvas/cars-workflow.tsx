@@ -10,6 +10,8 @@ import {
 } from "@/lib/node-banana/canvas-workflows";
 
 import {
+  GENERATE_IMAGE_OUTPUTS,
+  GENERATE_VIDEO_OUTPUTS,
   GenerateImageNode,
   GenerateVideoNode,
   IMAGE_INPUT_INPUTS,
@@ -20,7 +22,6 @@ import {
   PROMPT_INPUTS,
   PROMPT_OUTPUTS,
   PromptNode,
-  useCanvasView,
   useNodeGraph,
   type GraphEdgeSpec,
   type GraphNodeSpec,
@@ -32,7 +33,6 @@ import {
   EASE_OUTPUTS,
   EaseCurveNode,
   IMAGE_MODEL_INPUTS,
-  IMAGE_MODEL_OUTPUTS,
   LLM_INPUTS,
   LlmGenerateNode,
   SPLIT_INPUTS,
@@ -40,10 +40,9 @@ import {
   SchemaFields,
   SplitGridNode,
   TEXT_SOCKETS,
-  VIDEO_OUTPUTS,
   type ParamSpec,
 } from "./nodes";
-import { downloadFile, fitZoom, framedBounds, useWorkflowState, type Insets, type WorkflowEnv } from "./use-workflow";
+import { downloadFile, saved, useWorkflowState, useWorkflowView, type PhoneLayout, type Placement, type WorkflowEnv } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Cars": the landing site's second tab, a 14-node contact-sheet workflow
@@ -62,16 +61,16 @@ const NODES: GraphNodeSpec[] = [
   { id: "imageInput-6", x: 0, y: 0, width: 300, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
   { id: "prompt-9", x: 0, y: 290, width: 320, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
   { id: "llmGenerate-10", x: 420, y: 120, width: 320, inputs: LLM_INPUTS, outputs: TEXT_SOCKETS },
-  { id: "nanoBanana-11", x: 840, y: 0, width: 620, inputs: IMAGE_MODEL_INPUTS, outputs: IMAGE_MODEL_OUTPUTS },
+  { id: "nanoBanana-11", x: 840, y: 0, width: 620, inputs: IMAGE_MODEL_INPUTS, outputs: GENERATE_IMAGE_OUTPUTS },
   { id: "splitGrid-13", x: 1560, y: 60, width: 300, inputs: SPLIT_INPUTS, outputs: SPLIT_OUTPUTS },
   { id: "imageInput-41", x: 1960, y: 60, width: 300, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
   { id: "prompt-43", x: 1960, y: 360, width: 320, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
-  { id: "nanoBanana-42", x: 2380, y: 120, width: 480, inputs: IMAGE_MODEL_INPUTS, outputs: IMAGE_MODEL_OUTPUTS },
+  { id: "nanoBanana-42", x: 2380, y: 120, width: 480, inputs: IMAGE_MODEL_INPUTS, outputs: GENERATE_IMAGE_OUTPUTS },
   { id: "imageInput-59", x: 1960, y: 620, width: 300, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
   { id: "prompt-61", x: 1960, y: 920, width: 320, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
-  { id: "nanoBanana-60", x: 2380, y: 680, width: 480, inputs: IMAGE_MODEL_INPUTS, outputs: IMAGE_MODEL_OUTPUTS },
+  { id: "nanoBanana-60", x: 2380, y: 680, width: 480, inputs: IMAGE_MODEL_INPUTS, outputs: GENERATE_IMAGE_OUTPUTS },
   { id: "prompt-78", x: 2960, y: 500, width: 320, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
-  { id: "generateVideo-69", x: 2960, y: 60, width: 480, inputs: KLING_INPUTS, outputs: VIDEO_OUTPUTS },
+  { id: "generateVideo-69", x: 2960, y: 60, width: 480, inputs: KLING_INPUTS, outputs: GENERATE_VIDEO_OUTPUTS },
   { id: "easeCurve-102", x: 3540, y: 60, width: 427, inputs: EASE_INPUTS, outputs: EASE_OUTPUTS },
 ];
 
@@ -96,6 +95,27 @@ const DRAW = EDGES.map((e) => e.id);
 /** The opening view, as the site frames this tab: the photo through to the split grid. Pan for the rest. */
 const OPENING = ["imageInput-6", "prompt-9", "llmGenerate-10", "nanoBanana-11", "splitGrid-13"];
 
+/**
+ * Portrait tiles (the site has none: its phones only show the first tab):
+ * the photo and its prompt over the LLM and the contact sheet in two columns,
+ * the right one lower to clear the Agent pill. The rest of the row follows to
+ * the right, pulled in to meet them; pan sideways for it.
+ */
+const PHONE_LAYOUT: Record<string, Placement> = {
+  "imageInput-6": [0, 0, 300],
+  "prompt-9": [0, 303, 300],
+  "llmGenerate-10": [400, 146, 320],
+  "nanoBanana-11": [400, 456, 320],
+};
+const PHONE_SHIFT = -740;
+const PHONE: PhoneLayout = {
+  place: (id) => {
+    const [x, y, width] = saved(NODES, id);
+    return PHONE_LAYOUT[id] ?? [x + PHONE_SHIFT, y, width];
+  },
+  frame: { wide: OPENING, phone: Object.keys(PHONE_LAYOUT) },
+};
+
 const geminiProImage = (resolution: string): ParamSpec[] => [
   { kind: "select", label: "Aspect ratio", options: ["auto", "21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"], value: "3:2" },
   { kind: "select", label: "Resolution", options: ["1K", "2K", "4K"], value: resolution },
@@ -110,20 +130,9 @@ const KLING_PARAMS: ParamSpec[] = [
   { kind: "check", label: "Generate audio", value: false },
 ];
 
-const PAD: Insets = { top: 64, right: 28, bottom: 36, left: 28 };
-
 export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
   const graph = useNodeGraph({ nodes: NODES, edges: EDGES });
-  const view = useCanvasView({
-    fit: () => {
-      const b = graph.measure(OPENING);
-      return b && view.width > 0 ? framedBounds(view, b, fitZoom(view, b, PAD), PAD) : null;
-    },
-    padding: 0,
-    minZoom: 0.1,
-    fitMinZoom: 0.05,
-    fitMaxZoom: 2,
-  });
+  const view = useWorkflowView(graph, NODES, PHONE);
   const { selected, setSelected, running, run } = useWorkflowState();
   const [cleared, setCleared] = useState<string[]>([]);
   const [heights, setHeights] = useState<Record<string, number>>({});
@@ -149,7 +158,7 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
       provider="fal"
       modelLabel="Gemini 3 Pro Image Preview"
       inputs={IMAGE_MODEL_INPUTS}
-      outputs={IMAGE_MODEL_OUTPUTS}
+      outputs={GENERATE_IMAGE_OUTPUTS}
       image={cleared.includes(id) ? null : image}
       settings={{ aspectRatio: "3:2" }}
       fields={<SchemaFields params={params} />}
@@ -160,7 +169,7 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
   );
 
   return (
-    <WorkflowCanvas view={view} env={env} onPaneClick={() => setSelected(null)}>
+    <WorkflowCanvas view={view} graph={graph} env={env} onPaneClick={() => setSelected(null)}>
       <NoodleLayer
         id="hero-cars"
         graph={graph}
@@ -176,19 +185,29 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
       <LlmGenerateNode {...shell("llmGenerate-10", 3)} output={CARS_LLM_OUTPUT} height={200} onRun={() => run("llmGenerate-10", 1800)} />
       {generated("nanoBanana-11", { ...cars.grid, alt: "A 3×3 contact sheet of the car in a dark studio" }, SHEET_PARAMS, 4)}
       <SplitGridNode {...shell("splitGrid-13", 5)} image={cars.grid} onRun={() => run("splitGrid-13", 1200)} />
-      <ImageInputNode {...shell("imageInput-41", 6)} image={cars.cell1} filename="split-1-1.png" dimensions={{ width: 843, height: 565 }} />
+      <ImageInputNode
+        {...shell("imageInput-41", 6)}
+        image={{ ...cars.cell1, alt: "Frame 1 of the contact sheet: the car from a low front three-quarter angle" }}
+        filename="split-1-1.png"
+        dimensions={{ width: 843, height: 565 }}
+      />
       <PromptNode {...shell("prompt-43", 7)} value={CARS_UPSCALE_PROMPT} {...height("prompt-43")} />
-      {generated("nanoBanana-42", cars.upscale1, UPSCALE_PARAMS, 8)}
-      <ImageInputNode {...shell("imageInput-59", 9)} image={cars.cell3} filename="split-3-1.png" dimensions={{ width: 843, height: 565 }} />
+      {generated("nanoBanana-42", { ...cars.upscale1, alt: "The low front three-quarter frame, upscaled" }, UPSCALE_PARAMS, 8)}
+      <ImageInputNode
+        {...shell("imageInput-59", 9)}
+        image={{ ...cars.cell3, alt: "Frame 7 of the contact sheet: the car from directly overhead" }}
+        filename="split-3-1.png"
+        dimensions={{ width: 843, height: 565 }}
+      />
       <PromptNode {...shell("prompt-61", 10)} value={CARS_UPSCALE_PROMPT} {...height("prompt-61")} />
-      {generated("nanoBanana-60", cars.upscale3, UPSCALE_PARAMS, 11)}
+      {generated("nanoBanana-60", { ...cars.upscale3, alt: "The overhead frame, upscaled" }, UPSCALE_PARAMS, 11)}
       <PromptNode {...shell("prompt-78", 12)} value={CARS_BOOM_PROMPT} {...height("prompt-78")} />
       <GenerateVideoNode
         {...shell("generateVideo-69", 13)}
         title="Generate Video"
         modelLabel="Kling Video v2.6 Image to Video"
         inputs={KLING_INPUTS}
-        outputs={VIDEO_OUTPUTS}
+        outputs={GENERATE_VIDEO_OUTPUTS}
         video={cars.video}
         playing={env.active}
         fields={<SchemaFields params={KLING_PARAMS} />}

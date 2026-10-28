@@ -5,7 +5,9 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } fr
 import { cn } from "@/lib/utils";
 
 // Node Banana's CubicBezierEditor (src/components/CubicBezierEditor.tsx), the
-// "node" tone: lime curve on a dark square, two grab handles, arrow keys.
+// "node" tone: lime curve on a dark square, two grab handles, arrow keys. With
+// a preset picked, the handles' curve dims to a dashed guide under the
+// preset's true easing (`easingCurve`, polyline points in the 0–100 box).
 
 export type Bezier = [number, number, number, number];
 type Handle = "p1" | "p2";
@@ -14,7 +16,17 @@ const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 const ARROWS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 
-export function BezierEditor({ value, onChange, className }: { value: Bezier; onChange: (value: Bezier) => void; className?: string }) {
+export function BezierEditor({
+  value,
+  onChange,
+  easingCurve,
+  className,
+}: {
+  value: Bezier;
+  onChange: (value: Bezier) => void;
+  easingCurve?: string;
+  className?: string;
+}) {
   const box = useRef<HTMLDivElement | null>(null);
   const current = useRef(value);
   const grab = useRef({ x: 0, y: 0 });
@@ -131,10 +143,15 @@ export function BezierEditor({ value, onChange, className }: { value: Bezier; on
           <path
             d={`M0 100 C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, 100 0`}
             fill="none"
-            stroke="var(--nb-handle-easeCurve)"
-            strokeWidth="1.5"
+            className={easingCurve ? "stroke-white/35" : undefined}
+            stroke={easingCurve ? undefined : "var(--nb-handle-easeCurve)"}
+            strokeWidth={easingCurve ? "0.8" : "1.5"}
             strokeLinecap="round"
+            strokeDasharray={easingCurve ? "3 2" : undefined}
           />
+          {easingCurve && (
+            <polyline points={easingCurve} fill="none" stroke="var(--nb-handle-easeCurve)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          )}
         </svg>
         {handle("p1", "Adjust control point 1", x1, y1)}
         {handle("p2", "Adjust control point 2", x2, y2)}

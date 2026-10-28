@@ -4,8 +4,6 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Minus, Plus } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-
 import {
   CheckboxField,
   ControlsCard,
@@ -14,6 +12,7 @@ import {
   HeightGrip,
   LetterMark,
   LoadingOverlay,
+  NODE_DEFAULT_W,
   NodeCard,
   NodeVideo,
   NumberField,
@@ -34,13 +33,18 @@ import { BezierEditor, type Bezier } from "./bezier-editor";
 
 type Shell = Omit<NodeCardProps, "title" | "media" | "gap" | "controls" | "children">;
 
+/** Resizable edges double-click back to the type's default width (store/utils/nodeDefaults.ts), as the app's do. */
+function resizeTo(resizable: Shell["resizable"], defaultWidth: number, min?: number): Shell["resizable"] {
+  if (!resizable) return resizable;
+  return { min, defaultWidth, ...(resizable === true ? {} : resizable) };
+}
+
 /* ----------------------------------------------------------------- Sockets */
 
 export const IMAGE_MODEL_INPUTS: SocketSpec[] = [
   { id: "image-0", type: "image", label: "Image" },
   { id: "text-0", type: "text", label: "Prompt" },
 ];
-export const IMAGE_MODEL_OUTPUTS: SocketSpec[] = [{ id: "image", type: "image", label: "Image" }];
 export const TEXT_SOCKETS: SocketSpec[] = [{ id: "text", type: "text", label: "Text" }];
 export const LLM_INPUTS: SocketSpec[] = [
   { id: "image", type: "image", label: "Image" },
@@ -56,7 +60,6 @@ export const EASE_OUTPUTS: SocketSpec[] = [
   { id: "video", type: "video", label: "Video Out" },
   { id: "easeCurve", type: "easeCurve", label: "Settings" },
 ];
-export const VIDEO_OUTPUTS: SocketSpec[] = [{ id: "video", type: "video", label: "Video" }];
 
 /* ------------------------------------------------------- Schema parameters */
 
@@ -99,6 +102,7 @@ export function PromptConstructorNode({ value, height, onHeightChange, ...shell 
   return (
     <NodeCard
       {...shell}
+      resizable={resizeTo(shell.resizable, NODE_DEFAULT_W.promptConstructor)}
       title="Prompt Constructor"
       inputs={TEXT_SOCKETS}
       outputs={TEXT_SOCKETS}
@@ -118,39 +122,49 @@ const LLM_PROVIDERS = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Anthropic" },
 ];
+/** The app's dropdowns (src/lib/llm/catalog.ts LLM_MODELS); the first per provider is what a switch picks. */
 const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
   google: [
-    { value: "gemini-3-flash", label: "Gemini 3 Flash" },
     { value: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+    { value: "gemini-3.7-flash", label: "Gemini 3.7 Flash" },
+    { value: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
     { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite" },
     { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview)" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
   ],
   openai: [
     { value: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
     { value: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
+    { value: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
     { value: "gpt-6-astra", label: "GPT-6 Astra" },
   ],
   anthropic: [
     { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
-    { value: "claude-opus-5", label: "Claude Opus 5" },
     { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { value: "claude-opus-5", label: "Claude Opus 5" },
+    { value: "claude-fable-5-1", label: "Claude Fable 5.1" },
   ],
 };
+/** The saved workflow's model, no longer offered: it stays selectable until another is picked (llmModelOptions). */
+const SAVED_MODEL = { value: "gemini-3-flash", label: "Gemini 3 Flash" };
 const LETTERS: Record<string, string> = { google: "G", openai: "O", anthropic: "A" };
 const thousands = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /** LLM Generate: Image + Prompt in, Text out, the output text, "G Gemini 3 Flash · temp 0.70". */
 export function LlmGenerateNode({ output, height = 160, onRun, ...shell }: Shell & { output: string; height?: number }) {
   const [provider, setProvider] = useState("google");
-  const [model, setModel] = useState("gemini-3-flash");
+  const [model, setModel] = useState(SAVED_MODEL.value);
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(8192);
   const [expanded, setExpanded] = useState(false);
-  const models = LLM_MODELS[provider];
+  const models = model === SAVED_MODEL.value ? [...LLM_MODELS[provider], SAVED_MODEL] : LLM_MODELS[provider];
   const label = models.find((m) => m.value === model)?.label ?? models[0].label;
   return (
     <NodeCard
       {...shell}
+      resizable={resizeTo(shell.resizable, NODE_DEFAULT_W.llmGenerate)}
       onRun={onRun}
       title="LLM Generate"
       inputs={LLM_INPUTS}
@@ -188,9 +202,11 @@ export function LlmGenerateNode({ output, height = 160, onRun, ...shell }: Shell
 
 const MIN_GRID = 1;
 const MAX_GRID = 10;
+/** The app's default Split Grid width (NODE_DEFAULT_W has no entry for it). */
+const SPLIT_GRID_W = 300;
 
 /** Rows / Columns stepper (SplitGridNode's GridDimField). */
-function GridDimField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function GridDimField({ label, value, disabled, onChange }: { label: string; value: number; disabled?: boolean; onChange: (v: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const clampGrid = (n: number) => Math.min(MAX_GRID, Math.max(MIN_GRID, n));
   const commit = (raw: string) => {
@@ -203,7 +219,7 @@ function GridDimField({ label, value, onChange }: { label: string; value: number
   return (
     <Field label={label} as="div">
       <div className="nb-rounded-well nb-squircle nb-bg-well nb-shadow-well flex h-[22px] items-stretch overflow-hidden focus-within:ring-1 focus-within:ring-neutral-600">
-        <button type="button" onClick={() => onChange(clampGrid(value - 1))} disabled={value <= MIN_GRID} className={stepper} aria-label={`Decrease ${label.toLowerCase()}`}>
+        <button type="button" onClick={() => onChange(clampGrid(value - 1))} disabled={disabled || value <= MIN_GRID} className={stepper} aria-label={`Decrease ${label.toLowerCase()}`}>
           <Minus size={10} strokeWidth={2} />
         </button>
         <input
@@ -213,10 +229,11 @@ function GridDimField({ label, value, onChange }: { label: string; value: number
           onChange={(e) => setDraft(e.target.value)}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          disabled={disabled}
           aria-label={label}
-          className="nodrag nb-text-node w-full min-w-0 bg-transparent text-center font-medium text-neutral-100 focus:outline-none"
+          className="nodrag nb-text-node w-full min-w-0 bg-transparent text-center font-medium text-neutral-100 focus:outline-none disabled:text-neutral-600"
         />
-        <button type="button" onClick={() => onChange(clampGrid(value + 1))} disabled={value >= MAX_GRID} className={stepper} aria-label={`Increase ${label.toLowerCase()}`}>
+        <button type="button" onClick={() => onChange(clampGrid(value + 1))} disabled={disabled || value >= MAX_GRID} className={stepper} aria-label={`Increase ${label.toLowerCase()}`}>
           <Plus size={10} strokeWidth={2} />
         </button>
       </div>
@@ -232,6 +249,7 @@ export function SplitGridNode({ image, onRun, ...shell }: Shell & { image: { src
   return (
     <NodeCard
       {...shell}
+      resizable={resizeTo(shell.resizable, SPLIT_GRID_W, 240)}
       onRun={onRun}
       title="Split Grid"
       inputs={SPLIT_INPUTS}
@@ -239,8 +257,8 @@ export function SplitGridNode({ image, onRun, ...shell }: Shell & { image: { src
       media={{ aspect: image.width / image.height }}
       controls={
         <ControlsCard summary={{ title: `${rows}×${cols} grid` }} expanded={expanded} onToggle={() => setExpanded((e) => !e)}>
-          <GridDimField label="Rows" value={rows} onChange={setRows} />
-          <GridDimField label="Columns" value={cols} onChange={setCols} />
+          <GridDimField label="Rows" value={rows} disabled={shell.running} onChange={setRows} />
+          <GridDimField label="Columns" value={cols} disabled={shell.running} onChange={setCols} />
           <FieldRow className="justify-end">
             <PanelButton primary onClick={onRun} disabled={shell.running} className="w-[136px]">
               Split {rows}×{cols} now
@@ -265,14 +283,30 @@ export function SplitGridNode({ image, onRun, ...shell }: Shell & { image: { src
 
 /* ---------------------------------------------------------------- Ease Curve */
 
-/** The app's preset handles (src/lib/easing/presets.ts PRESET_BEZIERS). */
-const PRESETS: ReadonlyArray<readonly [string, Bezier]> = [
-  ["easeInExpoOutCubic", [0.85, 0, 0.15, 1]],
-  ["easeInOutExpo", [0.87, 0, 0.13, 1]],
-  ["easeInQuartOutQuad", [0.8, 0, 0.2, 1]],
-  ["easeInOutCubic", [0.65, 0, 0.35, 1]],
-  ["easeInOutSine", [0.37, 0, 0.63, 1]],
+type Easing = (t: number) => number;
+const easeInExpo: Easing = (t) => (t === 0 ? 0 : 2 ** (10 * t - 10));
+const easeOutCubic: Easing = (t) => (t - 1) ** 3 + 1;
+const easeInQuart: Easing = (t) => t ** 4;
+const easeOutQuad: Easing = (t) => t * (2 - t);
+/** createAsymmetricEase: one curve into the midpoint, another out of it. */
+const asymmetric = (into: Easing, out: Easing): Easing => (t) => (t <= 0.5 ? 0.5 * into(t * 2) : 0.5 + 0.5 * out((t - 0.5) * 2));
+
+/** The app's presets (src/lib/easing): bezier handles (PRESET_BEZIERS) and the true function (functions.ts). */
+const PRESETS: ReadonlyArray<readonly [string, Bezier, Easing]> = [
+  ["easeInExpoOutCubic", [0.85, 0, 0.15, 1], asymmetric(easeInExpo, easeOutCubic)],
+  ["easeInOutExpo", [0.87, 0, 0.13, 1], (t) => (t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? 2 ** (20 * t - 10) / 2 : (2 - 2 ** (-20 * t + 10)) / 2)],
+  ["easeInQuartOutQuad", [0.8, 0, 0.2, 1], asymmetric(easeInQuart, easeOutQuad)],
+  ["easeInOutCubic", [0.65, 0, 0.35, 1], (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)],
+  ["easeInOutSine", [0.37, 0, 0.63, 1], (t) => -(Math.cos(Math.PI * t) - 1) / 2],
 ];
+
+/** easingPolyline(name, 100, 100, 50): the editor's overlay for a picked preset. */
+function easingPolyline(fn: Easing, samples = 50): string {
+  return Array.from({ length: samples + 1 }, (_, i) => {
+    const t = i / samples;
+    return `${(t * 100).toFixed(1)},${((1 - fn(t)) * 100).toFixed(1)}`;
+  }).join(" ");
+}
 
 /** The site's curve: M0 100 C 80.42 74.62, 18.32 13.77, 100 0. */
 const SITE_CURVE: Bezier = [0.8042, 0.2538, 0.1832, 0.8623];
@@ -293,15 +327,16 @@ export function EaseCurveNode({
   const [preset, setPreset] = useState<string | null>(null);
   const [duration, setDuration] = useState(1.5);
   const [expanded, setExpanded] = useState(true);
+  const following = PRESETS[(PRESETS.findIndex(([name]) => name === preset) + 1) % PRESETS.length];
+  const active = PRESETS.find(([name]) => name === preset);
   const nextPreset = () => {
-    const i = PRESETS.findIndex(([name]) => name === preset);
-    const [name, handles] = PRESETS[(i + 1) % PRESETS.length];
-    setPreset(name);
-    setCurve([...handles]);
+    setPreset(following[0]);
+    setCurve([...following[1]]);
   };
   return (
     <NodeCard
       {...shell}
+      resizable={resizeTo(shell.resizable, NODE_DEFAULT_W.easeCurve, 300)}
       onRun={onRun}
       title="Ease Curve"
       inputs={EASE_INPUTS}
@@ -320,7 +355,8 @@ export function EaseCurveNode({
             <button
               type="button"
               onClick={nextPreset}
-              title={`Next preset: ${PRESETS[(PRESETS.findIndex(([n]) => n === preset) + 1) % PRESETS.length][0]}`}
+              aria-label={`Presets, next: ${following[0]}`}
+              title={`Next preset: ${following[0]}`}
               className="nodrag nb-rounded-well nb-squircle nb-text-node h-[22px] bg-neutral-700 px-2 text-neutral-200 transition-colors hover:bg-neutral-600"
             >
               Presets
@@ -328,6 +364,7 @@ export function EaseCurveNode({
           </FieldRow>
           <BezierEditor
             value={curve}
+            easingCurve={active ? easingPolyline(active[2]) : undefined}
             onChange={(v) => {
               setCurve(v);
               setPreset(null);
@@ -345,7 +382,7 @@ export function EaseCurveNode({
     >
       <NodeVideo ref={ref} src={video.src} poster={video.poster} playing={playing && !shell.running} />
       {shell.running && (
-        <div className={cn("absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-900/70")}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-900/70">
           <LoadingOverlay className="relative inset-auto bg-transparent" />
           <span className="text-xs text-white">Processing...</span>
         </div>

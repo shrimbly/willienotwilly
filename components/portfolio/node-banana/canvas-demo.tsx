@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function NodeBananaCanvasDemo() {
   // Tabs mount when first opened and stay mounted (display:none) so drags survive a switch.
   const [opened, setOpened] = useState<string[]>(["mannequin"]);
   const untitled = useRef(0);
+  const refocus = useRef(false);
   const [entered, setEntered] = useState(false);
   const [touched, setTouched] = useState(false);
   if (inView && !entered) setEntered(true);
@@ -43,6 +44,7 @@ export function NodeBananaCanvasDemo() {
     show(id);
   };
   const closeTab = (id: string) => {
+    refocus.current = true;
     const index = tabs.findIndex((t) => t.id === id);
     const rest = tabs.filter((t) => t.id !== id);
     setOpened((o) => o.filter((x) => x !== id));
@@ -58,11 +60,17 @@ export function NodeBananaCanvasDemo() {
   };
   const touch = useCallback(() => setTouched(true), []);
 
+  // A closed tab takes its close button with it: hand focus to the tab shown next.
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+  }, [tabs, shown]);
+
   const env = (id: string): WorkflowEnv => ({
     active: active && id === shown,
     entered,
     reducedMotion,
-    touched,
     onInteract: touch,
   });
 
@@ -73,7 +81,10 @@ export function NodeBananaCanvasDemo() {
       aria-label="Node Banana desktop app with two workflows open on the canvas"
       onPointerDownCapture={touch}
     >
-      <p className="sr-only">Drag nodes or the canvas, hold Control or Command and scroll to zoom, and switch workflows with the tabs.</p>
+      <p className="sr-only">
+        Drag nodes or the canvas, hold Control or Command and scroll to zoom, and switch workflows with the tabs. A focused node moves with the arrow keys and
+        Enter selects it. The Agent button jumps to the agent panel demo further down the page.
+      </p>
       <AppWindow
         tabs={tabs}
         activeTab={shown}
@@ -81,14 +92,15 @@ export function NodeBananaCanvasDemo() {
         onTabClose={closeTab}
         onNewTab={newTab}
         framed={false}
-        className="[&_.nb-app\_\_frame]:rounded-b-[24px]"
+        // Concentric with the page tile's squircle corners (32px, 40px from sm), 5px inside them.
+        className="[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]"
         frameOverlay={
           <>
             <AgentPill className="absolute top-3 right-4 z-10" onClick={openAgentDemo} />
             <span
               aria-hidden
               className={cn(
-                "nb-font-mono nb-tracking-eyebrow nb-text-ink-3 pointer-events-none absolute top-4 left-5 z-10 text-[10px] uppercase transition-opacity duration-500 @max-md:hidden",
+                "nb-hero-hint nb-font-mono nb-tracking-eyebrow nb-text-ink-3 pointer-events-none absolute top-4 left-5 z-10 text-[10px] uppercase transition-opacity duration-500 @max-md:hidden",
                 touched && "opacity-0",
               )}
             >
@@ -121,10 +133,19 @@ function EmptyWorkflow({ env }: { env: WorkflowEnv }) {
   return <WorkflowCanvas view={view} env={env} />;
 }
 
-/** The pill opens the agent; on this page that is the agent panel demo further down. */
+/**
+ * The pill opens the agent; on this page that is the agent panel demo further
+ * down, so it works like a skip link: scroll there and move focus with it, so
+ * Tab carries on from the agent demo rather than jumping back up here.
+ */
 function openAgentDemo() {
-  const target = document.querySelector('[data-demo="node-banana-agent"]');
+  const target = document.querySelector<HTMLElement>('[data-demo="node-banana-agent"]');
   if (!target) return;
   const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" });
+  if (!target.hasAttribute("tabindex")) {
+    target.setAttribute("tabindex", "-1");
+    target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+  }
+  target.focus({ preventScroll: true });
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { MANNEQUIN_ORBIT_PROMPT, MANNEQUIN_PROMPT } from "@/lib/node-banana/canvas-workflows";
 
 import {
+  GENERATE_IMAGE_OUTPUTS,
+  GENERATE_VIDEO_OUTPUTS,
   GenerateImageNode,
   GenerateVideoNode,
   IMAGE_INPUT_INPUTS,
@@ -15,15 +17,13 @@ import {
   PROMPT_INPUTS,
   PROMPT_OUTPUTS,
   PromptNode,
-  useCanvasView,
   useNodeGraph,
-  type Bounds,
   type GraphEdgeSpec,
   type GraphNodeSpec,
   type SocketSpec,
 } from "../kit";
-import { IMAGE_MODEL_INPUTS, IMAGE_MODEL_OUTPUTS, PromptConstructorNode, SchemaFields, TEXT_SOCKETS, VIDEO_OUTPUTS, type ParamSpec } from "./nodes";
-import { downloadFile, driftTimeline, fitZoom, framedBounds, useWorkflowState, type Insets, type WorkflowEnv } from "./use-workflow";
+import { IMAGE_MODEL_INPUTS, PromptConstructorNode, SchemaFields, TEXT_SOCKETS, type ParamSpec } from "./nodes";
+import { downloadFile, saved, useWorkflowState, useWorkflowView, type PhoneLayout, type Placement, type WorkflowEnv } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Invisible Mannequin": the landing site's first tab (app-window.html), at
@@ -39,19 +39,25 @@ const SEEDANCE_INPUTS: SocketSpec[] = [
 const NODES: GraphNodeSpec[] = [
   { id: "imageInput-22", x: -375, y: 362, width: 444, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
   { id: "prompt-23", x: 170, y: 447, width: 320, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
-  { id: "nanoBanana-3", x: 539, y: 369, width: 387, inputs: IMAGE_MODEL_INPUTS, outputs: IMAGE_MODEL_OUTPUTS },
+  { id: "nanoBanana-3", x: 539, y: 369, width: 387, inputs: IMAGE_MODEL_INPUTS, outputs: GENERATE_IMAGE_OUTPUTS },
   { id: "promptConstructor-13", x: 1080, y: 514, width: 340, inputs: TEXT_SOCKETS, outputs: TEXT_SOCKETS },
-  { id: "generateVideo-17", x: 1522, y: 393, width: 300, inputs: SEEDANCE_INPUTS, outputs: VIDEO_OUTPUTS },
+  { id: "generateVideo-17", x: 1522, y: 393, width: 300, inputs: SEEDANCE_INPUTS, outputs: GENERATE_VIDEO_OUTPUTS },
 ];
 
-/** The site's phone layout (site.js PHONE_LAYOUTS.mannequin): two columns. */
-const PHONE_LAYOUT: Record<string, [number, number]> = {
-  "imageInput-22": [0, 0],
-  "prompt-23": [0, 680],
-  "nanoBanana-3": [520, 0],
-  "promptConstructor-13": [520, 640],
-  "generateVideo-17": [520, 900],
+/**
+ * Portrait tiles: the site's two columns (site.js PHONE_LAYOUTS.mannequin),
+ * rebalanced so all five nodes fit a 4/5 phone tile at once: the constructor
+ * moves under the prompt, the nodes take near-default widths, and the right
+ * column starts lower so the Agent pill sits over empty canvas. [x, y, width].
+ */
+const PHONE_LAYOUT: Record<string, Placement> = {
+  "imageInput-22": [0, 0, 300],
+  "prompt-23": [0, 497, 300],
+  "promptConstructor-13": [0, 860, 300],
+  "nanoBanana-3": [380, 151, 280],
+  "generateVideo-17": [380, 641, 280],
 };
+const PHONE: PhoneLayout = { place: (id) => PHONE_LAYOUT[id] ?? saved(NODES, id) };
 
 const EDGES: GraphEdgeSpec[] = [
   { id: "m-input-gen", from: "imageInput-22", fromHandle: "image", to: "nanoBanana-3", toHandle: "image-0" },
@@ -80,76 +86,9 @@ const SEEDANCE_PARAMS: ParamSpec[] = [
   { kind: "check", label: "Camera fixed", value: false },
 ];
 
-const WIDE_PAD: Insets = { top: 64, right: 28, bottom: 36, left: 28 };
-const PHONE_PAD: Insets = { top: 60, right: 8, bottom: 12, left: 8 };
-/** Phones: hold at the top, ease down to the far end, hold, ease back (site.js's drift, top-anchored). */
-const DRIFT = [
-  [0, 1800],
-  [1, 7000],
-  [1, 2400],
-  [0, 7000],
-] as const;
-
 export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
   const graph = useNodeGraph({ nodes: NODES, edges: EDGES });
-  const layout = useRef<"wide" | "phone">("wide");
-  const [phone, setPhone] = useState(false);
-  const [frame, setFrame] = useState("");
-  const view = useCanvasView({
-    fit: () => fitBounds(),
-    padding: 0,
-    minZoom: 0.1,
-    fitMinZoom: 0.05,
-    fitMaxZoom: 2,
-  });
-
-  // Called by the canvas on every resize until the visitor pans or zooms: a
-  // portrait tile takes the site's two-column phone layout, top-aligned.
-  function fitBounds(): Bounds | null {
-    if (view.width <= 0 || view.height <= 0) return null;
-    const compact = view.height > view.width * 0.9;
-    const want = compact ? "phone" : "wide";
-    if (layout.current !== want) {
-      layout.current = want;
-      for (const n of NODES) {
-        const [x, y] = compact ? PHONE_LAYOUT[n.id] : [n.x, n.y];
-        graph.moveTo(n.id, x, y);
-      }
-      setPhone(compact);
-    }
-    setFrame(`${Math.round(view.width)}x${Math.round(view.height)}`);
-    const b = graph.measure();
-    if (!b) return null;
-    if (compact) return framedBounds(view, b, Math.min(0.6, (view.width - PHONE_PAD.left - PHONE_PAD.right) / b.width), PHONE_PAD, "top");
-    return framedBounds(view, b, fitZoom(view, b, WIDE_PAD), WIDE_PAD);
-  }
-
-  // The phone drift: down the two columns and back, until the visitor touches the tile.
-  const elapsed = useRef(0);
-  const drifting = phone && env.active && !env.touched && !view.interacted;
-  useEffect(() => {
-    if (!drifting || !view.fit()) return;
-    const b = graph.measure();
-    if (!b) return;
-    const z = view.zoom.get();
-    const y0 = view.y.get();
-    const reach = Math.min(0, view.height - 12 - (y0 + (b.y + b.height) * z));
-    if (reach === 0) return;
-    const at = driftTimeline(DRIFT);
-    const origin = performance.now() - elapsed.current;
-    const { width, height } = view;
-    view.y.set(y0 + reach * at(elapsed.current));
-    let raf = requestAnimationFrame(function step(now) {
-      // A resize refits (and may leave the phone layout) before React restarts
-      // this effect: stop rather than write a stale offset over the new fit.
-      if (layout.current !== "phone" || view.width !== width || view.height !== height || view.interacted) return;
-      elapsed.current = now - origin;
-      view.y.set(y0 + reach * at(elapsed.current));
-      raf = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [drifting, frame, graph, view]);
-
+  const view = useWorkflowView(graph, NODES, PHONE);
   const { selected, setSelected, running, run } = useWorkflowState();
   const [cleared, setCleared] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -169,7 +108,7 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
   });
 
   return (
-    <WorkflowCanvas view={view} env={env} onPaneClick={() => setSelected(null)}>
+    <WorkflowCanvas view={view} graph={graph} env={env} onPaneClick={() => setSelected(null)}>
       <NoodleLayer
         id="hero-mannequin"
         graph={graph}
@@ -194,7 +133,7 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
         provider="openai"
         modelLabel="GPT Image 2.5 Flare"
         inputs={IMAGE_MODEL_INPUTS}
-        outputs={IMAGE_MODEL_OUTPUTS}
+        outputs={GENERATE_IMAGE_OUTPUTS}
         image={cleared ? null : { ...mannequin.jacket, alt: "The denim jacket, floating on white as if worn" }}
         settings={{ aspectRatio: "3:4" }}
         history={{ index: imageIndex, count: 7, onPrev: () => setImageIndex((i) => (i + 6) % 7), onNext: () => setImageIndex((i) => (i + 1) % 7) }}
@@ -210,7 +149,7 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
         title="Generate Video"
         modelLabel="Seedance 2.0 Fast Image to Video"
         inputs={SEEDANCE_INPUTS}
-        outputs={VIDEO_OUTPUTS}
+        outputs={GENERATE_VIDEO_OUTPUTS}
         video={mannequin.video}
         playing={env.active}
         history={{ index: videoIndex, count: 12, onPrev: () => setVideoIndex((i) => (i + 11) % 12), onNext: () => setVideoIndex((i) => (i + 1) % 12) }}
