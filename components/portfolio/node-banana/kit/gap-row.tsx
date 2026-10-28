@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, type ComponentPropsWithoutRef, type ReactNode, type RefObject } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,25 +19,26 @@ export function dotWindow(index: number, count: number): number[] {
   return Array.from({ length: MAX_DOTS }, (_, i) => start + i);
 }
 
-export interface CarouselControlsProps {
+export interface CarouselControlsProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   index: number;
   count: number;
   onPrev?: () => void;
   onNext?: () => void;
+  /** An item is loading (a run in flight): both arrows rest, disabled. */
+  loading?: boolean;
   /** Used in the button names: "Previous image". */
   noun?: string;
   /** Tighter, no dots: for sharing the gap row with a scrubber. */
   compact?: boolean;
-  className?: string;
 }
 
-/** ‹ ••●•• 3 / 5 › : the history carousel in the gap row. */
-export function CarouselControls({ index, count, onPrev, onNext, noun = "image", compact = false, className }: CarouselControlsProps) {
+/** ‹ ••●•• 3 / 5 › : the history carousel in the gap row. Other div props (a capture handler) go on its row. */
+export function CarouselControls({ index, count, onPrev, onNext, loading = false, noun = "image", compact = false, className, ...rest }: CarouselControlsProps) {
   if (count <= 1) return null;
   const safe = Math.min(Math.max(index, 0), count - 1);
   return (
-    <div className={cn("nodrag flex h-full items-center justify-center select-none", compact ? "gap-0.5" : "gap-1.5", className)}>
-      <NavButton title={`Previous ${noun}`} onClick={onPrev} dir="prev" />
+    <div {...rest} className={cn("nodrag flex h-full items-center justify-center select-none", compact ? "gap-0.5" : "gap-1.5", className)}>
+      <NavButton title={`Previous ${noun}`} onClick={onPrev} disabled={loading} dir="prev" />
       {!compact && (
         <div className="flex items-center gap-[3px]" aria-hidden>
           {dotWindow(safe, count).map((i) => (
@@ -51,19 +52,20 @@ export function CarouselControls({ index, count, onPrev, onNext, noun = "image",
       <span className={cn("nb-text-node text-center text-neutral-400 tabular-nums", compact ? "min-w-[28px]" : "min-w-[32px]")}>
         {`${safe + 1} / ${count}`}
       </span>
-      <NavButton title={`Next ${noun}`} onClick={onNext} dir="next" />
+      <NavButton title={`Next ${noun}`} onClick={onNext} disabled={loading} dir="next" />
     </div>
   );
 }
 
-function NavButton({ title, onClick, dir }: { title: string; onClick?: () => void; dir: "prev" | "next" }) {
+function NavButton({ title, onClick, disabled, dir }: { title: string; onClick?: () => void; disabled: boolean; dir: "prev" | "next" }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       title={title}
       aria-label={title}
-      className="nb-squircle flex h-5 w-5 items-center justify-center rounded-[6px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
+      className="nb-squircle flex h-5 w-5 items-center justify-center rounded-[6px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
     >
       {dir === "prev" ? <ChevronLeft size={12} strokeWidth={2} /> : <ChevronRight size={12} strokeWidth={2} />}
     </button>
@@ -113,6 +115,8 @@ export function ScrubRow({ videoRef, src, duration: fallback = 0, leading, trail
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("durationchange", onMeta);
     video.addEventListener("play", onPlay);
+    // "play" can come before a source is ready; "playing" confirms it, so the icon never lags.
+    video.addEventListener("playing", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("ended", onPause);
     if (video.readyState >= 1) onMeta();
@@ -122,6 +126,7 @@ export function ScrubRow({ videoRef, src, duration: fallback = 0, leading, trail
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("durationchange", onMeta);
       video.removeEventListener("play", onPlay);
+      video.removeEventListener("playing", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("ended", onPause);
     };

@@ -6,6 +6,7 @@ import { CircleAlert, Download, LoaderCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { useCanvas } from "./canvas";
+import { touchClaim, type TouchClaim } from "./touch";
 
 // What fills a node's media clip: src/components/nodes/ui/EmptyState.tsx,
 // Spinner.tsx, ErrorOverlay.tsx, HeightGrip.tsx, RunBatchChip.tsx, and the
@@ -173,7 +174,12 @@ export function PromptSurface({ value, onChange, placeholder = "Describe what to
   );
 }
 
-/** The text nodes' bottom-edge grip; drags the media height when `onChange` is given. */
+/**
+ * The text nodes' bottom-edge grip; drags the media height when `onChange` is
+ * given. A finger's vertical swipe on it scrolls the page (touch-action:
+ * pan-y), so on a touch screen it resizes only where the page passes on the
+ * drag; the arrow keys always work.
+ */
 export function HeightGrip({
   height,
   onChange,
@@ -188,7 +194,7 @@ export function HeightGrip({
   className?: string;
 }) {
   const view = useCanvas();
-  const start = useRef<{ y: number; h: number; z: number } | null>(null);
+  const start = useRef<{ y: number; h: number; z: number; touch: TouchClaim | null; resizing: boolean } | null>(null);
   const interactive = Boolean(onChange && height !== undefined);
   return (
     <div
@@ -202,22 +208,31 @@ export function HeightGrip({
       tabIndex={interactive ? 0 : undefined}
       className={cn(
         "nodrag group/grip absolute inset-x-0 bottom-0 flex h-4 items-end justify-center",
-        interactive && "cursor-ns-resize touch-none",
+        interactive && "cursor-ns-resize touch-pan-y",
         className,
       )}
       onPointerDown={(e) => {
-        if (!interactive) return;
+        if (!interactive || (e.pointerType === "mouse" && e.button !== 0)) return;
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { y: e.clientY, h: height ?? 0, z: view?.zoom.get() ?? 1 };
+        const touch = touchClaim(e);
+        start.current = { y: e.clientY, h: height ?? 0, z: view?.zoom.get() ?? 1, touch, resizing: !touch };
       }}
       onPointerMove={(e) => {
         const s = start.current;
         if (!s || !onChange) return;
+        // A finger may still be the start of a page scroll.
+        if (s.touch && !s.touch.move(e.clientX, e.clientY)) return;
+        s.resizing = true;
         onChange(Math.round(Math.min(max, Math.max(min, s.h + (e.clientY - s.y) / s.z))));
       }}
       onPointerUp={() => (start.current = null)}
-      onPointerCancel={() => (start.current = null)}
+      onPointerCancel={() => {
+        const s = start.current;
+        start.current = null;
+        // The page took the swipe after the grip had started to follow: put the height back.
+        if (s?.touch && s.resizing) onChange?.(s.h);
+      }}
       onKeyDown={(e) => {
         if (!onChange || height === undefined) return;
         const d = e.key === "ArrowDown" ? 10 : e.key === "ArrowUp" ? -10 : 0;

@@ -13,6 +13,7 @@ import { useReducedMotion, type MotionValue } from "motion/react";
 import { useCanvas } from "./canvas";
 import type { NodeGraph } from "./graph";
 import { TRAIL_EASE, TRAIL_MAX } from "./tokens";
+import { touchClaim, type TouchClaim } from "./touch";
 
 /** Pointer-downs on these never start a node drag (React Flow's `nodrag`). */
 export const NO_DRAG = "button,input,textarea,select,a,label,[contenteditable],[role='slider'],[data-nodrag],.nodrag";
@@ -32,11 +33,19 @@ function suppressNextClick() {
 
 export interface NodeDragOptions {
   disabled?: boolean;
-  /** Pointer went down on the node (React Flow selects on press). */
+  /**
+   * Pointer went down on the node (React Flow selects on press). A finger
+   * selects when it lifts (a tap or the end of its drag): a swipe the page
+   * takes for a scroll never selects.
+   */
   onSelect?: () => void;
   onDragStart?: () => void;
-  /** After a drag; `moved` is false for a plain click. */
-  onDragEnd?: (moved: boolean) => void;
+  /**
+   * After a press; `moved` is false for a plain click. `cancelled` is true
+   * when the browser took the gesture (pointercancel, e.g. a page scroll that
+   * started as a sideways drag); the node is then back where the press found it.
+   */
+  onDragEnd?: (moved: boolean, cancelled?: boolean) => void;
   /** Rewrite a proposed position (snapping, bounds). */
   constrain?: (x: number, y: number) => { x: number; y: number };
 }
@@ -49,6 +58,10 @@ interface Press {
   y: number;
   zoom: number;
   moved: boolean;
+  /** Touch only: whether the press is a sideways drag (the demo's) yet. */
+  touch: TouchClaim | null;
+  /** onSelect has fired for this press (on press for a mouse or pen, on release for a finger). */
+  selected: boolean;
   /** The node: it takes the pointer capture once the press becomes a drag. */
   el: HTMLElement;
   /** Drops the window listeners that end a press released off the node. */
@@ -70,15 +83,27 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
   });
   useEffect(() => () => state.current?.detach(), []);
 
-  const finish = useCallback((pointerId: number) => {
-    const s = state.current;
-    if (!s || s.pointerId !== pointerId) return;
-    state.current = null;
-    s.detach();
-    setDragging(false);
-    if (s.moved) suppressNextClick();
-    opts.current.onDragEnd?.(s.moved);
-  }, []);
+  const finish = useCallback(
+    (pointerId: number, cancelled: boolean) => {
+      const s = state.current;
+      if (!s || s.pointerId !== pointerId) return;
+      state.current = null;
+      s.detach();
+      setDragging(false);
+      if (cancelled) {
+        // A finger the page took before it dragged anything was only ever scrolling.
+        if (s.touch && !s.moved) return;
+        // The browser took the gesture after the node had started to follow: put it back.
+        if (s.moved && graph && id) graph.moveTo(id, s.x, s.y);
+        opts.current.onDragEnd?.(false, true);
+        return;
+      }
+      if (!s.selected) opts.current.onSelect?.();
+      if (s.moved) suppressNextClick();
+      opts.current.onDragEnd?.(s.moved);
+    },
+    [graph, id],
+  );
 
   const move = useCallback(
     (x: number, y: number) => {
@@ -96,13 +121,14 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
       if ((event.target as Element).closest(NO_DRAG)) return;
       const node = graph.node(id);
       if (!node) return;
-      opts.current.onSelect?.();
+      const touch = touchClaim(event);
+      if (!touch) opts.current.onSelect?.();
       state.current?.detach();
       // The pointer is only captured once the press turns into a drag: capturing
       // on press would retarget the click to the node, so a summary row or any
       // other clickable content inside it would never hear it.
       const { pointerId } = event;
-      const release = (up: PointerEvent) => finish(up.pointerId);
+      const release = (up: PointerEvent) => finish(up.pointerId, up.type === "pointercancel");
       window.addEventListener("pointerup", release, true);
       window.addEventListener("pointercancel", release, true);
       state.current = {
@@ -113,6 +139,8 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
         y: node.y.get(),
         zoom: view?.zoom.get() ?? 1,
         moved: false,
+        touch,
+        selected: !touch,
         el: event.currentTarget,
         detach: () => {
           window.removeEventListener("pointerup", release, true);
@@ -129,13 +157,15 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
       if (!s || event.pointerId !== s.pointerId) return;
       // A mouse released outside the window never sends its pointerup.
       if (event.pointerType === "mouse" && event.buttons === 0) {
-        finish(s.pointerId);
+        finish(s.pointerId, false);
         return;
       }
       const dx = event.clientX - s.px;
       const dy = event.clientY - s.py;
       if (!s.moved) {
         if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+        // A finger may still be the start of a page scroll.
+        if (s.touch && !s.touch.move(event.clientX, event.clientY)) return;
         s.moved = true;
         try {
           s.el.setPointerCapture(s.pointerId);
@@ -150,7 +180,7 @@ export function useNodeDrag(graph: NodeGraph | null | undefined, id: string | un
     [move, finish],
   );
 
-  const end = useCallback((event: ReactPointerEvent<HTMLElement>) => finish(event.pointerId), [finish]);
+  const end = useCallback((event: ReactPointerEvent<HTMLElement>) => finish(event.pointerId, event.type === "pointercancel"), [finish]);
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {

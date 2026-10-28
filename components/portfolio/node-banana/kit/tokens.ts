@@ -51,6 +51,7 @@ export const NODE_DEFAULT_W = {
   llmGenerate: 320,
   editVideo: 400,
   easeCurve: 340,
+  splitGrid: 300,
   router: 200,
   switch: 220,
   output: 320,

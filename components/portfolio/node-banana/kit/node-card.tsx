@@ -19,6 +19,7 @@ import { useGraphVersion, type NodeGraph } from "./graph";
 import { ProviderBadge, type ProviderId } from "./provider-badge";
 import { Socket, type SocketOutline } from "./socket";
 import { CONTROLS_GAP, GAP_ROW_H, NODE_MIN_W } from "./tokens";
+import { touchClaim, type TouchClaim } from "./touch";
 import { useNodeDrag, useTrailingOffset } from "./use-node-drag";
 
 // The node anatomy every node type is built from (src/components/nodes/
@@ -35,6 +36,13 @@ export interface NodeResize {
   defaultWidth?: number;
   /** Double-clicking a resize edge calls this instead (it wins over defaultWidth). */
   onReset?: () => void;
+  /**
+   * A resize begins: a press on an edge (a finger once its drag is sideways),
+   * an arrow-key step, or a double-click reset. Hold a camera or a spring here.
+   */
+  onResizeStart?: (side: "left" | "right") => void;
+  /** It ends (release, a step applied, the reset done); the node's width and position are final. */
+  onResizeEnd?: (side: "left" | "right") => void;
 }
 
 export interface NodeCardProps {
@@ -246,7 +254,8 @@ export function NodeCard(props: NodeCardProps) {
  * An invisible 16px ew-resize strip centred on the node's edge (React Flow's
  * line resize control, as NodeShell uses it), with arrow keys for keyboards.
  * A double-click restores the default width, keeping the left edge put as
- * React Flow does.
+ * React Flow does. A finger resizes with a sideways drag; a vertical swipe on
+ * the strip scrolls the page (touch-action: pan-y).
  */
 function ResizeEdge({
   side,
@@ -256,17 +265,32 @@ function ResizeEdge({
   max = 1200,
   defaultWidth,
   onReset,
+  onResizeStart,
+  onResizeEnd,
 }: NodeResize & { side: "left" | "right"; graph: NodeGraph; id: string }) {
   const view = useCanvas();
-  const start = useRef<{ px: number; w: number; x: number; y: number; z: number } | null>(null);
+  const start = useRef<{ px: number; w: number; x: number; y: number; z: number; touch: TouchClaim | null; resizing: boolean } | null>(null);
   const apply = (s: { w: number; x: number; y: number }, delta: number) => {
     const w = Math.round(Math.min(max, Math.max(min, side === "right" ? s.w + delta : s.w - delta)));
     graph.setWidth(id, w);
     if (side === "left") graph.moveTo(id, s.x + (s.w - w), s.y);
   };
   const reset = () => {
+    onResizeStart?.(side);
     if (onReset) onReset();
     else if (defaultWidth !== undefined) graph.setWidth(id, Math.round(Math.min(max, Math.max(min, defaultWidth))));
+    onResizeEnd?.(side);
+  };
+  const end = (cancelled: boolean) => {
+    const s = start.current;
+    start.current = null;
+    if (!s?.resizing) return;
+    // The page took a finger's swipe after the edge had started to follow: put the node back.
+    if (cancelled && s.touch) {
+      graph.setWidth(id, s.w);
+      graph.moveTo(id, s.x, s.y);
+    }
+    onResizeEnd?.(side);
   };
   return (
     <div
@@ -275,20 +299,29 @@ function ResizeEdge({
       aria-label={side === "left" ? "Resize node from the left" : "Resize node"}
       tabIndex={0}
       data-nodrag=""
-      className={cn("absolute top-0 bottom-0 z-[3] w-4 cursor-ew-resize touch-none", side === "left" ? "-left-2" : "-right-2")}
+      className={cn("absolute top-0 bottom-0 z-[3] w-4 cursor-ew-resize touch-pan-y", side === "left" ? "-left-2" : "-right-2")}
       onPointerDown={(e) => {
         const node = graph.node(id);
-        if (!node) return;
+        if (!node || (e.pointerType === "mouse" && e.button !== 0)) return;
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { px: e.clientX, w: node.width.get(), x: node.x.get(), y: node.y.get(), z: view?.zoom.get() ?? 1 };
+        const touch = touchClaim(e);
+        start.current = { px: e.clientX, w: node.width.get(), x: node.x.get(), y: node.y.get(), z: view?.zoom.get() ?? 1, touch, resizing: !touch };
+        if (!touch) onResizeStart?.(side);
       }}
       onPointerMove={(e) => {
         const s = start.current;
-        if (s) apply(s, (e.clientX - s.px) / s.z);
+        if (!s) return;
+        // A finger may still be the start of a page scroll.
+        if (s.touch && !s.touch.move(e.clientX, e.clientY)) return;
+        if (!s.resizing) {
+          s.resizing = true;
+          onResizeStart?.(side);
+        }
+        apply(s, (e.clientX - s.px) / s.z);
       }}
-      onPointerUp={() => (start.current = null)}
-      onPointerCancel={() => (start.current = null)}
+      onPointerUp={() => end(false)}
+      onPointerCancel={() => end(true)}
       onDoubleClick={(e) => {
         if (!onReset && defaultWidth === undefined) return;
         e.stopPropagation();
@@ -300,7 +333,9 @@ function ResizeEdge({
         if (!node || !d) return;
         e.preventDefault();
         e.stopPropagation();
+        onResizeStart?.(side);
         apply({ w: node.width.get(), x: node.x.get(), y: node.y.get() }, d);
+        onResizeEnd?.(side);
       }}
     />
   );
@@ -415,7 +450,8 @@ export function NodeHeader({
           ) : (
             <span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold tracking-wide text-neutral-400 uppercase" title={title}>
               {titleLogo}
-              {titleLogo ? subtitle && <span className="truncate normal-case">{subtitle}</span> : title}
+              {/* Its own box: text-overflow never applies to a flex container's bare text. */}
+              {titleLogo ? subtitle && <span className="truncate normal-case">{subtitle}</span> : <span className="truncate">{title}</span>}
             </span>
           )}
         </div>
@@ -526,17 +562,110 @@ export function GhostButton({
   );
 }
 
-/** A keycap (src/components/ui/Kbd.tsx, xs size). */
-export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
+/** Names worth drawing as their symbol (src/components/ui/Kbd.tsx). Modifier words the platforms differ on (Ctrl) stay words. */
+const KEY_SYMBOLS: Record<string, string> = {
+  shift: "⇧",
+  cmd: "⌘",
+  command: "⌘",
+  meta: "⌘",
+  alt: "⌥",
+  option: "⌥",
+  enter: "↵",
+  return: "↵",
+  backspace: "⌫",
+  delete: "⌫",
+  tab: "⇥",
+  escape: "Esc",
+  space: "Space",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+};
+
+/** The symbols that can lead a compact shortcut like "⇧G" or "⌘↵". */
+const MODIFIER_GLYPHS = "⌘⇧⌥⌃";
+/** Glyphs that are each a whole key. */
+const KEY_GLYPHS = MODIFIER_GLYPHS + "↑↓←→↵⏎⌫⇥⎋";
+
+/**
+ * One cap per key, as the app splits a shortcut: "⇧⌘Z" → ⇧ ⌘ Z, "⌘↵" → ⌘ ↵,
+ * "↑↓" → ↑ ↓, "Ctrl+K" → Ctrl K. A label that is not a key ("Hold H") stays whole.
+ */
+export function splitKeys(input: string): string[] {
+  const keys: string[] = [];
+  for (const part of input.includes("+") ? input.split("+") : [input]) {
+    let rest = part.trim();
+    if (!rest) continue;
+    if (rest.length > 1 && [...rest].every((char) => KEY_GLYPHS.includes(char))) {
+      keys.push(...rest);
+      continue;
+    }
+    while (rest.length > 1 && MODIFIER_GLYPHS.includes(rest[0])) {
+      keys.push(rest[0]);
+      rest = rest.slice(1);
+    }
+    if (rest) keys.push(rest);
+  }
+  return keys;
+}
+
+export type KbdSize = "xs" | "sm" | "md";
+
+const KBD_SIZE: Record<KbdSize, string> = {
+  xs: "h-4 min-w-4 rounded-[3px] px-[3px] text-[10px]",
+  sm: "h-[18px] min-w-[18px] rounded px-1 text-[11px]",
+  md: "h-[22px] min-w-[22px] rounded px-1.5 text-xs",
+};
+
+/**
+ * A keycap (src/components/ui/Kbd.tsx): xs by default, in neutral-400 as the
+ * header menu and hover labels draw it. Key names ("shift", "enter") become
+ * their symbols. The face is the app's system stack, not the portfolio's sans.
+ */
+export function Kbd({ children, size = "xs", className }: { children: ReactNode; size?: KbdSize; className?: string }) {
+  const label = typeof children === "string" ? (KEY_SYMBOLS[children.toLowerCase()] ?? children) : children;
   return (
     <kbd
       className={cn(
-        "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-white/8 bg-white/8 px-[3px] font-sans text-[10px] leading-none font-medium text-neutral-400",
+        "inline-flex items-center justify-center border border-white/8 bg-white/8 font-[family-name:var(--nb-font-ui)] leading-none font-medium text-neutral-400 select-none",
+        KBD_SIZE[size],
         className,
       )}
     >
-      {children}
+      {label}
     </kbd>
+  );
+}
+
+/**
+ * The caps of one shortcut (KbdGroup): from a compact string ("⇧⌘Z",
+ * "Ctrl+K") or a list. The 2px gap is the header menu's and hover label's;
+ * `capClassName` goes on every cap.
+ */
+export function KbdGroup({
+  keys,
+  size = "xs",
+  className,
+  capClassName,
+  children,
+}: {
+  keys: string | ReadonlyArray<string>;
+  size?: KbdSize;
+  className?: string;
+  capClassName?: string;
+  children?: ReactNode;
+}) {
+  const list = typeof keys === "string" ? splitKeys(keys) : keys;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 whitespace-nowrap", className)}>
+      {list.map((key, index) => (
+        <Kbd key={`${key}-${index}`} size={size} className={capClassName}>
+          {key}
+        </Kbd>
+      ))}
+      {children}
+    </span>
   );
 }
 
@@ -565,13 +694,7 @@ export function MenuRow({
       <span className="flex w-[11px] shrink-0 items-center justify-center text-current">{icon}</span>
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis">{children}</span>
       {meta && <span className="nb-font-mono nb-text-ink-3 text-[9px]">{meta}</span>}
-      {keys && (
-        <span className="flex items-center gap-0.5">
-          {keys.map((k) => (
-            <Kbd key={k}>{k}</Kbd>
-          ))}
-        </span>
-      )}
+      {keys && <KbdGroup keys={keys} />}
       {set && <span className="h-[5px] w-[5px] rounded-full bg-blue-400" />}
     </button>
   );

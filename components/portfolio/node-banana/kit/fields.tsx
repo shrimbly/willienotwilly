@@ -78,6 +78,8 @@ interface ListPlace {
   host: HTMLElement;
   scale: number;
   left: number;
+  /** The trigger's right edge: a list aligned to the end ends here. */
+  right: number;
   /** Top of a list that opens downward. */
   top: number;
   /** Bottom offset of a list that opens upward. */
@@ -105,6 +107,18 @@ function visibleRect(el: HTMLElement) {
   return { top, left, bottom, right };
 }
 
+/**
+ * Client px the list keeps clear at the top and bottom of the visible area:
+ * the `inset` prop, else `--nb-list-inset-top` / `--nb-list-inset-bottom`
+ * (unitless px) set on any ancestor, so a demo whose chrome covers part of
+ * the canvas (a run bar, a legend) declares it once for every dropdown in it.
+ */
+function listInsets(trigger: HTMLElement, inset: SelectWellProps["inset"]) {
+  const style = getComputedStyle(trigger);
+  const read = (name: string) => parseFloat(style.getPropertyValue(name)) || 0;
+  return { top: inset?.top ?? read("--nb-list-inset-top"), bottom: inset?.bottom ?? read("--nb-list-inset-bottom") };
+}
+
 export interface SelectWellProps {
   value: string;
   options: ReadonlyArray<SelectOption | string>;
@@ -113,6 +127,24 @@ export interface SelectWellProps {
   placeholder?: string;
   className?: string;
   "aria-label"?: string;
+  /** Hover text on the trigger. */
+  title?: string;
+  /**
+   * Replaces the well's content (the value and its chevron), for an icon
+   * trigger like the app's Dropdown with a custom trigger. Style it with
+   * `triggerClassName`, which then replaces the well's look.
+   */
+  trigger?: ReactNode;
+  triggerClassName?: string;
+  /** The list's own name (default: the trigger's aria-label). */
+  listLabel?: string;
+  /** Line the list up with the trigger's start (default) or end edge. */
+  align?: "start" | "end";
+  /**
+   * Client px at the top or bottom of the visible area the list keeps clear of
+   * (a floating bar). Defaults to --nb-list-inset-top / -bottom on an ancestor.
+   */
+  inset?: { top?: number; bottom?: number };
 }
 
 /**
@@ -122,7 +154,21 @@ export interface SelectWellProps {
  * It opens upward when the tile has more room above the trigger than below,
  * and scrolls when neither side has room for all of it.
  */
-export function SelectWell({ value, options, onChange, disabled, placeholder, className, ...rest }: SelectWellProps) {
+export function SelectWell({
+  value,
+  options,
+  onChange,
+  disabled,
+  placeholder,
+  className,
+  title,
+  trigger: triggerContent,
+  triggerClassName,
+  listLabel,
+  align = "start",
+  inset,
+  ...rest
+}: SelectWellProps) {
   // Only used while the list is open, which never happens on the server.
   const listId = `nb-list-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const list = normalize(options);
@@ -150,16 +196,18 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
     const t = trigger.getBoundingClientRect();
     const scale = host.offsetWidth > 0 ? h.width / host.offsetWidth : 1;
     const clip = visibleRect(host);
+    const keep = listInsets(trigger, inset);
     setPlace({
       host,
       scale,
       left: (t.left - h.left) / scale,
+      right: (t.right - h.left) / scale,
       top: (t.bottom - h.top) / scale + LIST_GAP,
       bottom: host.offsetHeight - (t.top - h.top) / scale + LIST_GAP,
       minWidth: Math.max(t.width / scale, 160),
       room: {
-        above: (t.top - clip.top) / scale - LIST_GAP - LIST_MARGIN,
-        below: (clip.bottom - t.bottom) / scale - LIST_GAP - LIST_MARGIN,
+        above: (t.top - clip.top - keep.top) / scale - LIST_GAP - LIST_MARGIN,
+        below: (clip.bottom - keep.bottom - t.bottom) / scale - LIST_GAP - LIST_MARGIN,
         leftEdge: (clip.left - h.left) / scale + LIST_MARGIN,
         rightEdge: (clip.right - h.left) / scale - LIST_MARGIN,
       },
@@ -182,12 +230,13 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
     // The scroll area sits inside the surface's 1px border.
     if (height > space) scroller.style.maxHeight = `${Math.max(LIST_MIN_H, Math.min(LIST_MAX_H, space - 2))}px`;
     const width = el.offsetWidth;
-    const left = place.left + width > room.rightEdge ? Math.max(room.leftEdge, room.rightEdge - width) : place.left;
+    const start = align === "end" ? place.right - width : place.left;
+    const left = start + width > room.rightEdge ? Math.max(room.leftEdge, room.rightEdge - width) : Math.max(room.leftEdge, start);
     el.style.left = `${left}px`;
     el.style.top = up ? "" : `${place.top}px`;
     el.style.bottom = up ? `${place.bottom}px` : "";
     el.dataset.side = up ? "top" : "bottom";
-  }, [place]);
+  }, [place, align]);
 
   const pick = (o: SelectOption) => {
     if (o.disabled) return;
@@ -263,22 +312,35 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
         aria-label={rest["aria-label"]}
+        title={title}
+        data-open={open ? "" : undefined}
         disabled={disabled}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
-        className={cn(
-          "nodrag nb-rounded-well nb-squircle nb-bg-well nb-shadow-well nb-text-node flex h-[22px] w-full min-w-0 cursor-pointer items-center justify-between gap-1.5 pr-[6px] pl-[7px] text-left text-neutral-200 transition-colors hover:enabled:bg-[#1f1f1f] focus:ring-1 focus:ring-neutral-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-          open && "ring-1 ring-neutral-600",
-        )}
+        className={
+          triggerContent !== undefined
+            ? cn("nodrag cursor-pointer disabled:cursor-not-allowed disabled:opacity-50", triggerClassName)
+            : cn(
+                "nodrag nb-rounded-well nb-squircle nb-bg-well nb-shadow-well nb-text-node flex h-[22px] w-full min-w-0 cursor-pointer items-center justify-between gap-1.5 pr-[6px] pl-[7px] text-left text-neutral-200 transition-colors hover:enabled:bg-[#1f1f1f] focus:ring-1 focus:ring-neutral-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                open && "ring-1 ring-neutral-600",
+                triggerClassName,
+              )
+        }
       >
-        <span className={cn("min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap", !selected && "text-neutral-500")}>
-          {selected ? selected.label : (placeholder ?? "")}
-        </span>
-        <ChevronDown
-          size={10}
-          strokeWidth={2.5}
-          className={cn("shrink-0 transition-transform duration-150", open ? "rotate-180 text-neutral-300" : "text-neutral-500")}
-        />
+        {triggerContent !== undefined ? (
+          triggerContent
+        ) : (
+          <>
+            <span className={cn("min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap", !selected && "text-neutral-500")}>
+              {selected ? selected.label : (placeholder ?? "")}
+            </span>
+            <ChevronDown
+              size={10}
+              strokeWidth={2.5}
+              className={cn("shrink-0 transition-transform duration-150", open ? "rotate-180 text-neutral-300" : "text-neutral-500")}
+            />
+          </>
+        )}
       </button>
       {open &&
         place &&
@@ -287,7 +349,7 @@ export function SelectWell({ value, options, onChange, disabled, placeholder, cl
             ref={listRef}
             id={listId}
             role="listbox"
-            aria-label={rest["aria-label"]}
+            aria-label={listLabel ?? rest["aria-label"]}
             className="nodrag nb-menu-surface nb-drop-in nb-font-ui overflow-hidden outline-none"
             style={{ position: "absolute", zIndex: 60, minWidth: place.minWidth, maxWidth: 280 }}
             onKeyDown={onKeyDown}
@@ -360,6 +422,7 @@ export interface NumberFieldProps {
   trailing?: ReactNode;
 }
 
+/** A number well; `trailing` (a mode button) sits after it but outside the label, so its name stays its own. */
 export function NumberField({ label, value, onChange, min, max, step = 0.1, unit, trailing }: NumberFieldProps) {
   const [text, setText] = useState<string | null>(null);
   const commit = () => {
@@ -369,34 +432,36 @@ export function NumberField({ label, value, onChange, min, max, step = 0.1, unit
     if (Number.isNaN(n)) return;
     onChange(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n)));
   };
-  return (
-    <Field label={label}>
-      <div className="flex min-w-0 items-center gap-1">
-        <div className="relative min-w-0 flex-1">
-          <input
-            type="number"
-            value={text ?? String(value)}
-            min={min}
-            max={max}
-            step={step}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className={cn(
-              wellClass,
-              "tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-              unit && "pr-6",
-            )}
-          />
-          {unit && (
-            <span className="nb-text-node pointer-events-none absolute top-1/2 right-[7px] -translate-y-1/2 text-neutral-500">{unit}</span>
+  const field = (
+    <Field label={label} className={trailing != null ? "min-w-0 flex-1" : undefined}>
+      <div className="relative min-w-0">
+        <input
+          type="number"
+          value={text ?? String(value)}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className={cn(
+            wellClass,
+            "tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+            unit && "pr-6",
           )}
-        </div>
-        {trailing}
+        />
+        {unit && <span className="nb-text-node pointer-events-none absolute top-1/2 right-[7px] -translate-y-1/2 text-neutral-500">{unit}</span>}
       </div>
     </Field>
+  );
+  if (trailing == null) return field;
+  return (
+    <div className="flex h-[22px] min-w-0 items-center gap-1">
+      {field}
+      {trailing}
+    </div>
   );
 }
 

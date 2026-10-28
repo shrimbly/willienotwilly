@@ -1,7 +1,20 @@
 export { NbRoot, type NbRootProps } from "./nb-root";
 export { Canvas, CanvasView, useCanvas, useCanvasView, type CanvasProps, type CanvasViewOptions, type Padding } from "./canvas";
 export { NodeGraph, useGraphVersion, useNodeGraph, type GraphEdgeSpec, type GraphNode, type GraphNodeSpec } from "./graph";
-export { NodeCard, NodeHeader, GhostButton, MenuRow, MenuDivider, Kbd, type NodeCardProps, type NodeMedia, type NodeResize } from "./node-card";
+export {
+  NodeCard,
+  NodeHeader,
+  GhostButton,
+  MenuRow,
+  MenuDivider,
+  Kbd,
+  KbdGroup,
+  splitKeys,
+  type KbdSize,
+  type NodeCardProps,
+  type NodeMedia,
+  type NodeResize,
+} from "./node-card";
 export { ControlsCard, SummaryValues, ellipsisClass, type ControlsCardProps, type SummaryRowProps } from "./controls-card";
 export {
   Field,
@@ -14,7 +27,9 @@ export {
   ChipGroup,
   PanelButton,
   wellClass,
+  type NumberFieldProps,
   type SelectOption,
+  type SelectWellProps,
   type ChipOption,
 } from "./fields";
 export { CarouselControls, ScrubRow, dotWindow, formatTime, type CarouselControlsProps, type ScrubRowProps } from "./gap-row";
@@ -84,6 +99,8 @@ export {
   type RunSplitButtonProps,
 } from "./window-chrome";
 export { useNodeDrag, useTrailingOffset, NO_DRAG, type NodeDragOptions } from "./use-node-drag";
+export { TouchClaim, touchClaim } from "./touch";
+export { DemoHint, type DemoHintCorner, type DemoHintProps } from "./demo-hint";
 export {
   assignSocketRows,
   autoControlsWidth,

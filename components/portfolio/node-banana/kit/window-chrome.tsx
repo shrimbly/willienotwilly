@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { ChevronDown, LoaderCircle, Play, Plus, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -84,7 +84,7 @@ export function ViewToggle({ label, icon, shown = false, onToggle }: { label: st
       aria-pressed={shown}
       title={label}
       className={cn(
-        "relative flex h-[30px] shrink-0 items-center gap-1.5 rounded-t-lg text-xs whitespace-nowrap",
+        "relative flex h-[30px] shrink-0 items-center gap-1.5 rounded-t-lg text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none",
         shown ? "nb-bg-pane -mb-0.5 h-[32px] px-3 text-neutral-100" : "w-[34px] justify-center text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200",
       )}
     >
@@ -122,8 +122,28 @@ export interface AppWindowProps {
 }
 
 /**
+ * Arrow keys between the workflow tabs (WAI-ARIA tabs, automatic activation):
+ * Left/Right wrap, Home/End jump; tabs hidden at the current width are skipped.
+ */
+function onTabKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, onTabChange?: (id: string) => void) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const list = event.currentTarget.closest('[role="tablist"]');
+  if (!list) return;
+  const tabs = [...list.querySelectorAll<HTMLButtonElement>('[role="tab"]')].filter((tab) => tab.getClientRects().length > 0);
+  const at = tabs.indexOf(event.currentTarget);
+  if (at < 0 || tabs.length < 2) return;
+  event.preventDefault();
+  const n = tabs.length;
+  const next = event.key === "Home" ? 0 : event.key === "End" ? n - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + n) % n;
+  const tab = tabs[next];
+  tab.focus();
+  if (tab.dataset.tabId) onTabChange?.(tab.dataset.tabId);
+}
+
+/**
  * The Node Banana desktop window: lights, the tab strip (the shown tab flows
- * into the canvas frame through its ears) and the canvas frame.
+ * into the canvas frame through its ears) and the canvas frame. The tabs rove:
+ * only the shown one is in the Tab order, the arrow keys move between them.
  */
 export function AppWindow({
   tabs,
@@ -140,6 +160,8 @@ export function AppWindow({
   frameOverlay,
 }: AppWindowProps) {
   const shownIndex = tabs.findIndex((t) => t.id === activeTab);
+  // With no tab shown (another view is up), the first takes the Tab stop.
+  const stopIndex = Math.max(0, shownIndex);
   return (
     <div
       className={cn("nb-app absolute inset-0", className)}
@@ -176,7 +198,10 @@ export function AppWindow({
                 type="button"
                 role="tab"
                 aria-selected={shown}
+                tabIndex={index === stopIndex ? 0 : -1}
+                data-tab-id={tab.id}
                 onClick={() => onTabChange?.(tab.id)}
+                onKeyDown={(event) => onTabKeyDown(event, onTabChange)}
                 className={cn(
                   "min-w-0 flex-1 truncate rounded-sm pr-5 text-left focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none",
                   !tab.label && "text-neutral-500 italic",
@@ -232,7 +257,8 @@ export function HarnessMarks({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center", className)} aria-hidden>
       <ClaudeMark className="size-4" />
-      <span className="-ml-1 flex [filter:drop-shadow(0_0_1.5px_#262626)]">
+      {/* The cloud overlaps the spark; the shadow in the card's grey keeps them apart. */}
+      <span className="-ml-1 flex [filter:drop-shadow(0_0_1.5px_#262626)_drop-shadow(0_0_1px_#262626)]">
         <CodexMark className="size-4" />
       </span>
     </span>
@@ -245,25 +271,37 @@ export function AgentPill({
   busy = false,
   onClick,
   className,
+  title,
+  "aria-label": ariaLabel,
 }: {
   label?: string;
   busy?: boolean;
   onClick?: () => void;
   className?: string;
+  /** Hover text (the app sets none). */
+  title?: string;
+  /** The button's name; the app's are "Open agent" and, while busy, "Agent — working". */
+  "aria-label"?: string;
 }) {
   return (
     <div className={cn(CHROME_SURFACE, "flex h-10 items-center rounded-xl px-1", className)}>
       <button
         type="button"
         onClick={onClick}
-        aria-label={busy ? "Agent working" : "Open the agent"}
-        className={cn(CHROME_ICON_BUTTON, "relative h-8 gap-2 pr-[11px] pl-2.5 text-xs font-medium text-neutral-200")}
+        aria-label={ariaLabel ?? (busy ? "Agent — working" : "Open agent")}
+        title={title}
+        className={cn(CHROME_ICON_BUTTON, "h-8 gap-2 pr-[11px] pl-2.5 text-xs font-medium text-neutral-200")}
       >
-        <HarnessMarks />
-        {busy ? "Working…" : label}
-        {busy && (
-          <span className="absolute top-1 left-1 size-[7px] animate-pulse rounded-full bg-[#D97757] shadow-[0_0_0_4px_rgba(217,119,87,0.2)] ring-2 ring-neutral-800 motion-reduce:animate-none" />
-        )}
+        <span className="relative flex shrink-0 items-center">
+          <HarnessMarks />
+          {busy && (
+            <span
+              aria-hidden
+              className="absolute -top-1 -right-1 size-[7px] rounded-full bg-[#D97757] shadow-[0_0_0_4px_rgba(217,119,87,0.2)] ring-2 ring-neutral-800 motion-safe:animate-pulse"
+            />
+          )}
+        </span>
+        <span>{busy ? "Working…" : label}</span>
       </button>
     </div>
   );
@@ -291,6 +329,8 @@ export function RunSplitButton({ onRun, onMenu, menuOpen = false, runCount = 1, 
     <div
       className={cn(
         "nb-squircle relative flex h-9 items-stretch overflow-hidden rounded-lg transition-[background-color,box-shadow,transform] duration-[120ms] ease-out",
+        // The app's split button draws no focus of its own; the portfolio's keyboard visitors need one.
+        "has-[[data-run]:focus-visible]:outline-2 has-[[data-run]:focus-visible]:outline-offset-2 has-[[data-run]:focus-visible]:outline-blue-500",
         disabled && !busy
           ? "bg-white/8 text-neutral-500"
           : "bg-neutral-50 text-neutral-900 hover:bg-white hover:shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.3)] active:scale-[0.97] active:bg-neutral-200",
@@ -302,6 +342,7 @@ export function RunSplitButton({ onRun, onMenu, menuOpen = false, runCount = 1, 
         onClick={onRun}
         disabled={disabled && !busy}
         aria-label={batch ? `Stop, run ${batch.index} of ${batch.count}` : running ? "Stop" : runCount > 1 ? `Run ${runCount} times` : "Run"}
+        data-run=""
         className="flex items-center gap-1.5 pr-3.5 pl-3 text-[13px] font-semibold whitespace-nowrap focus-visible:outline-none disabled:cursor-not-allowed"
       >
         {busy ? <LoaderCircle size={16} strokeWidth={3} className="animate-spin" /> : <Play size={18} strokeWidth={0} fill="currentColor" />}
@@ -321,7 +362,7 @@ export function RunSplitButton({ onRun, onMenu, menuOpen = false, runCount = 1, 
           aria-label="Run options"
           title="Run options"
           className={cn(
-            "flex w-7 items-center justify-center border-l border-black/10 transition-colors duration-[120ms] focus-visible:outline-none",
+            "flex w-7 items-center justify-center border-l border-black/10 transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none focus-visible:ring-inset",
             menuOpen && "bg-neutral-200",
           )}
         >

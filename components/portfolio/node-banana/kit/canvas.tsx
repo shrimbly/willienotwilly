@@ -15,6 +15,7 @@ import { motion, motionValue, type MotionValue } from "motion/react";
 import { cn } from "@/lib/utils";
 
 import type { Bounds, Point } from "./geometry";
+import { touchClaim, type TouchClaim } from "./touch";
 
 export type Padding = number | { top: number; right: number; bottom: number; left: number };
 
@@ -180,6 +181,23 @@ export function useCanvas(): CanvasView | null {
 /** Pointer-downs on these never start a pan. */
 const NO_PAN = "[data-nb-node],[data-nb-nopan],button,input,textarea,select,a,label,[contenteditable],[role='slider']";
 const TAP_SLOP = 3;
+/** A keyboard-focused element is brought this far inside the canvas edge. */
+const FOCUS_PAD = 16;
+/** Within this of the edge a focus ring (2px, 2px out) is already cut off. */
+const FOCUS_RING = 4;
+
+/**
+ * How far to move [start, end] along one axis to bring it inside [lo, hi]
+ * with FOCUS_PAD to spare; 0 when it is already inside. Something larger than
+ * the view shows its start.
+ */
+function revealDelta(start: number, end: number, lo: number, hi: number): number {
+  if (start >= lo + FOCUS_RING && end <= hi - FOCUS_RING) return 0;
+  const min = lo + FOCUS_PAD;
+  const max = hi - FOCUS_PAD;
+  if (end - start > max - min) return start >= min && start <= (min + max) / 2 ? 0 : min - start;
+  return start < min ? min - start : max - end;
+}
 
 export interface CanvasProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   view: CanvasView;
@@ -199,6 +217,12 @@ export interface CanvasProps extends Omit<ComponentPropsWithoutRef<"div">, "chil
   onPaneClick?: () => void;
   /** Called on the first pan or zoom by the visitor. */
   onInteract?: () => void;
+  /**
+   * Pan the camera to bring a keyboard-focused element inside the canvas
+   * (default true): native focus scrolling cannot reach world content left
+   * of or above the canvas. The visitor's view is not marked as theirs.
+   */
+  revealFocus?: boolean;
 }
 
 interface Gesture {
@@ -206,7 +230,14 @@ interface Gesture {
   x: number;
   y: number;
   dist: number;
+  /** Past the tap slop: no longer a click on the pane. */
   moved: boolean;
+  /** The camera has moved with this gesture. */
+  panned: boolean;
+  /** A finger: whether the page has passed on it (null for a mouse or a pen). */
+  touch: TouchClaim | null;
+  /** The camera when the gesture began, put back if the page takes a finger's swipe after all. */
+  start: { x: number; y: number; zoom: number };
 }
 
 /**
@@ -224,11 +255,13 @@ export function Canvas({
   gridZoom = true,
   onPaneClick,
   onInteract,
+  revealFocus = true,
   className,
   style,
   ...rest
 }: CanvasProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const worldRef = useRef<HTMLDivElement | null>(null);
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture | null>(null);
   const [panning, setPanning] = useState(false);
@@ -276,18 +309,59 @@ export function Canvas({
   // The canvas clips but is still a scroll container: focusing a field past its
   // edge (tabbing, scrollIntoView) scrolls the element itself and slides the
   // world off the dots. Hand any such scroll to the camera instead.
+  //
+  // Native focus scrolling also cannot reach world content at negative offsets
+  // (left of or above the canvas), so a tabbed-to node there would stay out of
+  // sight: on keyboard focus the camera pans to it. Pointer focus is left
+  // alone: what was pressed is already in view, and the camera must not jump
+  // under it.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const onScroll = () => {
+    // Write the transform now rather than on motion's next frame, so the
+    // browser's focus scroll (and the next measure) sees the camera as set.
+    const commit = () => {
+      const world = worldRef.current;
+      if (world) world.style.transform = `translateX(${view.x.get()}px) translateY(${view.y.get()}px) scale(${view.zoom.get()})`;
+    };
+    const absorbScroll = () => {
       const { scrollLeft, scrollTop } = el;
-      if (!scrollLeft && !scrollTop) return;
+      if (!scrollLeft && !scrollTop) return false;
       el.scrollTo(0, 0);
       view.panBy(-scrollLeft, -scrollTop);
+      return true;
+    };
+    const onScroll = () => {
+      if (absorbScroll()) commit();
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement;
+      if (target === el || target.closest("[data-nb-overlay]") || !target.matches(":focus-visible")) return;
+      // The browser may already have scrolled the element to show it: take that
+      // into the camera first, or moving the world would clamp the scroll.
+      let moved = absorbScroll();
+      if (moved) commit();
+      const c = el.getBoundingClientRect();
+      const r = target.getBoundingClientRect();
+      let { top } = r;
+      // A node's header floats above its box.
+      const header = target.matches("[data-nb-node]") ? target.querySelector("[data-node-header]") : null;
+      if (header) top = Math.min(top, header.getBoundingClientRect().top);
+      const dx = revealDelta(r.left, r.right, c.left, c.right);
+      const dy = revealDelta(top, r.bottom, c.top, c.bottom);
+      if (dx || dy) {
+        view.panBy(dx, dy);
+        moved = true;
+      }
+      if (moved) commit();
     };
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [view]);
+    if (revealFocus) el.addEventListener("focusin", onFocusIn);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("focusin", onFocusIn);
+    };
+  }, [view, revealFocus]);
 
   // ⌘/ctrl + wheel (and trackpad pinch, which arrives as ctrl + wheel) zooms; a
   // plain wheel is never captured. Safari's trackpad pinch comes as gesture events.
@@ -338,15 +412,34 @@ export function Canvas({
     if (!onPane && pointers.current.size === 0) return;
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const pts = [...pointers.current.values()];
+    const start = { x: view.x.get(), y: view.y.get(), zoom: view.zoom.get() };
     if (pts.length === 2 && zoomable) {
       event.currentTarget.setPointerCapture(event.pointerId);
-      gesture.current = { kind: "pinch", x: 0, y: 0, dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), moved: true };
+      gesture.current = {
+        kind: "pinch",
+        x: 0,
+        y: 0,
+        dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+        moved: true,
+        panned: true,
+        touch: null,
+        start: gesture.current?.start ?? start,
+      };
       setPanning(false);
       return;
     }
     if (pts.length > 1) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current = { kind: pannable ? "pan" : "tap", x: event.clientX, y: event.clientY, dist: 0, moved: false };
+    gesture.current = {
+      kind: pannable ? "pan" : "tap",
+      x: event.clientX,
+      y: event.clientY,
+      dist: 0,
+      moved: false,
+      panned: false,
+      touch: touchClaim(event),
+      start,
+    };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -367,15 +460,19 @@ export function Canvas({
     const dx = event.clientX - g.x;
     const dy = event.clientY - g.y;
     if (!g.moved && Math.hypot(dx, dy) < TAP_SLOP) return;
-    if (!g.moved) {
-      g.moved = true;
-      if (g.kind === "pan") setPanning(true);
-    }
+    g.moved = true;
     if (g.kind !== "pan") return;
+    // A finger may be the start of a page scroll: the camera only follows one that is clearly sideways.
+    if (g.touch && !g.touch.move(event.clientX, event.clientY)) return;
+    if (!g.panned) {
+      g.panned = true;
+      setPanning(true);
+    }
     view.panBy(dx, dy);
     g.x = event.clientX;
     g.y = event.clientY;
-    touched();
+    // A finger's pan only counts as the visitor's once it ends without the page taking it.
+    if (!g.touch) touched();
   };
 
   const release = (event: ReactPointerEvent<HTMLDivElement>, cancelled: boolean) => {
@@ -385,11 +482,16 @@ export function Canvas({
     const left = [...pointers.current.values()];
     if (g?.kind === "pinch" && left.length === 1) {
       // One finger lifted mid-pinch: the other carries on as a pan.
-      gesture.current = { kind: pannable ? "pan" : "tap", x: left[0].x, y: left[0].y, dist: 0, moved: true };
+      gesture.current = { kind: pannable ? "pan" : "tap", x: left[0].x, y: left[0].y, dist: 0, moved: true, panned: pannable, touch: null, start: g.start };
       if (pannable) setPanning(true);
       return;
     }
     if (left.length > 0) return;
+    if (g?.touch && g.panned) {
+      // The page took the swipe after the camera had started to follow: put it back.
+      if (cancelled) view.setView(g.start);
+      else touched();
+    }
     if (g && !g.moved && !cancelled && g.kind !== "pinch") onPaneClick?.();
     gesture.current = null;
     setPanning(false);
@@ -416,12 +518,18 @@ export function Canvas({
     >
       <CanvasContext.Provider value={view}>
         <motion.div
+          ref={worldRef}
           className="nb-world"
           style={{ x: view.x, y: view.y, scale: view.zoom, visibility: fitted ? undefined : "hidden" }}
         >
           {children}
         </motion.div>
-        {overlay}
+        {/* Screen-space chrome: no grab cursor, text selection back, and presses never pan or count as a pane click. */}
+        {overlay !== undefined && overlay !== null && overlay !== false && (
+          <div className="nb-canvas__overlay" data-nb-overlay="" data-nb-nopan="">
+            {overlay}
+          </div>
+        )}
       </CanvasContext.Provider>
     </div>
   );
