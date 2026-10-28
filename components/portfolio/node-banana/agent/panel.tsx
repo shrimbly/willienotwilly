@@ -57,7 +57,7 @@ export function ModelMenu({
         aria-label={`${harness.label}, ${state.model}. Change agent or model`}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "nb-squircle flex min-w-0 items-center gap-1.5 rounded-lg text-[13px] leading-4 outline-none transition-colors duration-[120ms] hover:bg-white/[0.06]",
+          "nb-squircle flex min-w-0 items-center gap-1.5 rounded-lg text-[13px] leading-4 outline-none transition-colors duration-[120ms] hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-blue-500",
           page ? "h-8 px-2" : "h-7 px-1.5",
           open && "bg-white/[0.08]",
         )}
@@ -178,7 +178,7 @@ export function AgentWindow({
     body = <Conversation state={state} page={false} host={host} actions={actions} />;
   } else {
     body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+      <div className="nb-agent-scroll flex min-h-0 flex-1 flex-col">
         <EmptyState suggestions={suggestions} onSuggestion={actions.suggest} />
       </div>
     );

@@ -135,7 +135,10 @@ export interface AgentNodeData {
   id: string;
   kind: AgentNodeKind;
   title: string;
-  /** World position of the media card (the header floats 26px above), as the site lays it out. */
+  /**
+   * World position of the media card (the header floats 26px above), as the site lays it out,
+   * except the concepts sit 264 apart (the site's 250) so a second run's history row clears the next.
+   */
   x: number;
   y: number;
   width: number;
@@ -180,7 +183,7 @@ export const AGENT_NODES: AgentNodeData[] = [
     kind: "generate",
     title: "Concept 2 – Neon street - Nano Banana 2 Lite",
     x: 790,
-    y: 276,
+    y: 290,
     width: 300,
     rough: { dx: 34, dy: -18 },
     model: "nano-banana-2-lite",
@@ -191,7 +194,7 @@ export const AGENT_NODES: AgentNodeData[] = [
     kind: "generate",
     title: "Concept 3 – Brutalist flash - Nano Banana 2 Lite",
     x: 790,
-    y: 526,
+    y: 554,
     width: 300,
     rough: { dx: -20, dy: 30 },
     model: "nano-banana-2-lite",
@@ -202,13 +205,13 @@ export const AGENT_NODES: AgentNodeData[] = [
     kind: "generate",
     title: "Concept 4 – Parisian window light - Nano Banana 2 Lite",
     x: 790,
-    y: 776,
+    y: 818,
     width: 300,
     rough: { dx: 28, dy: 40 },
     model: "nano-banana-2-lite",
     output: still("paris"),
   },
-  { id: "ag-gallery", kind: "gallery", title: "Concepts - Output Gallery", x: 1160, y: 330, width: 320, rough: { dx: 48, dy: -30 } },
+  { id: "ag-gallery", kind: "gallery", title: "Concepts - Output Gallery", x: 1160, y: 350, width: 320, rough: { dx: 48, dy: -30 } },
 ];
 
 export interface AgentEdgeData {
@@ -233,7 +236,7 @@ export const AGENT_EDGES: AgentEdgeData[] = [
 ];
 
 /** The graph's world bounds, headers and socket tips included (fits before anything is measured). */
-export const AGENT_GRAPH_BOUNDS = { x: -14, y: 0, width: 1508, height: 990 };
+export const AGENT_GRAPH_BOUNDS = { x: -14, y: 0, width: 1508, height: 1032 };
 
 /** The run: the base look first, then the four concepts together, landing in this order (ms after each starts). */
 export const AGENT_RUN_PLAN = {

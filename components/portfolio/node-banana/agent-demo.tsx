@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { animate } from "motion/react";
-import { MessagesSquare, RotateCcw } from "lucide-react";
+import { MessagesSquare, RotateCcw, Workflow } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 import {
@@ -59,6 +59,8 @@ import {
 
 const EDGES: GraphEdgeSpec[] = AGENT_EDGES;
 const NO_EDGES: GraphEdgeSpec[] = [];
+/** A portrait tile's canvas strip above the window, as a share of its height (agent.css: top 22%). */
+const PORTRAIT_STRIP = 0.22;
 
 interface CameraLayout {
   portrait: boolean;
@@ -70,7 +72,7 @@ function cameraFor(width: number, height: number, layout: CameraLayout, bounds: 
   if (layout.portrait && layout.panel) {
     // The canvas is a strip above the sheet: fit the width, sit at the top, run on behind the window.
     const zoom = Math.min(maxZoom, (width - 24) / bounds.width);
-    const strip = height * 0.26 - 8;
+    const strip = height * PORTRAIT_STRIP - 8;
     const top = bounds.height * zoom < strip ? (strip - bounds.height * zoom) / 2 + 6 : 10;
     return { zoom, x: (width - bounds.width * zoom) / 2 - bounds.x * zoom, y: top - bounds.y * zoom };
   }
@@ -120,8 +122,8 @@ export function NodeBananaAgentDemo() {
   const [selected, setSelected] = useState<string | null>(null);
   const [viewer, setViewer] = useState<number | null>(null);
   const [started, setStarted] = useState(false);
+  const [engaged, setEngaged] = useState(false);
   const blobs = useRef(new Set<string>());
-  const textarea = useRef<HTMLTextAreaElement | null>(null);
   const { runner, idle } = useRunner(setState, active);
 
   const graph = useNodeGraph({ nodes: GRAPH_NODES, edges: state.wired ? EDGES : NO_EDGES });
@@ -144,8 +146,8 @@ export function NodeBananaAgentDemo() {
     viewRef.current = view;
   }, [view]);
 
-  // Arm on the client unless motion is unwelcome: the server's finished turn gives way to the empty start.
-  useEffect(() => {
+  // Arm on the client unless motion is unwelcome: the finished turn gives way to the empty start before paint.
+  useLayoutEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     setState((s) => resetState(s));
     setArmed(true);
@@ -166,6 +168,32 @@ export function NodeBananaAgentDemo() {
   useEffect(() => {
     const urls = blobs.current;
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  // A press anywhere outside the demo hands the wheel and swipes back to the page.
+  useEffect(() => {
+    if (!engaged) return;
+    const onDown = (event: globalThis.PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setEngaged(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [engaged]);
+
+  /** When the control holding focus goes away (a closed window, the chat view), focus the message box or the Agent pill. */
+  const keepFocus = useCallback(() => {
+    const el = root.current;
+    const from = document.activeElement;
+    if (!el || !(from instanceof HTMLElement) || !el.contains(from)) return;
+    requestAnimationFrame(() => {
+      if (from.isConnected && from.offsetParent !== null) return;
+      const target =
+        el.querySelector<HTMLElement>(".nb-agent-chat textarea") ??
+        el.querySelector<HTMLElement>(".nb-agent-window:not([hidden]) textarea") ??
+        el.querySelector<HTMLElement>(".nb-agent-window:not([hidden]) button") ??
+        el.querySelector<HTMLElement>(".nb-agent-pill button");
+      target?.focus({ preventScroll: true });
+    });
   }, []);
 
   /** Play steps, or apply them at once under reduced motion. Queued after anything running. */
@@ -190,12 +218,13 @@ export function NodeBananaAgentDemo() {
 
   const setPanel = useCallback(
     (open: boolean) => {
+      keepFocus();
       setPanelOpen(open);
       setEntering(open);
       layout.current.panel = open;
       refit();
     },
-    [refit],
+    [refit, keepFocus],
   );
 
   const showOnCanvas = useCallback(
@@ -311,13 +340,13 @@ export function NodeBananaAgentDemo() {
     onStop: stop,
     queued: state.queued,
     onRemoveQueued: (id: string) => setState((s) => ({ ...s, queued: s.queued.filter((q) => q.id !== id) })),
-    textareaRef: textarea,
   };
 
   const viewerItems: ViewerItem[] = state.run ? previewItems(state.run).filter((item) => !item.pending) : [];
   const finished = armed && started && idle && !state.busy && state.run?.status !== "running";
 
   const togglePage = (next: boolean) => {
+    keepFocus();
     setPage(next);
     setViewer(null);
   };
@@ -333,8 +362,24 @@ export function NodeBananaAgentDemo() {
 
   const onSelect = useCallback((id: string | null) => setSelected(id), []);
 
+  const onRootClick = (event: MouseEvent<HTMLDivElement>) => {
+    if ((event.target as Element).closest(".nb-agent-window, .nb-agent-chat")) setEngaged(true);
+  };
+  const onRootPointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse") setEngaged(false);
+  };
+
   return (
-    <NbRoot ref={root} role="group" aria-label="Node Banana's agent panel building a camel coat lookbook workflow" onKeyDown={onRootKeyDown}>
+    <NbRoot
+      ref={root}
+      role="group"
+      aria-label="Node Banana's agent panel building a camel coat lookbook workflow"
+      data-engaged={engaged || undefined}
+      data-paused={(!active && !reducedMotion) || undefined}
+      onKeyDown={onRootKeyDown}
+      onClick={onRootClick}
+      onPointerLeave={onRootPointerLeave}
+    >
       <p className="sr-only">
         The agent window plays one turn over the canvas. Open its tool calls, type or paste a picture into the message box, press Run, or open the full chat.
       </p>
@@ -351,32 +396,37 @@ export function NodeBananaAgentDemo() {
           ) : null
         }
       >
+        {/* The window and its chrome sit over the canvas, not in it: no panning, grab cursor or pan-y from the canvas. */}
+        <AgentWindow
+          state={state}
+          actions={actions}
+          composer={composer}
+          open={panelOpen && !page}
+          entering={entering}
+          onClose={() => setPanel(false)}
+          onExpand={() => togglePage(true)}
+        />
+        {!panelOpen && !page && <AgentPill busy={state.busy} onClick={() => setPanel(true)} className="nb-agent-pill absolute top-3 right-3 z-10" />}
+        {finished && !reducedMotion && !page && (
+          <div className={cn(CHROME_SURFACE, "nb-agent-replay nb-agent-fade-in flex h-10 items-center rounded-xl px-1")}>
+            <button type="button" onClick={replay} className={cn(CHROME_ICON_BUTTON, "h-8 gap-2 pr-3 pl-2.5 text-xs font-medium text-neutral-200")}>
+              <RotateCcw size={14} strokeWidth={1.75} aria-hidden />
+              Replay
+            </button>
+          </div>
+        )}
         <Canvas
           view={view}
           gridZoom={false}
           onPaneClick={() => setSelected(null)}
           aria-hidden={page || undefined}
           overlay={
-            <>
-              {!panelOpen && <AgentPill busy={state.busy} onClick={() => setPanel(true)} className="absolute top-3 right-3 z-10" />}
-              {finished && !reducedMotion && (
-                <div className={cn(CHROME_SURFACE, "nb-agent-replay nb-agent-fade-in flex h-10 items-center rounded-xl px-1")}>
-                  <button type="button" onClick={replay} className={cn(CHROME_ICON_BUTTON, "h-8 gap-2 pr-3 pl-2.5 text-xs font-medium text-neutral-200")}>
-                    <RotateCcw size={14} strokeWidth={1.75} aria-hidden />
-                    Replay
-                  </button>
-                </div>
-              )}
-              <AgentWindow
-                state={state}
-                actions={actions}
-                composer={composer}
-                open={panelOpen && !page}
-                entering={entering}
-                onClose={() => setPanel(false)}
-                onExpand={() => togglePage(true)}
-              />
-            </>
+            <div aria-hidden data-hidden={state.built > 0 || undefined} data-full={!panelOpen || undefined} className="nb-agent-hint">
+              <span className="nb-agent-hint__mark size-11 items-center justify-center rounded-full bg-white/[0.05] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                <Workflow className="size-[22px] text-neutral-400" strokeWidth={1.75} />
+              </span>
+              <p className="nb-font-display nb-text-ink-3 m-0 text-[15px] leading-6 font-medium text-balance">Describe it and the agent builds it</p>
+            </div>
           }
         >
           <AgentGraph

@@ -58,7 +58,7 @@ export function ChatView({
       aria-label="Chat"
       aria-busy={state.busy}
       onKeyDown={onKeyDown}
-      className="nb-bg-canvas nb-agent-fade-in absolute inset-0 z-30 flex text-[13px] leading-5 text-neutral-200"
+      className="nb-agent-chat nb-bg-canvas nb-agent-fade-in absolute inset-0 z-30 flex text-[13px] leading-5 text-neutral-200"
     >
       <nav aria-label="Chats" className="nb-bg-pane hidden min-h-0 w-[264px] shrink-0 flex-col border-r border-white/[0.06] @[820px]:flex">
         <div className="flex h-[52px] shrink-0 items-center gap-2 pr-2.5 pl-5">
@@ -88,7 +88,7 @@ export function ChatView({
             />
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2.5 pb-3">
+        <div className="nb-agent-scroll flex min-h-0 flex-1 flex-col px-2.5 pb-3">
           {chats.length === 0 ? (
             <div className="px-2.5 py-8 text-center">
               <p className="m-0 text-[13px] leading-5 text-neutral-300">{query ? "No matches" : "No chats yet"}</p>
@@ -159,7 +159,7 @@ export function ChatView({
             aria-label={`${AGENT_WORKFLOW_NAME}. Switch workflow`}
             onClick={() => setSwitcherOpen((o) => !o)}
             className={cn(
-              "nb-squircle flex h-8 max-w-[320px] min-w-0 items-center gap-2 rounded-lg pr-2 pl-2.5 text-[13px] leading-4 outline-none transition-colors duration-[120ms] hover:bg-white/[0.06]",
+              "nb-squircle flex h-8 max-w-[320px] min-w-0 items-center gap-2 rounded-lg pr-2 pl-2.5 text-[13px] leading-4 outline-none transition-colors duration-[120ms] hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-blue-500",
               switcherOpen && "bg-white/[0.08]",
             )}
           >
@@ -195,28 +195,26 @@ export function ChatView({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className={cn("flex min-h-0 flex-1 flex-col", !hasMessages && "nb-agent-scroll")}>
           {hasMessages ? (
             <Conversation state={state} page host={host} actions={actions} />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <div className="flex flex-1 flex-col justify-end">
-                <div className={cn(PAGE_COLUMN, "pt-10 pb-8")}>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="flex size-11 items-center justify-center rounded-full bg-white/[0.05] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-                      <HarnessIcon harness={state.harness} className="size-[22px]" />
-                    </span>
-                    <h2 className="nb-font-display nb-tracking-display m-0 mt-5 text-[30px] leading-9 font-bold text-balance text-neutral-100">What should we make?</h2>
-                    <p className="nb-font-display nb-text-ink-3 m-0 mt-2 max-w-full truncate text-[15px] leading-6 font-medium">
-                      {state.built > 0 ? (
-                        <>
-                          Working in <span className="text-neutral-300">{AGENT_WORKFLOW_NAME}</span> · {state.built} nodes
-                        </>
-                      ) : (
-                        "Describe a workflow and the agent builds it"
-                      )}
-                    </p>
-                  </div>
+            <div className="flex flex-1 flex-col justify-end">
+              <div className={cn(PAGE_COLUMN, "pt-10 pb-8")}>
+                <div className="flex flex-col items-center text-center">
+                  <span className="flex size-11 items-center justify-center rounded-full bg-white/[0.05] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                    <HarnessIcon harness={state.harness} className="size-[22px]" />
+                  </span>
+                  <h2 className="nb-font-display nb-tracking-display m-0 mt-5 text-[30px] leading-9 font-bold text-balance text-neutral-100">What should we make?</h2>
+                  <p className="nb-font-display nb-text-ink-3 m-0 mt-2 max-w-full truncate text-[15px] leading-6 font-medium">
+                    {state.built > 0 ? (
+                      <>
+                        Working in <span className="text-neutral-300">{AGENT_WORKFLOW_NAME}</span> · {state.built} nodes
+                      </>
+                    ) : (
+                      "Describe a workflow and the agent builds it"
+                    )}
+                  </p>
                 </div>
               </div>
             </div>

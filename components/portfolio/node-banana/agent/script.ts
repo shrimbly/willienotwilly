@@ -94,7 +94,6 @@ export interface DemoState {
   runs: number;
   /** The scripted press on the Run button. */
   pressing: boolean;
-  seq: number;
 }
 
 export interface Step {
@@ -126,7 +125,6 @@ export const INITIAL_STATE: DemoState = {
   run: null,
   runs: 1,
   pressing: false,
-  seq: 0,
 };
 
 const step = (delay: number, apply: Step["apply"]): Step => ({ delay, apply });
@@ -361,5 +359,5 @@ export function openChatState(state: DemoState, id: string): DemoState {
 
 /** The canvas and chat back to the start, keeping the harness and model picked. */
 export function resetState(state: DemoState): DemoState {
-  return { ...INITIAL_STATE, harness: state.harness, model: state.model, effort: state.effort, seq: state.seq + 1 };
+  return { ...INITIAL_STATE, harness: state.harness, model: state.model, effort: state.effort };
 }

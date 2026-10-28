@@ -32,6 +32,58 @@
     }
   }
 
+  /*
+   * The transcript and the other panes scroll only once the visitor has clicked
+   * into the demo (data-engaged on the root) or tabbed into the pane: until then
+   * a wheel or a swipe over them scrolls the page. The script still pins the
+   * transcript to its newest line (scrollTop works on a hidden overflow).
+   */
+  .nb .nb-agent-scroll {
+    overflow-y: hidden;
+  }
+  .nb[data-engaged] .nb-agent-scroll,
+  .nb .nb-agent-scroll:focus-visible,
+  .nb .nb-agent-scroll:has(:focus-visible) {
+    overflow-y: auto;
+  }
+
+  /* Off screen, the spinners, pings and shimmers hold with the script. */
+  .nb[data-paused] *,
+  .nb[data-paused] *::before,
+  .nb[data-paused] *::after {
+    animation-play-state: paused !important;
+  }
+
+  /* The empty canvas before the agent builds: the part the window leaves free. */
+  .nb .nb-agent-hint {
+    position: absolute;
+    z-index: 1;
+    inset: 0 calc(min(400px, max(300px, 50cqw)) + 12px) 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 16px;
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 200ms var(--nb-ease-out);
+  }
+  @container (min-width: 900px) {
+    .nb .nb-agent-hint {
+      right: calc(min(400px, max(300px, 50cqw)) + 16px);
+    }
+  }
+  .nb .nb-agent-hint[data-full] {
+    right: 0;
+  }
+  .nb .nb-agent-hint[data-hidden] {
+    opacity: 0;
+  }
+  .nb .nb-agent-hint__mark {
+    display: flex;
+  }
+
   /* A tall tile: no window chrome, the canvas a strip above, the window a sheet over the rest. */
   @container nb (orientation: portrait) {
     .nb .nb-agent-demo > .nb-app__lights,
@@ -43,12 +95,21 @@
       border: 0;
       border-radius: 0;
     }
+    /* 22%: PORTRAIT_STRIP in agent-demo.tsx, which frames the graph in the strip. */
     .nb .nb-agent-window {
-      top: 26%;
+      top: 22%;
       left: 8px;
       right: 8px;
       bottom: 8px;
       width: auto;
+    }
+    .nb .nb-agent-hint:not([data-full]) {
+      inset: 0 0 78% 0;
+      gap: 0;
+      padding: 8px 16px 10px;
+    }
+    .nb .nb-agent-hint:not([data-full]) .nb-agent-hint__mark {
+      display: none;
     }
     /* Top right: the graph's last column starts lower there. */
     .nb .nb-agent-replay {
@@ -59,19 +120,33 @@
     }
   }
 
-  /* A short window: the empty state gives way as the app's does on a short screen. */
+  /* The empty state, giving way in a short window as the app's does on a short screen. */
+  .nb .nb-agent-empty {
+    gap: 16px;
+    padding-top: 20px;
+    padding-bottom: 12px;
+  }
+  .nb .nb-agent-empty__title {
+    font-size: 22px;
+    line-height: 28px;
+  }
   @container nb-agent-panel (height < 470px) {
     .nb .nb-agent-empty {
       gap: 10px;
       padding-top: 12px;
       padding-bottom: 4px;
     }
-    .nb .nb-agent-empty__lead {
+    .nb .nb-agent-empty__title {
+      font-size: 18px;
+      line-height: 24px;
+    }
+    .nb .nb-agent-empty__lead,
+    .nb .nb-agent-rows > :nth-child(n + 3) {
       display: none;
     }
   }
   @container nb-agent-panel (height < 360px) {
-    .nb .nb-agent-rows > :nth-child(n + 3),
+    .nb .nb-agent-rows > :nth-child(n + 2),
     .nb .nb-agent-billing {
       display: none;
     }
@@ -94,6 +169,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .nb .nb-agent-hint {
+      transition: none;
+    }
     .nb .nb-agent-window[data-entering],
     .nb .nb-agent-fade-in,
     .nb .nb-agent-backdrop,

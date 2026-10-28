@@ -75,11 +75,16 @@ export function Conversation({
   const scroller = useRef<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement | null>(null);
   const pinned = useRef(true);
+  const seen = useRef(state.messages.length);
   const [atBottom, setAtBottom] = useState(true);
 
-  // Stick to the newest line while pinned there, as use-stick-to-bottom does.
+  // Stick to the newest line while pinned there, as use-stick-to-bottom does,
+  // and jump back down when a message is sent (ScrollToSentMessage).
   useLayoutEffect(() => {
     const el = scroller.current;
+    const count = state.messages.length;
+    if (count > seen.current && state.messages[count - 1]?.role === "user") pinned.current = true;
+    seen.current = count;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   });
   useEffect(() => {
@@ -104,7 +109,15 @@ export function Conversation({
 
   return (
     <div className={cn("relative min-h-0 flex-1", page && "@container")}>
-      <div ref={scroller} onScroll={onScroll} role="log" aria-live="off" aria-label="Conversation" className="absolute inset-0 overflow-y-auto overscroll-contain">
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        role="log"
+        aria-live="off"
+        aria-label="Conversation"
+        tabIndex={0}
+        className="nb-agent-scroll absolute inset-0 focus-visible:outline-offset-[-2px]"
+      >
         <div ref={content} className={cn("flex flex-col", page ? `${PAGE_COLUMN} gap-7 pt-6 pb-10` : "gap-5 px-4 py-4")}>
           {state.messages.map((message, index) => (
             <Fragment key={message.id}>
@@ -306,7 +319,10 @@ function ToolRow({ id, running }: { id: string; running: boolean }) {
         <div className="nb-agent-fade-in space-y-3 pb-3 pl-2">
           <div className="space-y-1.5">
             <div className="nb-font-mono nb-tracking-eyebrow nb-text-ink-3 text-[10px] leading-4 uppercase">Input</div>
-            <pre className="nb-rounded-well nb-bg-well nb-shadow-well nb-font-mono max-h-56 overflow-auto p-3 text-[11px] leading-4 whitespace-pre text-neutral-300">
+            <pre
+              tabIndex={0}
+              className="nb-agent-scroll nb-rounded-well nb-bg-well nb-shadow-well nb-font-mono max-h-56 overflow-x-auto p-3 text-[11px] leading-4 whitespace-pre text-neutral-300"
+            >
               {tool.input}
             </pre>
           </div>
@@ -670,9 +686,9 @@ function PreviewRow({ record, page, actions }: { record: RunRecord; page: boolea
 
 export function EmptyState({ suggestions, onSuggestion }: { suggestions: readonly string[]; onSuggestion: (text: string) => void }) {
   return (
-    <div className="nb-agent-empty flex w-full flex-col gap-4 px-4 pt-5 pb-3">
+    <div className="nb-agent-empty flex w-full flex-col px-4">
       <div>
-        <h3 className="nb-font-display nb-tracking-display m-0 text-[22px] leading-7 font-bold text-neutral-100">What should we build?</h3>
+        <h3 className="nb-agent-empty__title nb-font-display nb-tracking-display m-0 font-bold text-neutral-100">What should we build?</h3>
         <p className="nb-agent-empty__lead nb-font-display nb-text-ink-3 m-0 mt-1 text-[13px] leading-5 font-medium">
           Describe a workflow, or ask for a change to the one on the canvas.
         </p>
@@ -726,7 +742,7 @@ export function HistoryList({
     );
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-2" role="list" aria-label="Conversations">
+    <div className="nb-agent-scroll flex min-h-0 flex-1 flex-col px-2 py-2" role="list" aria-label="Conversations">
       <p className="nb-font-mono nb-tracking-eyebrow nb-text-ink-3 m-0 px-2 pt-1 pb-1.5 text-[10px] leading-[14px] uppercase">History</p>
       {chats.map((chat) => {
         const current = chat.id === currentId;
@@ -753,7 +769,7 @@ export function HistoryList({
                 type="button"
                 aria-label={`Delete “${label}”`}
                 onClick={() => onDelete(chat.id)}
-                className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 hover:bg-white/10 hover:text-neutral-200 focus-visible:opacity-100"
+                className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 hover:bg-white/10 hover:text-neutral-200 focus-visible:opacity-100 pointer-coarse:opacity-100"
               >
                 <Trash2 className="size-3.5" strokeWidth={1.75} aria-hidden />
               </button>

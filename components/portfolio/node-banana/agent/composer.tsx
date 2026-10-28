@@ -47,7 +47,6 @@ export interface ComposerProps {
   onRemoveQueued: (id: string) => void;
   /** Where menus portal to (the window or the page). */
   host: RefObject<HTMLElement | null>;
-  textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 function imageFiles(list: FileList | null | undefined): File[] {
@@ -70,16 +69,14 @@ export function Composer({
   queued,
   onRemoveQueued,
   host,
-  textareaRef,
 }: ComposerProps) {
   const [dropping, setDropping] = useState(false);
   const [effortOpen, setEffortOpen] = useState(false);
   const effortRef = useRef<HTMLButtonElement | null>(null);
   const empty = !draft.trim() && attachments.length === 0;
 
+  // Keys go on to the window (Escape closes it), which keeps them all from the canvas.
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Keys typed here are for the chat, never the canvas.
-    event.stopPropagation();
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       if (!typing && !empty) onSend();
@@ -194,7 +191,6 @@ export function Composer({
           </div>
         )}
         <textarea
-          ref={textareaRef}
           value={draft}
           readOnly={typing}
           onChange={(event) => onDraftChange(event.currentTarget.value)}
@@ -221,7 +217,7 @@ export function Composer({
             className={cn(
               "nb-squircle flex shrink-0 items-center gap-1 self-end rounded-lg text-neutral-400 outline-none",
               page ? "h-8 px-2.5 text-[13px] leading-4" : "h-7 px-2 text-[12px] leading-4",
-              "transition-colors duration-[120ms] hover:bg-white/[0.06] hover:text-neutral-200 disabled:opacity-40 disabled:hover:bg-transparent",
+              "transition-colors duration-[120ms] hover:bg-white/[0.06] hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 disabled:hover:bg-transparent",
               effortOpen && "bg-white/[0.08] text-neutral-200",
             )}
           >
