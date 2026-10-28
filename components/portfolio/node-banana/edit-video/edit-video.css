@@ -88,17 +88,12 @@
     outline: none;
   }
 
-  .nb .nb-ev-hint {
-    transition: opacity 240ms var(--nb-ease-out);
-  }
-
   /* The render's progress along the header's foot. */
   .nb .nb-ev-progress {
     transition: width 120ms linear;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .nb .nb-ev-hint,
     .nb .nb-ev-progress {
       transition: none;
     }

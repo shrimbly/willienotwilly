@@ -27,11 +27,14 @@ export function ChatView({
   actions,
   composer,
   onCanvas,
+  openAtTurn = false,
 }: {
   state: DemoState;
   actions: PanelActions;
   composer: Omit<ComposerProps, "host" | "page">;
   onCanvas: () => void;
+  /** The turn is shown finished, not played: the transcript opens on its message (Conversation). */
+  openAtTurn?: boolean;
 }) {
   const host = useRef<HTMLDivElement | null>(null);
   const [query, setQuery] = useState("");
@@ -197,7 +200,7 @@ export function ChatView({
 
         <div className={cn("flex min-h-0 flex-1 flex-col", !hasMessages && "nb-agent-scroll")}>
           {hasMessages ? (
-            <Conversation state={state} page host={host} actions={actions} />
+            <Conversation state={state} page host={host} actions={actions} openAtTurn={openAtTurn} />
           ) : (
             <div className="flex flex-1 flex-col justify-end">
               <div className={cn(PAGE_COLUMN, "pt-10 pb-8")}>

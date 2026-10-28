@@ -66,17 +66,40 @@ export function Conversation({
   page,
   host,
   actions,
+  openAtTurn = false,
 }: {
   state: DemoState;
   page: boolean;
   host: RefObject<HTMLElement | null>;
   actions: ChatActions;
+  /**
+   * The turn is shown finished, never played (reduced motion): open on the last message sent, so its words and the
+   * start of the reply show, not only the reply's end.
+   */
+  openAtTurn?: boolean;
 }) {
   const scroller = useRef<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement | null>(null);
-  const pinned = useRef(true);
+  const pinned = useRef(!openAtTurn);
   const seen = useRef(state.messages.length);
   const [atBottom, setAtBottom] = useState(true);
+
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    const sent = Array.from(content.current?.querySelectorAll<HTMLElement>(":scope > .is-user") ?? []).pop();
+    if (!openAtTurn || !el || !sent) return;
+    const pad = page ? 24 : 16;
+    const at = (node: Element) => node.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    // From the message's top; in a short window, down until the reply's first line shows, but never past its words
+    const replyStart = sent.nextElementSibling?.querySelector(":scope > div > :first-child");
+    const shown = replyStart ? at(replyStart) + replyStart.getBoundingClientRect().height + pad - el.clientHeight : 0;
+    const words = sent.lastElementChild ? at(sent.lastElementChild) - 8 : 0;
+    el.scrollTop = Math.max(0, at(sent) - pad, Math.min(shown, words));
+    // Already at the end (a short turn): stick to it as usual
+    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    // Mount only: later turns follow the newest line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Stick to the newest line while pinned there, as use-stick-to-bottom does,
   // and jump back down when a message is sent (ScrollToSentMessage).
@@ -156,7 +179,7 @@ export function Conversation({
             const el = scroller.current;
             if (!el) return;
             pinned.current = true;
-            el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+            el.scrollTo({ top: el.scrollHeight, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
           }}
           className="nb-squircle absolute bottom-3 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-lg border border-white/8 bg-neutral-800/92 text-neutral-300 shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_20px_-6px_rgba(0,0,0,0.5)] backdrop-blur-md transition-colors duration-[120ms] hover:bg-neutral-700 hover:text-white"
         >

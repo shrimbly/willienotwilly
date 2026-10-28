@@ -21,9 +21,9 @@ import {
 } from "./edit-video/model";
 import { CompactInspector, EditorRail } from "./edit-video/rail";
 import { Stage } from "./edit-video/stage";
-import { CONTROLS_MIN_PX, CONTROLS_PX, HEADER_PX, MEDIA_PANE_PX, RAIL_PX } from "./edit-video/styles";
-import { Timeline, timelineHeight, trimTo, type Selection } from "./edit-video/timeline";
-import { NbRoot } from "./kit";
+import { CONTROLS_MIN_PX, CONTROLS_PX, GEOMETRY, HEADER_PX, MEDIA_PANE_PX, RAIL_PX } from "./edit-video/styles";
+import { TIMELINE_PX, Timeline, trimTo, type Selection } from "./edit-video/timeline";
+import { DemoHint, NbRoot } from "./kit";
 import "./edit-video/edit-video.css";
 
 interface Layout {
@@ -31,8 +31,6 @@ interface Layout {
   header: "full" | "compact" | null;
   /** The inspector: the 280px rail beside the stage, or a 52px strip under it. */
   rail: "side" | "strip";
-  /** The timeline's strip under the audio row (+ Audio, + Text, Line up). */
-  strip: boolean;
   /** The least height of the stage: the preview and its control row. */
   stage: number;
   width: number;
@@ -40,36 +38,31 @@ interface Layout {
 
 /**
  * The editor is laid out at least this big, in its own px, and scaled down to the tile. Fullest first: a smaller tile
- * takes the first layout it can show at MIN_SCALE or more, so it drops a secondary panel (the media pane, the strip
- * under the audio row, the header) instead of shrinking the whole editor past reading.
+ * takes the first layout it can show at MIN_SCALE or more, so it drops a secondary panel (the media pane, the header,
+ * the rail beside the stage) instead of shrinking the whole editor past reading. The timeline always keeps its strip
+ * under the audio row: + Audio, + Text and Line up on the left, the tile's hint on the right.
  */
 const LAYOUTS: readonly Layout[] = [
-  { pane: true, header: "full", rail: "side", strip: true, stage: 370, width: 1180 },
-  { pane: false, header: "full", rail: "side", strip: false, stage: 292, width: 860 },
-  { pane: false, header: null, rail: "side", strip: false, stage: 220, width: 840 },
-  { pane: false, header: "compact", rail: "strip", strip: false, stage: 216, width: 440 },
-  { pane: false, header: null, rail: "strip", strip: false, stage: 216, width: 440 },
+  { pane: true, header: "full", rail: "side", stage: 370, width: 1180 },
+  { pane: false, header: "full", rail: "side", stage: 292, width: 860 },
+  { pane: false, header: null, rail: "side", stage: 220, width: 840 },
+  { pane: false, header: "compact", rail: "strip", stage: 216, width: 440 },
+  { pane: false, header: null, rail: "strip", stage: 216, width: 440 },
 ];
-const MIN_SCALE = 0.78;
+const MIN_SCALE = 0.76;
 const COMPACT_HEADER_PX = 48;
 const INSPECTOR_STRIP_PX = 52;
 /** The smallest type keeps this many px on screen however far the editor is scaled. */
 const MIN_TEXT_PX = 9;
 
 const headerPx = (layout: Layout) => (layout.header === "full" ? HEADER_PX : layout.header ? COMPACT_HEADER_PX : 0);
-const layoutHeight = (layout: Layout) =>
-  headerPx(layout) + layout.stage + (layout.rail === "strip" ? INSPECTOR_STRIP_PX : 0) + timelineHeight(layout.strip);
+const layoutHeight = (layout: Layout) => headerPx(layout) + layout.stage + (layout.rail === "strip" ? INSPECTOR_STRIP_PX : 0) + TIMELINE_PX;
 
 function fitEditor(width: number, height: number) {
   const fits = LAYOUTS.map((layout) => ({ layout, scale: Math.min(1, width / layout.width, height / layoutHeight(layout)) }));
   const { layout, scale } = fits.find((f) => f.scale >= MIN_SCALE) ?? fits.reduce((a, b) => (b.scale > a.scale ? b : a));
   return { layout, scale, width: width / scale, height: height / scale };
 }
-
-const subscribeVisibility = (onChange: () => void) => {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-};
 
 const MAX_HISTORY = 50;
 const RENDER_MS = 2400;
@@ -84,8 +77,7 @@ function textRoomAt(texts: readonly EvText[], t: number): { start: number; end: 
 
 export function NodeBananaEditVideoDemo() {
   const root = useRef<HTMLDivElement | null>(null);
-  const { active, inView } = useDemoActive(root);
-  const pageVisible = useSyncExternalStore(subscribeVisibility, () => !document.hidden, () => true);
+  const { active, inView, pageVisible } = useDemoActive(root);
   const onScreen = inView && pageVisible;
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [clock] = useState(() => createClock(RESTING_PLAYHEAD));
@@ -285,7 +277,7 @@ export function NodeBananaEditVideoDemo() {
   // The header's Show media opens the pane on any layout that has the header
   const paneShown = layout.header === "full" && (paneOpen ?? layout.pane);
   const colW = W - (paneShown ? MEDIA_PANE_PX : 0);
-  const stageH = H - headerPx(layout) - timelineHeight(layout.strip) - (sideRail ? 0 : INSPECTOR_STRIP_PX);
+  const stageH = H - headerPx(layout) - TIMELINE_PX - (sideRail ? 0 : INSPECTOR_STRIP_PX);
   const stageW = sideRail ? colW - RAIL_PX : colW;
   // EditorStage keeps 32px at the sides and 24px above and below; a short or narrow stage gives some of it back
   const padX = sideRail ? 32 : 12;
@@ -332,6 +324,7 @@ export function NodeBananaEditVideoDemo() {
       ref={root}
       role="group"
       aria-label="Node Banana's Edit Video editor: four generated clips on a stacked timeline, one row per clip"
+      style={{ "--ev-strip": `${GEOMETRY.audioStrip * scale}px` } as CSSProperties}
       onPointerDownCapture={touch}
       onKeyDown={onKeyDown}
     >
@@ -403,11 +396,10 @@ export function NodeBananaEditVideoDemo() {
               edit={edit}
               width={colW}
               scale={scale}
-              strip={layout.strip}
+              addAudio={sideRail}
               clock={clock}
               selection={selection}
               snap={snap}
-              hint={!touched}
               onSelect={setSelection}
               onCommit={commit}
               onPause={pause}
@@ -425,6 +417,10 @@ export function NodeBananaEditVideoDemo() {
           )}
         </div>
       </div>
+      {/* On the right end of the strip under the audio row, which the playhead's line stops above */}
+      <DemoHint corner="bottom-right" hidden={touched} className="bottom-0 flex h-[var(--ev-strip)] items-center">
+        Drag a clip to any time or row
+      </DemoHint>
     </NbRoot>
   );
 }

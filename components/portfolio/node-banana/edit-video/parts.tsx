@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { Kbd } from "../kit";
+import { KbdGroup } from "../kit";
 import { formatTimecode, parseTimecode } from "./model";
 import {
   HEADER_TITLE,
@@ -20,19 +20,8 @@ import {
 // The editor's small parts: the hover label (src/components/ui/Tooltip.tsx), the rail's rows (railParts.tsx) and the
 // timecode well (TimecodeField.tsx).
 
-/** "⇧⌘Z" → ⇧ ⌘ Z: one cap per key, as KbdGroup draws a compact shortcut. */
-function splitKeys(shortcut: string): string[] {
-  const keys: string[] = [];
-  let rest = shortcut;
-  while (rest.length > 1 && "⌘⇧⌥⌃".includes(rest[0])) {
-    keys.push(rest[0]);
-    rest = rest.slice(1);
-  }
-  return [...keys, rest];
-}
-
-/** The kit's xs cap in the app's system face (the cap's font-sans is the site's here), at the editor's least size. */
-const CAP = "font-[family-name:var(--nb-font-ui)] text-[length:max(10px,var(--ev-min-text,0px))]";
+/** The kit's xs cap, at the editor's least size. */
+const CAP = "text-[length:max(10px,var(--ev-min-text,0px))]";
 
 /** The hover label: shown after 300ms on hover or keyboard focus of its `group` wrapper. */
 export function Tooltip({
@@ -62,13 +51,7 @@ export function Tooltip({
       {keys.map((shortcut, i) => (
         <Fragment key={shortcut}>
           {i > 0 && <span className="-mx-0.5 text-neutral-500">/</span>}
-          <span className="inline-flex items-center gap-0.5">
-            {splitKeys(shortcut).map((key) => (
-              <Kbd key={key} className={CAP}>
-                {key}
-              </Kbd>
-            ))}
-          </span>
+          <KbdGroup keys={shortcut} capClassName={CAP} />
         </Fragment>
       ))}
     </span>
@@ -209,6 +192,42 @@ export interface RailSegment {
   onClick: () => void;
 }
 
+/**
+ * One Tab stop for a row (or grid) of buttons: ←/→ move to the next enabled one, ↑/↓ a row of `columns` (a row on its
+ * own: the next one), Home/End the ends; a press picks. The stop is the button focus last moved to while it is inside
+ * the group, else `preferred` (the pressed one).
+ */
+export function useRovingStop(preferred: number, columns = 1) {
+  const [focused, setFocused] = useState<number | null>(null);
+  const buttons = (group: HTMLElement) => Array.from(group.querySelectorAll<HTMLButtonElement>("button"));
+  const onFocus = (event: FocusEvent<HTMLElement>) => {
+    const at = buttons(event.currentTarget).indexOf(event.target as HTMLButtonElement);
+    if (at >= 0) setFocused(at);
+  };
+  const onBlur = (event: FocusEvent<HTMLElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(null);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.altKey || event.metaKey || event.ctrlKey) return;
+    const all = buttons(event.currentTarget);
+    const at = all.indexOf(document.activeElement as HTMLButtonElement);
+    const open = all.map((button, i) => (button.disabled ? -1 : i)).filter((i) => i >= 0);
+    if (at === -1 || !open.length) return;
+    const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
+    let next: number | undefined;
+    if (event.key === "Home") next = open[0];
+    else if (event.key === "End") next = open[open.length - 1];
+    else if (event.key in step) {
+      const by = step[event.key];
+      next = by > 0 ? open.find((i) => i >= at + by) : open.findLast((i) => i <= at + by);
+      next ??= at;
+    } else return;
+    event.preventDefault();
+    all[next].focus();
+  };
+  return { stop: focused ?? preferred, groupProps: { onFocus, onBlur, onKeyDown } };
+}
+
 export function RailSegments({
   label,
   segments,
@@ -218,15 +237,18 @@ export function RailSegments({
   segments: ReadonlyArray<RailSegment>;
   className?: string;
 }) {
+  const pressed = segments.findIndex((segment) => segment.pressed && !segment.disabled);
+  const { stop, groupProps } = useRovingStop(pressed >= 0 ? pressed : Math.max(0, segments.findIndex((segment) => !segment.disabled)));
   return (
-    <div role="group" aria-label={label} className={cn(SEGMENTS, className)}>
-      {segments.map((segment) => (
+    <div role="group" aria-label={label} className={cn(SEGMENTS, className)} {...groupProps}>
+      {segments.map((segment, i) => (
         <button
           key={segment.label}
           type="button"
           aria-pressed={segment.pressed}
           disabled={segment.disabled}
           title={segment.title}
+          tabIndex={i === stop ? 0 : -1}
           onClick={segment.onClick}
           className={cn(SEGMENT, segment.pressed ? SEGMENT_ON : SEGMENT_OFF)}
         >

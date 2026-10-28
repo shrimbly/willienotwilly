@@ -131,6 +131,7 @@ export function AgentWindow({
   composer,
   open,
   entering = false,
+  openAtTurn = false,
   onClose,
   onExpand,
   className,
@@ -141,6 +142,8 @@ export function AgentWindow({
   open: boolean;
   /** Opened by the visitor: it fades up, as the app's does. */
   entering?: boolean;
+  /** The turn is shown finished, not played: the transcript opens on its message (Conversation). */
+  openAtTurn?: boolean;
   onClose: () => void;
   onExpand: () => void;
   className?: string;
@@ -175,7 +178,7 @@ export function AgentWindow({
       />
     );
   } else if (hasMessages) {
-    body = <Conversation state={state} page={false} host={host} actions={actions} />;
+    body = <Conversation state={state} page={false} host={host} actions={actions} openAtTurn={openAtTurn} />;
   } else {
     body = (
       <div className="nb-agent-scroll flex min-h-0 flex-1 flex-col">

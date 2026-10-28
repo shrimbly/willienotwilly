@@ -49,6 +49,7 @@ import {
   RailSwitch,
   RailTitle,
   TimecodeField,
+  useRovingStop,
 } from "./parts";
 import { EDIT_LINE, HEADER_TITLE, INK_3, SEGMENT_OFF, SEGMENT_ON } from "./styles";
 import type { Selection } from "./timeline";
@@ -127,22 +128,9 @@ function fitSections<K extends string>(room: number, used: number, sections: Rea
 /** The ramp presets as curve thumbnails, one tab stop: the arrows move, a press picks (EasePicker.tsx). */
 function PresetGrid({ name, onPick }: { name: string; onPick: (name: EaseName) => void }) {
   const pressed = THUMBS.findIndex((t) => t.name === name);
-  const stop = pressed === -1 ? 0 : pressed;
+  const { stop, groupProps } = useRovingStop(pressed === -1 ? 0 : pressed, 6);
   return (
-    <div
-      role="group"
-      aria-label="Ramp presets"
-      className="mt-2 grid grid-cols-6 gap-0.5 rounded-lg bg-[var(--nb-edit-field)] p-0.5"
-      onKeyDown={(event) => {
-        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
-        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-        if (at === -1) return;
-        const moves: Record<string, number> = { ArrowLeft: at - 1, ArrowRight: at + 1, ArrowUp: at - 6, ArrowDown: at + 6, Home: 0, End: buttons.length - 1 };
-        if (!(event.key in moves)) return;
-        event.preventDefault();
-        buttons[clamp(moves[event.key], 0, buttons.length - 1)].focus();
-      }}
-    >
+    <div role="group" aria-label="Ramp presets" className="mt-2 grid grid-cols-6 gap-0.5 rounded-lg bg-[var(--nb-edit-field)] p-0.5" {...groupProps}>
       {THUMBS.map((thumb, i) => (
         <button
           key={thumb.name}

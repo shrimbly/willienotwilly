@@ -47,13 +47,6 @@
     overflow-y: auto;
   }
 
-  /* Off screen, the spinners, pings and shimmers hold with the script. */
-  .nb[data-paused] *,
-  .nb[data-paused] *::before,
-  .nb[data-paused] *::after {
-    animation-play-state: paused !important;
-  }
-
   /* The empty canvas before the agent builds: the part the window leaves free. */
   .nb .nb-agent-hint {
     position: absolute;
@@ -117,6 +110,17 @@
       bottom: auto;
       left: auto;
       right: 8px;
+    }
+  }
+  /*
+   * Too narrow to fit the graph at the camera's least zoom (MIN_FIT_ZOOM 0.35 × its 1508px + 24px, in agent-demo.tsx),
+   * the strip shows the graph's newest end, up to the right edge, its first column running off the left: Replay goes
+   * over that.
+   */
+  @container nb (orientation: portrait) and (max-width: 551px) {
+    .nb .nb-agent-replay {
+      left: 8px;
+      right: auto;
     }
   }
 

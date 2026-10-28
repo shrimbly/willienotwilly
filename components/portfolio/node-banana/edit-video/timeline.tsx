@@ -96,10 +96,8 @@ export function makeAxis(edit: EvEdit, width: number): Axis {
   return { pps, total, timeToX: (t) => ORIGIN + t * pps, xToTime: (x) => (x - ORIGIN) / pps };
 }
 
-/** The timeline's height: ruler, the text row, Stacked's rows, the audio row and the strip under it, if shown. */
-export function timelineHeight(strip: boolean): number {
-  return 1 + GEOMETRY.ruler + GEOMETRY.overlayRow + STACK_ROWS * ROW + GEOMETRY.audioRow + (strip ? GEOMETRY.audioStrip : 0);
-}
+/** The timeline's height: ruler, the text row, Stacked's rows, the audio row and the strip under it. */
+export const TIMELINE_PX = 1 + GEOMETRY.ruler + GEOMETRY.overlayRow + STACK_ROWS * ROW + GEOMETRY.audioRow + GEOMETRY.audioStrip;
 
 type Drag =
   | {
@@ -622,12 +620,11 @@ export interface TimelineProps {
   width: number;
   /** The editor's scale on screen: pointer travel is divided by it. */
   scale: number;
-  /** The strip under the audio row: + Audio, + Text and Line up. */
-  strip: boolean;
+  /** The strip's + Audio, which is off (the demo has no asset library); a narrow editor leaves it out. */
+  addAudio: boolean;
   clock: PlayheadClock;
   selection: Selection;
   snap: boolean;
-  hint: boolean;
   onSelect: (selection: Selection) => void;
   onCommit: (next: EvEdit, coalesce?: string) => void;
   onPause: () => void;
@@ -645,11 +642,10 @@ export function Timeline({
   edit,
   width,
   scale,
-  strip,
+  addAudio,
   clock,
   selection,
   snap,
-  hint,
   onSelect,
   onCommit,
   onPause,
@@ -706,7 +702,6 @@ export function Timeline({
   const rowsHeight = STACK_ROWS * ROW;
   const audioTop = rowsTop + rowsHeight;
   const stripTop = audioTop + GEOMETRY.audioRow;
-  const playheadBottom = strip ? GEOMETRY.audioStrip : 0;
 
   // ---------- Pointer ----------
 
@@ -1021,7 +1016,7 @@ export function Timeline({
   return (
     <div
       className={cn("relative shrink-0 overflow-hidden border-t", EDIT_LINE, PANE)}
-      style={{ height: timelineHeight(strip) }}
+      style={{ height: TIMELINE_PX }}
       onPointerDown={onInteract}
     >
       <div ref={lanesRef} className="absolute inset-0">
@@ -1246,15 +1241,6 @@ export function Timeline({
               />
             )}
           </div>
-          {stacked && (
-            <span
-              aria-hidden="true"
-              className={cn(EDITOR_CHIP, "nb-ev-hint pointer-events-none absolute right-5 z-1 whitespace-nowrap text-neutral-400")}
-              style={{ top: GEOMETRY.stackClipTop + 11, opacity: hint ? 1 : 0 }}
-            >
-              Drag a clip to any time or row
-            </span>
-          )}
         </div>
 
         {/* The audio row */}
@@ -1359,16 +1345,16 @@ export function Timeline({
           })()}
         </div>
 
-        <Playhead axis={axis} clock={clock} bottom={playheadBottom} />
+        <Playhead axis={axis} clock={clock} bottom={GEOMETRY.audioStrip} />
         {moveChip}
         {edgeGuide}
 
         {/* The strip under the audio rows: + Audio, + Text and, in Stacked, Line up */}
-        {strip && (
-          <div
-            className="pointer-events-none absolute inset-x-0 z-5 flex items-center gap-1 pr-4"
-            style={{ top: stripTop, height: GEOMETRY.audioStrip, paddingLeft: ORIGIN - 6 }}
-          >
+        <div
+          className="pointer-events-none absolute inset-x-0 z-5 flex items-center gap-1 pr-4"
+          style={{ top: stripTop, height: GEOMETRY.audioStrip, paddingLeft: ORIGIN - 6 }}
+        >
+          {addAudio && (
             <button
               type="button"
               aria-label="Add audio"
@@ -1379,33 +1365,33 @@ export function Timeline({
               <Plus size={12} strokeWidth={1.5} />
               Audio
             </button>
+          )}
+          <button
+            type="button"
+            aria-label="Add text"
+            title={onAddTextDisabled ? "A text layer is at the playhead" : "Add text"}
+            disabled={onAddTextDisabled}
+            onClick={onAddText}
+            className={cn(TEXT_GHOST, "pointer-events-auto")}
+          >
+            <Plus size={12} strokeWidth={1.5} />
+            Text
+          </button>
+          {stacked && (
             <button
               type="button"
-              aria-label="Add text"
-              title={onAddTextDisabled ? "A text layer is at the playhead" : "Add text"}
-              disabled={onAddTextDisabled}
-              onClick={onAddText}
+              title={linedUp ? "The clips are lined up" : "Line up: each clip starts 1.0 s before the one above ends"}
+              disabled={linedUp}
+              onClick={() => {
+                onInteract();
+                onCommit({ ...edit, clips: lineUp(edit.clips) });
+              }}
               className={cn(TEXT_GHOST, "pointer-events-auto")}
             >
-              <Plus size={12} strokeWidth={1.5} />
-              Text
+              Line up
             </button>
-            {stacked && (
-              <button
-                type="button"
-                title={linedUp ? "The clips are lined up" : "Line up: each clip starts 1.0 s before the one above ends"}
-                disabled={linedUp}
-                onClick={() => {
-                  onInteract();
-                  onCommit({ ...edit, clips: lineUp(edit.clips) });
-                }}
-                className={cn(TEXT_GHOST, "pointer-events-auto")}
-              >
-                Line up
-              </button>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   AGENT_EDGES,
   AGENT_GRAPH_BOUNDS,
   AGENT_HARNESSES,
+  AGENT_NODES,
   AGENT_WORKFLOW_NAME,
   type AgentHarness,
 } from "@/lib/node-banana/agent-script";
@@ -61,20 +62,50 @@ const EDGES: GraphEdgeSpec[] = AGENT_EDGES;
 const NO_EDGES: GraphEdgeSpec[] = [];
 /** A portrait tile's canvas strip above the window, as a share of its height (agent.css: top 22%). */
 const PORTRAIT_STRIP = 0.22;
+/** Further out the nodes read as thumbnails: the camera stays this close and lets the graph run past the edges. */
+const MIN_FIT_ZOOM = 0.35;
+
+interface CameraTiming {
+  delay: number;
+  duration: number;
+  ease: readonly [number, number, number, number];
+}
+const SETTLE: CameraTiming = { delay: 0, duration: 0.45, ease: [0.2, 0.8, 0.2, 1] };
+/** The pan along a graph too wide to fit, keeping up with the nodes as they land (nb-enter: 90ms apart, 480ms each). */
+const BUILD_PAN: CameraTiming = { delay: 0.3, duration: 1.2, ease: [0.45, 0, 0.25, 1] };
 
 interface CameraLayout {
   portrait: boolean;
   panel: boolean;
+  /** The agent has built the graph: one too wide to fit shows its newest end, the columns its run fills. */
+  built: boolean;
 }
 
-/** Where the camera sits to show `bounds` clear of the agent window (its frame from AgentPanel's layout). */
+/** The right end of the nodes reaching above world y `bottom`: the newest a band that tall can show. */
+function newestEnd(bottom: number) {
+  return AGENT_NODES.filter((node) => node.y < bottom).reduce((end, node) => Math.max(end, node.x + node.width), -Infinity);
+}
+
+/**
+ * Where the camera sits to show `bounds` clear of the agent window (its frame from AgentPanel's layout). It zooms no
+ * further out than MIN_FIT_ZOOM: past that the graph runs off the tile's left edge or under the window, from its start
+ * until the agent has built it, then from its newest end.
+ */
 function cameraFor(width: number, height: number, layout: CameraLayout, bounds: Bounds, maxZoom = 0.9) {
+  /** The camera's x for the graph between screen x `left` and `right`, with world x `newest` in view once built. */
+  const along = (left: number, right: number, zoom: number, newest: number) => {
+    const room = right - left;
+    if (bounds.width * zoom <= room) return left + (room - bounds.width * zoom) / 2 - bounds.x * zoom;
+    const startAtLeft = left - bounds.x * zoom;
+    const endAtRight = right - (bounds.x + bounds.width) * zoom;
+    return layout.built ? Math.min(startAtLeft, Math.max(endAtRight, right - newest * zoom)) : startAtLeft;
+  };
   if (layout.portrait && layout.panel) {
     // The canvas is a strip above the sheet: fit the width, sit at the top, run on behind the window.
-    const zoom = Math.min(maxZoom, (width - 24) / bounds.width);
+    const zoom = Math.min(maxZoom, Math.max(MIN_FIT_ZOOM, (width - 24) / bounds.width));
     const strip = height * PORTRAIT_STRIP - 8;
     const top = bounds.height * zoom < strip ? (strip - bounds.height * zoom) / 2 + 6 : 10;
-    return { zoom, x: (width - bounds.width * zoom) / 2 - bounds.x * zoom, y: top - bounds.y * zoom };
+    return { zoom, x: along(12, width - 12, zoom, newestEnd(bounds.y + (strip - top) / zoom)), y: top - bounds.y * zoom };
   }
   const panelWidth = Math.min(400, Math.max(300, width * 0.5));
   const inset = width >= 900 ? 16 : 12;
@@ -85,10 +116,10 @@ function cameraFor(width: number, height: number, layout: CameraLayout, bounds: 
       : { t: 64, r: 24, b: 24, l: 24 };
   const availW = Math.max(1, width - pad.l - pad.r);
   const availH = Math.max(1, height - pad.t - pad.b);
-  const zoom = Math.min(maxZoom, availW / bounds.width, availH / bounds.height);
+  const zoom = Math.min(maxZoom, Math.max(MIN_FIT_ZOOM, Math.min(availW / bounds.width, availH / bounds.height)));
   return {
     zoom,
-    x: pad.l + (availW - bounds.width * zoom) / 2 - bounds.x * zoom,
+    x: along(pad.l, pad.l + availW, zoom, bounds.x + bounds.width),
     y: pad.t + (availH - bounds.height * zoom) / 2 - bounds.y * zoom,
   };
 }
@@ -98,15 +129,14 @@ function boundsFor(view: CanvasView, camera: { x: number; y: number; zoom: numbe
   return { x: -camera.x / camera.zoom, y: -camera.y / camera.zoom, width: view.width / camera.zoom, height: view.height / camera.zoom };
 }
 
-function animateCamera(view: CanvasView, to: { x: number; y: number; zoom: number }, instant: boolean) {
+function animateCamera(view: CanvasView, to: { x: number; y: number; zoom: number }, instant: boolean, timing = SETTLE) {
   if (instant) {
     view.setView(to);
     return;
   }
-  const opts = { duration: 0.45, ease: [0.2, 0.8, 0.2, 1] as const };
-  animate(view.x, to.x, opts);
-  animate(view.y, to.y, opts);
-  animate(view.zoom, to.zoom, opts);
+  animate(view.x, to.x, timing);
+  animate(view.y, to.y, timing);
+  animate(view.zoom, to.zoom, timing);
 }
 
 let pastedCount = 0;
@@ -127,7 +157,7 @@ export function NodeBananaAgentDemo() {
   const { runner, idle } = useRunner(setState, active);
 
   const graph = useNodeGraph({ nodes: GRAPH_NODES, edges: state.wired ? EDGES : NO_EDGES });
-  const layout = useRef<CameraLayout>({ portrait: false, panel: true });
+  const layout = useRef<CameraLayout>({ portrait: false, panel: true, built: FINAL_STATE.built > 0 });
   const viewRef = useRef<CanvasView | null>(null);
   const view = useCanvasView({
     fit: () => {
@@ -208,13 +238,21 @@ export function NodeBananaAgentDemo() {
   );
 
   const refit = useCallback(
-    (instant = false) => {
+    (instant = false, timing?: CameraTiming) => {
       if (view.interacted || view.width <= 0) return;
       const to = cameraFor(view.width, view.height, layout.current, AGENT_GRAPH_BOUNDS);
-      animateCamera(view, to, instant || reducedMotion);
+      animateCamera(view, to, instant || reducedMotion, timing);
     },
     [view, reducedMotion],
   );
+
+  // As the nodes land, a graph too wide for the tile pans along with them to its newest end.
+  const built = state.built > 0;
+  useEffect(() => {
+    if (layout.current.built === built) return;
+    layout.current.built = built;
+    refit(!built, BUILD_PAN);
+  }, [built, refit]);
 
   const setPanel = useCallback(
     (open: boolean) => {
@@ -267,6 +305,7 @@ export function NodeBananaAgentDemo() {
     setSelected(null);
     setPanelOpen(true);
     layout.current.panel = true;
+    layout.current.built = false;
     view.reset();
     refit(true);
     setState((s) => resetState(s));
@@ -392,7 +431,7 @@ export function NodeBananaAgentDemo() {
         toggles={<ViewToggle label="Chat" icon={<MessagesSquare size={16} strokeWidth={1.75} />} shown={page} onToggle={() => togglePage(!page)} />}
         frameOverlay={
           page ? (
-            <ChatView state={state} actions={actions} composer={composer} onCanvas={() => togglePage(false)} />
+            <ChatView state={state} actions={actions} composer={composer} onCanvas={() => togglePage(false)} openAtTurn={!armed} />
           ) : null
         }
       >
@@ -403,6 +442,7 @@ export function NodeBananaAgentDemo() {
           composer={composer}
           open={panelOpen && !page}
           entering={entering}
+          openAtTurn={!armed}
           onClose={() => setPanel(false)}
           onExpand={() => togglePage(true)}
         />
