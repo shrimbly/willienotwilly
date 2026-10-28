@@ -86,7 +86,10 @@ interface Slot {
   /** performance.now() when the in-flight seek was issued (0 = none). */
   seekIssuedAt: number;
   presentedTime: number;
+  /** Has played at least once (see prime). */
   primed: boolean;
+  /** A priming play() is pending; seeks wait for it to settle. */
+  priming: boolean;
   frameCallback: number;
   cleanup: (() => void) | null;
 }
@@ -97,6 +100,7 @@ const MIN_RATE = 0.0625;
 const MAX_RATE = 16;
 const RATE_DRIFT_LIMIT = 0.2;
 const RATE_GAIN = 4;
+const PRIME_TIMEOUT_MS = 3000;
 
 type FrameMetadata = { mediaTime: number; expectedDisplayTime: number };
 type FrameCallbackVideo = HTMLVideoElement & {
@@ -148,7 +152,8 @@ export class RetimeEngine {
   private seekLatency = 16;
   private errorSum = 0;
   private lagSum = 0;
-  private lastWanted = "";
+  private lastWantedClip = -1;
+  private lastWantedFrame = -1;
   private displayTimeUnreliable = false;
 
   constructor(options: {
@@ -214,16 +219,24 @@ export class RetimeEngine {
     this.present();
   }
 
+  /**
+   * Gate every piece of video work. While disabled the clock can still be
+   * moved (seek, setClips) and the motion values follow it, but no video
+   * loads, plays, seeks or reports frames; enabling catches the videos up.
+   */
   setEnabled(enabled: boolean) {
     if (this.enabled === enabled) return;
     this.enabled = enabled;
-    if (enabled) {
-      this.slots.forEach((slot, i) => this.prime(i, slot));
+    if (this.live) {
+      this.slots.forEach((slot, i) => {
+        this.prime(i, slot);
+        this.watchFrames(i, slot);
+      });
+      this.parkInactive();
       this.present();
       this.startLoop();
     } else {
-      this.stopLoop();
-      this.slots.forEach((slot) => slot.video?.pause());
+      this.quiesce();
     }
   }
 
@@ -258,7 +271,10 @@ export class RetimeEngine {
     this.playing = false;
     this.onPlayingChange?.(false);
     this.stopLoop();
-    this.slots.forEach((slot) => slot.video?.pause());
+    // A priming play() pauses itself when it settles.
+    for (const slot of this.slots) {
+      if (slot && !slot.priming) slot.video?.pause();
+    }
     // Settle on the exact frame for the paused time.
     this.slots.forEach((slot) => (slot.requestedFrame = -1));
     this.present();
@@ -285,21 +301,28 @@ export class RetimeEngine {
       seekIssuedAt: 0,
       presentedTime: -1,
       primed: false,
+      priming: false,
       frameCallback: 0,
       cleanup: null,
     });
     if (slot.video === video) return;
     slot.cleanup?.();
     slot.cleanup = null;
+    slot.video?.pause();
     slot.video = video;
     slot.requestedFrame = -1;
+    slot.seekIssuedAt = 0;
     slot.presentedTime = -1;
     slot.primed = false;
+    slot.priming = false;
     if (!video) return;
 
+    // An element that already played (re-registered under a new index) needs no priming.
+    slot.primed = video.played.length > 0;
     video.muted = true;
     video.playsInline = true;
     const onSettled = () => {
+      if (!this.live) return;
       if (!video.seeking) slot.presentedTime = video.currentTime;
       // Without requestVideoFrameCallback, `seeked` is the best latency signal.
       if (slot.seekIssuedAt > 0 && !(video as FrameCallbackVideo).requestVideoFrameCallback) {
@@ -311,26 +334,23 @@ export class RetimeEngine {
       else this.park(index);
     };
     const onMetadata = () => {
+      if (!this.live) return;
       if (index !== this.wantedIndex()) this.park(index);
       else this.present();
     };
     video.addEventListener("seeked", onSettled);
     video.addEventListener("loadeddata", onSettled);
     video.addEventListener("loadedmetadata", onMetadata);
-    this.watchFrames(index, slot, video);
     slot.cleanup = () => {
       video.removeEventListener("seeked", onSettled);
       video.removeEventListener("loadeddata", onSettled);
       video.removeEventListener("loadedmetadata", onMetadata);
-      const fcv = video as FrameCallbackVideo;
-      if (slot.frameCallback && fcv.cancelVideoFrameCallback) {
-        fcv.cancelVideoFrameCallback(slot.frameCallback);
-      }
-      slot.frameCallback = 0;
+      this.unwatchFrames(slot);
     };
     video.dataset.active = String(index === this.visibleIndex);
-    if (this.enabled) {
+    if (this.live) {
       this.prime(index, slot);
+      this.watchFrames(index, slot);
       this.present();
     }
   }
@@ -361,21 +381,42 @@ export class RetimeEngine {
     this.onActiveIndexChange = listeners.onActiveIndexChange ?? null;
   }
 
-  /** Stop the clock and every video; registered videos stay registered. */
+  /**
+   * Stop the clock, every video and every frame callback (unmount). Registered
+   * videos stay registered; the owner's next setEnabled/play resumes.
+   */
   detach() {
     this.detached = true;
-    this.stopLoop();
     this.enabled = false;
-    this.playing = false;
-    this.slots.forEach((slot) => slot?.video?.pause());
+    if (this.playing) {
+      this.playing = false;
+      this.onPlayingChange?.(false);
+    }
+    this.quiesce();
     this.onPlayingChange = null;
     this.onActiveIndexChange = null;
   }
 
   // ---------------------------------------------------------------------------
 
+  /** Allowed to touch the videos. */
+  private get live() {
+    return this.enabled && !this.detached;
+  }
+
   private get running() {
-    return this.playing && this.enabled && !this.detached;
+    return this.playing && this.live;
+  }
+
+  /** No rAF, no frame callbacks, every video paused; in-flight seeks just land. */
+  private quiesce() {
+    this.stopLoop();
+    for (const slot of this.slots) {
+      if (!slot) continue;
+      this.unwatchFrames(slot);
+      slot.video?.pause();
+      slot.seekIssuedAt = 0;
+    }
   }
 
   private wantedIndex() {
@@ -433,23 +474,8 @@ export class RetimeEngine {
     const slot = this.slots[index];
     const video = slot?.video;
     if (slot && video) {
-      if (this.strategy === "rate" && this.running) {
-        this.driveRate(index, slot, video, sample.sourceTime, speed * this.clockRate);
-      } else {
-        // Ask for the frame that will be due when the seek lands, so the
-        // picture doesn't trail the curve by one seek. Cuts are already parked.
-        let target = sample.sourceTime;
-        if (this.running) {
-          const ahead = this.map.sourceAt(this.t + (this.seekLatency / 1000) * this.clockRate, {
-            loop: this.loop,
-          });
-          if (ahead.index === index) target = ahead.sourceTime;
-        }
-        this.seekTo(index, target);
-      }
-      if (index !== this.visibleIndex && video.readyState >= HAVE_CURRENT_DATA && !video.seeking) {
-        this.show(index);
-      }
+      // While disabled only the clock moves; setEnabled(true) catches the videos up.
+      if (this.live) this.drive(index, slot, video, sample.sourceTime, speed);
     } else if (index !== this.visibleIndex && !this.slots.some((s) => s?.video)) {
       // No videos attached (clock-only use): keep the index in step.
       this.visibleIndex = index;
@@ -459,7 +485,29 @@ export class RetimeEngine {
     if (dt > 0) this.sample(index, sample.sourceTime, dt);
   }
 
+  /** Point the wanted clip's video at the curve's frame and cut to it once it is ready. */
+  private drive(index: number, slot: Slot, video: HTMLVideoElement, sourceTime: number, speed: number) {
+    if (this.strategy === "rate" && this.running) {
+      this.driveRate(index, slot, video, sourceTime, speed * this.clockRate);
+    } else {
+      // Ask for the frame that will be due when the seek lands, so the
+      // picture doesn't trail the curve by one seek. Cuts are already parked.
+      let target = sourceTime;
+      if (this.running) {
+        const ahead = this.map.sourceAt(this.t + (this.seekLatency / 1000) * this.clockRate, {
+          loop: this.loop,
+        });
+        if (ahead.index === index) target = ahead.sourceTime;
+      }
+      this.seekTo(index, target);
+    }
+    if (index !== this.visibleIndex && video.readyState >= HAVE_CURRENT_DATA && !video.seeking) {
+      this.show(index);
+    }
+  }
+
   private show(index: number) {
+    if (!this.live) return;
     const previous = this.visibleIndex;
     this.visibleIndex = index;
     this.slots.forEach((slot, i) => {
@@ -474,7 +522,7 @@ export class RetimeEngine {
 
   /** Paused on the clip's first frame, ready for its cut. */
   private park(index: number) {
-    if (index === this.wantedIndex() || index === this.visibleIndex) return;
+    if (!this.live || index === this.wantedIndex() || index === this.visibleIndex) return;
     const clip = this.clips[index];
     if (!clip) return;
     this.seekTo(index, clip.sourceStart ?? 0);
@@ -488,13 +536,15 @@ export class RetimeEngine {
     const slot = this.slots[index];
     const video = slot?.video;
     const clip = this.clips[index];
-    if (!slot || !video || !clip) return;
+    if (!slot || !video || !clip || !this.live) return;
     const fps = clip.fps ?? DEFAULT_FPS;
     const frameCount = clip.frameCount ?? Math.round(clip.sourceDuration * fps);
     const frame = sourceFrameIndex(sourceTime, fps, frameCount);
     if (frame === slot.requestedFrame) return;
     // One seek in flight per video; `seeked` re-presents with the newest target.
-    if (video.seeking) return;
+    // A priming play() is never interrupted (that would undo the priming);
+    // its settle re-presents or parks.
+    if (video.seeking || slot.priming) return;
     if (!video.paused) video.pause();
     slot.requestedFrame = frame;
     slot.seekIssuedAt = performance.now();
@@ -509,7 +559,7 @@ export class RetimeEngine {
     sourceTime: number,
     speed: number,
   ) {
-    if (video.seeking) return;
+    if (video.seeking || slot.priming) return;
     if (speed < MIN_RATE) {
       this.seekTo(index, sourceTime);
       return;
@@ -529,20 +579,53 @@ export class RetimeEngine {
     if (video.paused) video.play().catch(() => {});
   }
 
-  /** iOS only paints seeked frames once a video has played; muted inline play is allowed. */
+  /**
+   * iOS only paints seeked frames once a video has played; muted inline play
+   * is allowed. Playback starts from the frame this clip will show first (the
+   * default start position, since nothing has loaded yet), so the brief play
+   * is not a visible jump.
+   */
   private prime(index: number, slot: Slot) {
     const video = slot.video;
-    if (!video || slot.primed) return;
-    slot.primed = true;
+    const clip = this.clips[index];
+    if (!video || slot.primed || slot.priming) return;
+    slot.priming = true;
     video.preload = "auto";
-    const settle = () => {
+    if (clip && video.readyState === 0) {
+      const sample = this.map.sourceAt(this.t, { loop: this.loop });
+      video.currentTime = sample.index === index ? sample.sourceTime : (clip.sourceStart ?? 0);
+    }
+    let settled = false;
+    let fallback = 0;
+    const settle = (error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(fallback);
+      if (slot.video !== video) {
+        video.pause();
+        return;
+      }
+      slot.priming = false;
+      // Not played yet (disabled mid-prime, timed out, blocked): the next enable tries again.
+      slot.primed = video.played.length > 0;
+      if (!this.live) {
+        video.pause();
+        return;
+      }
+      // Paused by a disable that was undone before the rejection arrived.
+      if (!slot.primed && error instanceof DOMException && error.name === "AbortError") {
+        this.prime(index, slot);
+        return;
+      }
       if (this.strategy === "seek" || !this.running || index !== this.wantedIndex()) video.pause();
       slot.requestedFrame = -1;
       if (index === this.wantedIndex()) this.present();
       else this.park(index);
     };
+    // play() can stay pending on a stalled load; never let it hold seeks for long.
+    fallback = window.setTimeout(settle, PRIME_TIMEOUT_MS);
     const attempt = video.play();
-    if (attempt && typeof attempt.then === "function") attempt.then(settle, settle);
+    if (attempt && typeof attempt.then === "function") attempt.then(() => settle(), settle);
     else settle();
   }
 
@@ -551,11 +634,14 @@ export class RetimeEngine {
     this.seekLatency = this.seekLatency * 0.8 + Math.min(ms, 100) * 0.2;
   }
 
-  private watchFrames(index: number, slot: Slot, video: HTMLVideoElement) {
-    const fcv = video as FrameCallbackVideo;
-    if (!fcv.requestVideoFrameCallback) return;
+  /** Frame callbacks (seek latency and stats) run only while live. */
+  private watchFrames(index: number, slot: Slot) {
+    const video = slot.video;
+    const fcv = video as FrameCallbackVideo | null;
+    if (!fcv?.requestVideoFrameCallback || slot.frameCallback) return;
     const onFrame = (now: number, metadata: FrameMetadata) => {
-      if (slot.video !== video) return;
+      slot.frameCallback = 0;
+      if (slot.video !== video || !this.live) return;
       slot.presentedTime = metadata.mediaTime;
       const clip = this.clips[index];
       const fps = clip?.fps ?? DEFAULT_FPS;
@@ -592,15 +678,24 @@ export class RetimeEngine {
     slot.frameCallback = fcv.requestVideoFrameCallback(onFrame);
   }
 
+  private unwatchFrames(slot: Slot) {
+    const fcv = slot.video as FrameCallbackVideo | null;
+    if (slot.frameCallback && fcv?.cancelVideoFrameCallback) {
+      fcv.cancelVideoFrameCallback(slot.frameCallback);
+    }
+    slot.frameCallback = 0;
+  }
+
   private sample(index: number, sourceTime: number, dt: number) {
     const stats = this.stats;
     stats.ticks++;
     stats.seconds += dt;
     if (this.visibleIndex !== index) stats.wrongClipTicks++;
     const clip = this.clips[index];
-    const wanted = `${index}:${sourceFrameIndex(sourceTime, clip?.fps ?? DEFAULT_FPS)}`;
-    if (wanted !== this.lastWanted) {
-      this.lastWanted = wanted;
+    const frame = sourceFrameIndex(sourceTime, clip?.fps ?? DEFAULT_FPS);
+    if (index !== this.lastWantedClip || frame !== this.lastWantedFrame) {
+      this.lastWantedClip = index;
+      this.lastWantedFrame = frame;
       stats.wantedFrames++;
     }
   }

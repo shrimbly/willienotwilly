@@ -146,24 +146,41 @@ export function useRetimedPlayback({
   const getStats = useCallback(() => engine.getStats(), [engine]);
   const resetStats = useCallback(() => engine.resetStats(), [engine]);
 
-  return {
-    clips,
-    map,
-    totalDuration: map.total,
-    time: engine.time,
-    clipIndex: engine.clipIndex,
-    clipProgress: engine.clipProgress,
-    clipEased: engine.clipEased,
-    sourceTime: engine.sourceTime,
-    speed: engine.speed,
-    isPlaying,
-    activeIndex,
-    play,
-    pause,
-    toggle,
-    seek,
-    registerVideo,
-    getStats,
-    resetStats,
-  };
+  // A new object only on play/pause, a cut or new clips, so consumers can depend on it.
+  return useMemo(
+    () => ({
+      clips,
+      map,
+      totalDuration: map.total,
+      time: engine.time,
+      clipIndex: engine.clipIndex,
+      clipProgress: engine.clipProgress,
+      clipEased: engine.clipEased,
+      sourceTime: engine.sourceTime,
+      speed: engine.speed,
+      isPlaying,
+      activeIndex,
+      play,
+      pause,
+      toggle,
+      seek,
+      registerVideo,
+      getStats,
+      resetStats,
+    }),
+    [
+      clips,
+      map,
+      engine,
+      isPlaying,
+      activeIndex,
+      play,
+      pause,
+      toggle,
+      seek,
+      registerVideo,
+      getStats,
+      resetStats,
+    ],
+  );
 }

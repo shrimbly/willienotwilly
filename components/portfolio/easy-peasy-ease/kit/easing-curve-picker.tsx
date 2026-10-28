@@ -19,6 +19,8 @@ const POPOVER_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 const POPOVER_ROW_REVEAL_DURATION = 0.18;
 const POPOVER_ROW_STAGGER = 0.035;
 const CURVES_PER_ROW = 3;
+/** The popover's p-2: room kept above/below an option scrolled into view. */
+const POPOVER_SCROLL_MARGIN = 8;
 
 interface EasingCurvePickerProps {
   value: string;
@@ -91,31 +93,50 @@ export function EasingCurvePicker({
   const [focusedOptionIndex, setFocusedOptionIndex] = useState(selectedOptionIndex);
   const rovingOptionIndex =
     options.length === 0 ? -1 : Math.max(0, Math.min(options.length - 1, focusedOptionIndex));
+  const rovingIndexRef = useRef(rovingOptionIndex);
+  useEffect(() => {
+    rovingIndexRef.current = rovingOptionIndex;
+  });
   const optionRows = Array.from({ length: Math.ceil(options.length / CURVES_PER_ROW) }, (_, rowIndex) =>
     options.slice(rowIndex * CURVES_PER_ROW, (rowIndex + 1) * CURVES_PER_ROW),
   );
 
-  // Focus without scrolling the page; keep the option visible inside the popover.
-  const focusOption = useCallback((index: number) => {
+  // Focus without scrolling the page, and scroll only the popover to the option:
+  // centred if it is out of view on open (as native focus() does in the
+  // product), the nearest edge while arrowing through the grid.
+  const focusOption = useCallback((index: number, block: "center" | "nearest") => {
     const option = optionRefs.current[index];
     const popover = popoverRef.current;
     if (!option) return;
     option.focus({ preventScroll: true });
-    if (popover) {
-      const top = option.offsetTop;
-      const bottom = top + option.offsetHeight;
-      if (top < popover.scrollTop) popover.scrollTop = top - 8;
-      else if (bottom > popover.scrollTop + popover.clientHeight) {
-        popover.scrollTop = bottom - popover.clientHeight + 8;
-      }
+    if (!popover) return;
+    // Rects, not offsetTop: mid-reveal each row's blur filter makes it the
+    // options' offsetParent. The popover may also be mid scaleY, so map the
+    // on-screen delta back to layout pixels.
+    const popoverRect = popover.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    const scale = popover.offsetHeight > 0 ? popoverRect.height / popover.offsetHeight : 1;
+    if (!(scale > 0)) return;
+    const top = (optionRect.top - popoverRect.top) / scale - popover.clientTop + popover.scrollTop;
+    const bottom = top + optionRect.height / scale;
+    const viewTop = popover.scrollTop;
+    const viewBottom = viewTop + popover.clientHeight;
+    if (top >= viewTop && bottom <= viewBottom) return;
+    if (block === "center") {
+      popover.scrollTop = top - (popover.clientHeight - (bottom - top)) / 2;
+    } else if (top < viewTop) {
+      popover.scrollTop = top - POPOVER_SCROLL_MARGIN;
+    } else {
+      popover.scrollTop = bottom - popover.clientHeight + POPOVER_SCROLL_MARGIN;
     }
   }, []);
 
+  // Opening lands on the selected curve; later roving moves scroll from keydown.
   useEffect(() => {
     if (!open || options.length === 0) return;
-    const frameId = requestAnimationFrame(() => focusOption(rovingOptionIndex));
+    const frameId = requestAnimationFrame(() => focusOption(rovingIndexRef.current, "center"));
     return () => cancelAnimationFrame(frameId);
-  }, [focusOption, open, options.length, rovingOptionIndex]);
+  }, [focusOption, open, options.length]);
 
   // Close on outside interaction or Escape.
   useEffect(() => {
@@ -159,7 +180,7 @@ export function EasingCurvePicker({
     event.preventDefault();
     const clampedIndex = Math.max(0, Math.min(options.length - 1, nextIndex));
     setFocusedOptionIndex(clampedIndex);
-    focusOption(clampedIndex);
+    focusOption(clampedIndex, "nearest");
   };
 
   const origin = `${side === "top" ? "bottom" : "top"} ${align === "end" ? "right" : "left"}`;
@@ -236,7 +257,13 @@ export function EasingCurvePicker({
                   key={`curve-row-${row[0]}`}
                   role="presentation"
                   initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
-                  animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, filter: "blur(0px)" }}
+                  // Drop the settled filter: a lingering blur(0px) keeps a filter
+                  // layer per row and makes the row the options' offsetParent.
+                  animate={
+                    shouldReduceMotion
+                      ? { opacity: 1 }
+                      : { opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }
+                  }
                   transition={{
                     duration: shouldReduceMotion ? 0.12 : POPOVER_ROW_REVEAL_DURATION,
                     delay: shouldReduceMotion ? 0 : rowIndex * POPOVER_ROW_STAGGER,

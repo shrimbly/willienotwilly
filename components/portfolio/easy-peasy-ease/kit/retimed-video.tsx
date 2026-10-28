@@ -53,9 +53,18 @@ function RetimedVideoSlot({
   className?: string;
 }) {
   const ref = useCallback(
-    (video: HTMLVideoElement | null) => {
+    (video: HTMLVideoElement) => {
       register(index, video);
-      return () => register(index, null);
+      return () => {
+        register(index, null);
+        // Unmounted rather than re-registered under a new index: release the
+        // decoder and any download now instead of at garbage collection.
+        queueMicrotask(() => {
+          if (video.isConnected) return;
+          video.removeAttribute("src");
+          video.load();
+        });
+      };
     },
     [index, register],
   );

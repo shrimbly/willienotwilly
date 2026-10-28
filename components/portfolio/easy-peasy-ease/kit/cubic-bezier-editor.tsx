@@ -363,20 +363,26 @@ function CubicBezierEditorComponent({
         </div>
       </div>
       {readout !== false && (
+        // The product's two-column line under the plot. Its readout always has
+        // the inspector's full width (328px+); here the editor can be as narrow
+        // as a height-capped plot, so the line keeps its max-content width and
+        // overhangs the plot evenly instead of wrapping each point.
         <div
           className={cn(
-            "grid-cols-2 gap-3 font-mono text-xs tabular-nums text-muted-foreground",
-            readout ? "grid" : "hidden @min-[640px]/epe:grid",
+            "justify-center whitespace-nowrap",
+            readout ? "flex" : "hidden @min-[640px]/epe:flex",
           )}
         >
-          <p>
-            <span className="font-medium text-foreground">Point 1</span> {value[0].toFixed(2)},{" "}
-            {value[1].toFixed(2)}
-          </p>
-          <p>
-            <span className="font-medium text-foreground">Point 2</span> {value[2].toFixed(2)},{" "}
-            {value[3].toFixed(2)}
-          </p>
+          <div className="grid w-max min-w-full shrink-0 grid-cols-2 gap-3 font-mono text-xs tabular-nums text-muted-foreground">
+            <p>
+              <span className="font-medium text-foreground">Point 1</span> {value[0].toFixed(2)},{" "}
+              {value[1].toFixed(2)}
+            </p>
+            <p>
+              <span className="font-medium text-foreground">Point 2</span> {value[2].toFixed(2)},{" "}
+              {value[3].toFixed(2)}
+            </p>
+          </div>
         </div>
       )}
     </div>
