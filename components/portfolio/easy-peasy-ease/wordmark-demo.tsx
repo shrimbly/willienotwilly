@@ -26,12 +26,6 @@ import "./wordmark/wordmark.css";
 // max-w-2xl column tracks its text-7xl title, with a floor for narrow tiles.
 const DROP_ZONE_WIDTH = "w-[min(100%,max(20rem,calc(var(--epe-wm-type)*8.9)))]";
 const ROW_GAP = "mt-[clamp(8px,2.6cqh,16px)]";
-// The product's lime focus ring vanishes on the lime pressed segment; a dark
-// ring keeps keyboard focus visible there.
-const MODE_BUTTON = cn(
-  segmentedControlItemClassName,
-  "aria-pressed:focus-visible:ring-(color:--primary-foreground)/60",
-);
 
 /**
  * The Easy Peasy Ease landing screen (app/page.tsx, upload state): LightRays,
@@ -103,8 +97,7 @@ export function EasyPeasyEaseWordmarkDemo() {
             speed={14}
             // The product's rays are 70vh, 630px on a 900px desktop. The type
             // here is product size, so the rays are too. The seed spreads them
-            // across the width, a few starting early, so light shows soon after
-            // the tile scrolls in.
+            // across the width.
             length="135%"
             seed={4673}
             interactive={isDropZoneHovered || isDragOver}
@@ -154,7 +147,7 @@ export function EasyPeasyEaseWordmarkDemo() {
                   type="button"
                   aria-pressed={mode === "stitch"}
                   onClick={() => chooseMode("stitch")}
-                  className={MODE_BUTTON}
+                  className={segmentedControlItemClassName}
                 >
                   <Layers className="h-4 w-4" />
                   <span className="text-sm font-medium">Stitch clips</span>
@@ -163,7 +156,7 @@ export function EasyPeasyEaseWordmarkDemo() {
                   type="button"
                   aria-pressed={mode === "split"}
                   onClick={() => chooseMode("split")}
-                  className={MODE_BUTTON}
+                  className={segmentedControlItemClassName}
                 >
                   <Scissors className="h-4 w-4" />
                   <span className="text-sm font-medium">Split one video</span>

@@ -25,8 +25,10 @@ import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback"
 import { VideoPlaybackControls } from "./kit/video-playback-controls";
 import "./curves/curves.css";
 
-// The overhead turn reads speed best: the slope of the curve is how fast it spins.
-const SOURCE = CAR_CLIPS[2];
+// The track along the flank to the rear wheel reads speed well (the slope of
+// the curve is how fast the panels slide by), and the editor and split tiles
+// above already show car-1 to car-3.
+const SOURCE = CAR_CLIPS[4];
 const INITIAL_PRESET = DEFAULT_EASING as EasingPresetName;
 const INITIAL_DURATION = 2;
 // Mid-clip, so the reduced-motion resting state shows every curve's halfway point.
@@ -243,7 +245,7 @@ export function EasyPeasyEaseCurvesDemo() {
 
           <div className="epe-curves-aside">
             <div className="epe-curves-inspector-only epe-curves-header min-w-0 items-center gap-3">
-              <h4 className="text-lg font-semibold text-foreground">Clip 1</h4>
+              <p className="text-lg font-semibold text-foreground">Clip 1</p>
               <p className="ml-auto min-w-0 truncate text-right text-xs text-muted-foreground">
                 {SOURCE.name}
               </p>
@@ -284,8 +286,6 @@ export function EasyPeasyEaseCurvesDemo() {
               onChange={drawCurve}
               aspect="square"
               plotClassName="max-w-none"
-              // The readout only shows from 640px; drop its gap with it.
-              className="space-y-0 @min-[640px]/epe:space-y-3"
               progress={playback.clipProgress}
               progressGuides
             />

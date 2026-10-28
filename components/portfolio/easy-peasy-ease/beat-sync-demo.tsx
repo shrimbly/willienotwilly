@@ -48,8 +48,11 @@ const AUDIO_FILE_NAME = "beats-128.mp3";
 const CUSTOM_CURVE = "Custom";
 /** Untouched, the demo engages "every 2nd beat" once, a moment after it starts playing. */
 const AUTO_SNAP_DELAY_MS = 2200;
-/** Stands in for the product's re-render behind the ⟳ / Update Video buttons. */
+/** Stands in for the product's re-render behind the ⟳ / Update buttons. */
 const UPDATE_DELAY_MS = 500;
+
+/** Which button started the stand-in re-render ("clip" replays from that clip). */
+type UpdateScope = "clip" | "all";
 
 interface ClipCurve {
   preset: string;
@@ -132,11 +135,12 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const [sync, dispatch] = useReducer(syncReducer, INITIAL_SYNC);
   const [curves, setCurves] = useState(INITIAL_CURVES);
   const [selectedClip, setSelectedClip] = useState(0);
-  const [tab, setTab] = useState<0 | 1>(1);
+  // The product's inspector opens on Video (segments): the curve editor fills it.
+  const [tab, setTab] = useState<0 | 1>(0);
   const [zoom, setZoom] = useState(0);
   const [hasAudio, setHasAudio] = useState(true);
   const [soundOn, setSoundOn] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [updateScope, setUpdateScope] = useState<UpdateScope | null>(null);
   const [fadeIn, setFadeIn] = useState(0.5);
   const [fadeOut, setFadeOut] = useState(0.5);
   const [quality, setQuality] = useState("preview");
@@ -206,15 +210,20 @@ export function EasyPeasyEaseBeatSyncDemo() {
     autoSnapDoneRef.current = true;
   }, []);
 
-  const applyUpdate = useCallback(() => {
-    setUpdating(true);
-    window.clearTimeout(updateTimerRef.current);
-    updateTimerRef.current = window.setTimeout(() => {
-      setUpdating(false);
-      seek(0);
-      play();
-    }, UPDATE_DELAY_MS);
-  }, [play, seek]);
+  const runUpdate = useCallback(
+    (scope: UpdateScope, from: number) => {
+      setUpdateScope(scope);
+      window.clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = window.setTimeout(() => {
+        setUpdateScope(null);
+        seek(from);
+        play();
+      }, UPDATE_DELAY_MS);
+    },
+    [play, seek],
+  );
+  const applyUpdate = useCallback(() => runUpdate("all", 0), [runUpdate]);
+  const updating = updateScope !== null;
 
   const toggleSound = () => {
     if (soundOn) {
@@ -268,10 +277,12 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const qualityId = `${fieldId}-quality`;
   const panelId = `${fieldId}-panel`;
 
+  const selectedClipStart = sync.durations.slice(0, selectedClip).reduce((sum, d) => sum + d, 0);
+
   const segmentSettings = (
     <div className="flex h-full flex-col gap-4">
       <div className="flex min-w-0 items-center gap-3">
-        <h4 className="shrink-0 text-lg font-semibold text-foreground">Clip {selectedClip + 1}</h4>
+        <p className="shrink-0 text-lg font-semibold text-foreground">Clip {selectedClip + 1}</p>
         <p
           className="ml-auto min-w-0 truncate text-right text-xs text-muted-foreground"
           title={CAR_CLIPS[selectedClip].name}
@@ -312,9 +323,11 @@ export function EasyPeasyEaseBeatSyncDemo() {
             />
           </div>
         </div>
-        {/* The plot takes the largest square the panel has left, so the
-            inspector never scrolls (a scrolling panel would catch the wheel).
-            1rem stays free below it for the handles' 40px hit areas. */}
+        {/* The plot takes the largest square the panel has left above the
+            product's two update buttons, so the inspector never scrolls (a
+            scrolling panel would catch the wheel). The 1rem above the buttons
+            keeps them clear of the handles' 40px hit areas; the 0.25rem below
+            holds the buttons' own hit areas inside the panel. */}
         <div className="min-h-0 flex-1 [container-type:size]">
           <CubicBezierEditor
             value={selectedCurve.bezier}
@@ -323,8 +336,29 @@ export function EasyPeasyEaseBeatSyncDemo() {
             }
             progress={playback.activeIndex === selectedClip ? playback.clipProgress : undefined}
             readout={false}
-            className="mx-auto w-[min(100cqw,100cqh-1rem)] min-w-0"
+            className="mx-auto w-[min(100cqw,100cqh-3.25rem)] min-w-0"
           />
+          <div className="mt-4 flex gap-2">
+            <EpeButton
+              size="sm"
+              variant="outline"
+              onClick={() => runUpdate("clip", selectedClipStart)}
+              disabled={updating}
+              className="min-w-0 flex-1 gap-2"
+            >
+              {updateScope === "clip" && <Loader2 className="h-4 w-4 animate-spin" />}
+              Update Clip
+            </EpeButton>
+            <EpeButton
+              size="sm"
+              onClick={applyUpdate}
+              disabled={updating}
+              className="min-w-0 flex-1 gap-2 bg-(color:--brand-strong) hover:bg-(color:--brand-strong)/90"
+            >
+              {updateScope === "all" && <Loader2 className="h-4 w-4 animate-spin" />}
+              Update All Clips
+            </EpeButton>
+          </div>
         </div>
       </div>
     </div>
@@ -333,7 +367,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const audioSettings = hasAudio ? (
     <div className="space-y-4">
       <div>
-        <h4 className="text-lg font-semibold text-foreground">Audio Settings</h4>
+        <p className="text-lg font-semibold text-foreground">Audio Settings</p>
         <p className="hidden text-xs text-(color:--body-muted-foreground) @min-[640px]/epe:block">
           Shape fade envelopes and looping for the background track.
         </p>
@@ -410,8 +444,10 @@ export function EasyPeasyEaseBeatSyncDemo() {
       </p>
 
       <div className="flex h-full w-full gap-2">
-        {/* Preview, controls bar and timeline as one connected card */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col shadow-xl">
+        {/* Preview, controls bar and timeline as one connected card. It is the
+            kit's epe container, so beside the inspector the timeline takes its
+            compact rows from the column's width and leaves the preview room. */}
+        <div className="@container/epe flex min-h-0 min-w-0 flex-1 flex-col shadow-xl">
           <div className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-t-[12px] border border-border bg-black">
             <RetimedVideo playback={playback} />
           </div>

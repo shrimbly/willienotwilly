@@ -14,12 +14,18 @@ import { cn } from "@/lib/utils";
 
 import { CurveThumb } from "../kit/easing-curve-picker";
 import { followValue } from "../kit/motion-value-utils";
+import { usePageWheelPassthrough } from "../kit/use-page-wheel-passthrough";
 
 const EASES = EASING_PRESETS.map((name) => bezierEasing(PRESET_BEZIERS[name]));
 
 const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 /** Room kept between a stepped-to option and the strip's 2rem edge fades. */
 const EDGE_MARGIN = 32;
+/**
+ * Hover previews wait this long after any scroll: the browser re-runs hover
+ * as content slides under a still pointer, which must not swap the curve.
+ */
+const SCROLL_HOVER_GRACE_MS = 150;
 
 interface CurveGalleryProps {
   /** Committed preset, or null for a hand-drawn curve. */
@@ -28,7 +34,10 @@ interface CurveGalleryProps {
   progress: MotionValue<number>;
   /** Initial clock value, so the server markup already shows the dots in place. */
   initialProgress: number;
-  /** Mouse hover previews a preset; null when the pointer leaves the grid. */
+  /**
+   * A mouse moving over an option previews its preset; null when the pointer
+   * leaves the grid or anything scrolls.
+   */
   onPreview: (preset: EasingPresetName | null) => void;
   onSelect: (preset: EasingPresetName) => void;
   className?: string;
@@ -129,23 +138,24 @@ export const CurveGallery = memo(function CurveGallery({
     };
   }, []);
 
-  // A mostly vertical wheel with some sideways drift (a trackpad) would latch
-  // onto the strip and stall the page, so the page takes those. Straight
-  // vertical wheels pass through on their own; sideways ones still scroll here.
+  // A trackpad's vertical swipe with some sideways drift goes to the page.
+  usePageWheelPassthrough(gridRef);
+
+  // The preset this grid last asked to preview, so a move within an option
+  // does not restart the tween and a scroll knows whether to clear it.
+  const previewedRef = useRef<EasingPresetName | null>(null);
+  const lastScrollRef = useRef(Number.NEGATIVE_INFINITY);
   useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.deltaX === 0) return;
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      if (grid.scrollWidth <= grid.clientWidth) return;
-      event.preventDefault();
-      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-      window.scrollBy({ top: event.deltaY * unit, behavior: "instant" });
+    // Capture sees the page's scroll and the strip's own.
+    const onScroll = (event: Event) => {
+      lastScrollRef.current = event.timeStamp;
+      if (previewedRef.current === null) return;
+      previewedRef.current = null;
+      onPreview(null);
     };
-    grid.addEventListener("wheel", onWheel, { passive: false });
-    return () => grid.removeEventListener("wheel", onWheel);
-  }, []);
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, [onPreview]);
 
   // The selection stays in sight, as the product's popover opens on it: on
   // mount, and when a pick in the picker lands on a preset scrolled away here.
@@ -207,12 +217,23 @@ export const CurveGallery = memo(function CurveGallery({
     focusOption(next);
   };
 
-  const handlePointerEnter = (preset: EasingPresetName, event: PointerEvent<HTMLButtonElement>) => {
-    if (event.pointerType === "mouse") onPreview(preset);
+  const preview = (preset: EasingPresetName | null) => {
+    if (previewedRef.current === preset) return;
+    previewedRef.current = preset;
+    onPreview(preset);
+  };
+
+  // Only a pointer that really moved previews: the hover events a scroll
+  // fires under a resting mouse carry no movement, or land inside the grace.
+  const handlePointerMove = (preset: EasingPresetName, event: PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType !== "mouse") return;
+    if (event.movementX === 0 && event.movementY === 0) return;
+    if (event.timeStamp - lastScrollRef.current < SCROLL_HOVER_GRACE_MS) return;
+    preview(preset);
   };
 
   const handlePointerLeave = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse") onPreview(null);
+    if (event.pointerType === "mouse") preview(null);
   };
 
   return (
@@ -248,7 +269,7 @@ export const CurveGallery = memo(function CurveGallery({
               }}
               onFocus={() => setFocusIndex(index)}
               onKeyDown={(event) => handleKeyDown(index, event)}
-              onPointerEnter={(event) => handlePointerEnter(preset, event)}
+              onPointerMove={(event) => handlePointerMove(preset, event)}
               className={cn(
                 "epe-curves-option flex min-w-0 flex-col items-center justify-center gap-1 rounded-sm border p-1.5 transition-colors @min-[640px]/epe:p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset",
                 isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-accent",
@@ -275,7 +296,7 @@ export const CurveGallery = memo(function CurveGallery({
               </span>
               <span
                 className={cn(
-                  "whitespace-nowrap text-center text-[10px] leading-tight",
+                  "whitespace-nowrap text-center text-[11px] leading-tight",
                   isSelected ? "font-medium text-foreground" : "text-muted-foreground",
                 )}
               >

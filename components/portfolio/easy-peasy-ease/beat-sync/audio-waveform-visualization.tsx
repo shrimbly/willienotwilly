@@ -28,8 +28,11 @@ import { AudioScrubber } from "./waveform";
  *   arrows nudge the offset by 0.01 s (Shift 0.1 s), or by one beat while
  *   snapping; Enter/Space selects.
  * - Below 640px (container) the pill and the remove button sit in a row
- *   above the lane, which is h-14 like the clip track, instead of covering
- *   most of a phone-width waveform. From 640px they overlay it as shipped.
+ *   above the lane instead of covering most of a phone-width waveform. From
+ *   640px they overlay it as shipped.
+ * - The lane is h-14 like the clip track until that track grows at 768px
+ *   (the product's md:), then the shipped 72px, so a short tile keeps its
+ *   height for the preview.
  * - The drag surface is touch-action: pan-y so a vertical swipe still
  *   scrolls the page on phones.
  * - `currentTime` may be a motion value (progress line without re-renders).
@@ -337,7 +340,7 @@ export function AudioWaveformVisualization({
             isDragging && "cursor-grabbing",
           )}
         />
-        <div className="flex h-14 @min-[640px]/epe:h-[72px]">
+        <div className="flex h-14 @min-[768px]/epe:h-[72px]">
           {/* Silence/gap at the start when offset > 0 */}
           {silenceWidthPixels > 0 && (
             <div className="shrink-0 bg-secondary/30" style={{ width: `${silenceWidthPixels}px` }} />
