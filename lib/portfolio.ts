@@ -190,7 +190,7 @@ export const projects: Project[] = [
     video: "/videos/portfolio/banana.mp4",
     poster: "/images/portfolio/posters/banana.jpg",
     heroDemo: "node-banana-canvas",
-    heroDemoMobileAspect: "4/5",
+    heroDemoMobileAspect: "3/4",
     stats: [
       { label: "Stars", value: "1.6k" },
       { label: "Release", value: "v2.3" },
@@ -212,7 +212,7 @@ export const projects: Project[] = [
         caption:
           "Clips wired into Edit Video land on a stacked timeline: one row per clip, each starting before the clip above ends, like sequence layers in After Effects. Drag clips in time, crossfade the overlaps, ramp a clip's speed and burn in text.",
         aspect: "16/10",
-        mobileAspect: "3/4",
+        mobileAspect: "2/3",
         placeholderClass: "bg-[#171717]",
         demo: "node-banana-edit-video",
       },
@@ -289,7 +289,7 @@ export const projects: Project[] = [
     external: true,
     ctaLabel: "View on GitHub",
     category: "personal",
-    placeholderClass: "bg-[#0d1210]",
+    placeholderClass: "bg-[#0f1d20]",
     video: "/videos/portfolio/ezpz.mp4",
     poster: "/images/portfolio/posters/ezpz.jpg",
     heroDemo: "easy-peasy-ease-editor",
@@ -306,7 +306,7 @@ export const projects: Project[] = [
           "Drop in one long clip, set the cut points, and every section comes back as its own eased clip, ready to loop.",
         aspect: "16/9",
         mobileAspect: "4/5",
-        placeholderClass: "bg-[#0d1210]",
+        placeholderClass: "bg-[#0f1d20]",
         demo: "easy-peasy-ease-split",
       },
       {
@@ -315,7 +315,7 @@ export const projects: Project[] = [
           "Add a track and the editor finds its tempo, then snaps every cut to every beat, every second beat or every fourth.",
         aspect: "16/9",
         mobileAspect: "4/5",
-        placeholderClass: "bg-[#0d1210]",
+        placeholderClass: "bg-[#0f1d20]",
         demo: "easy-peasy-ease-beat-sync",
       },
       {
@@ -324,7 +324,7 @@ export const projects: Project[] = [
           "Twenty-five easing presets, all monotonic so a clip never runs backwards, or drag the handles to draw your own.",
         aspect: "16/10",
         mobileAspect: "4/5",
-        placeholderClass: "bg-[#0d1210]",
+        placeholderClass: "bg-[#0f1d20]",
         demo: "easy-peasy-ease-curves",
       },
       {
@@ -333,7 +333,7 @@ export const projects: Project[] = [
           "The wordmark is a variable font whose letters thin as the pointer passes over them, set over slow light rays. Choose Stitch or Split, then drop your clips in or tap to browse.",
         aspect: "22/9",
         mobileAspect: "4/3",
-        placeholderClass: "bg-[#0d1210]",
+        placeholderClass: "bg-[#0f1d20]",
         demo: "easy-peasy-ease-wordmark",
       },
     ],

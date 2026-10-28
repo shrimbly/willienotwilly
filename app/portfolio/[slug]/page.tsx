@@ -125,7 +125,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               ) : project.heroDemo ? (
                 <div
                   data-demo={project.heroDemo}
-                  className="squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[32px] border border-border/70 bg-card transition-colors duration-300 sm:aspect-video sm:rounded-[40px]"
+                  className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[32px] border border-border/70 md:aspect-video sm:rounded-[40px] ${project.placeholderClass}`}
                   style={
                     {
                       ["--demo-aspect-mobile" as string]:
@@ -133,10 +133,6 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     } as React.CSSProperties
                   }
                 >
-                  <div
-                    className={`absolute inset-0 h-full w-full ${project.placeholderClass}`}
-                    aria-hidden="true"
-                  />
                   <DemoSlot id={project.heroDemo} eager />
                 </div>
               ) : (
@@ -203,7 +199,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   {h.demo ? (
                     <div
                       data-demo={h.demo}
-                      className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[28px] border border-border/70 sm:aspect-[var(--demo-aspect)] sm:rounded-[32px] ${h.placeholderClass}`}
+                      className={`squircle relative aspect-[var(--demo-aspect-mobile)] w-full overflow-hidden rounded-[28px] border border-border/70 md:aspect-[var(--demo-aspect)] sm:rounded-[32px] ${h.placeholderClass}`}
                       style={
                         {
                           ["--demo-aspect" as string]: h.aspect ?? "16/10",
