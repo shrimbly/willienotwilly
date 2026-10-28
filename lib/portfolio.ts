@@ -179,8 +179,8 @@ export const projects: Project[] = [
     blurb:
       "Generative media canvas for Mac and Windows. Wire image, video, audio and text models from Fal, Replicate, Gemini, OpenAI, ComfyUI and more into node graphs. Free and open source.",
     description:
-      "A free, open-source canvas for generative media, now a desktop app for Mac and Windows. Wire models from any provider into a graph, let an agent build the graph for you, and cut the results together on a timeline. Everything you make lands in a local library, and your keys never leave your machine.",
-    meta: "1.7k stars · TypeScript",
+      "A free, open-source canvas for generative media, now a desktop app for Mac and Windows. Wire models from any provider into a graph, let an agent build the graph for you, and cut the results together on a timeline. Everything you make lands in a local library, and your keys stay encrypted on your machine.",
+    meta: "1.6k stars · TypeScript",
     year: "2026",
     href: "https://nodebanana.app",
     external: true,
@@ -192,7 +192,7 @@ export const projects: Project[] = [
     heroDemo: "node-banana-canvas",
     heroDemoMobileAspect: "4/5",
     stats: [
-      { label: "Stars", value: "1.7k" },
+      { label: "Stars", value: "1.6k" },
       { label: "Release", value: "v2.3" },
       { label: "Platform", value: "Mac · Windows" },
       { label: "License", value: "MIT" },
@@ -201,7 +201,7 @@ export const projects: Project[] = [
       {
         title: "Anatomy of a node",
         caption:
-          "Every node is built the same way: a media card that shows the output at its native proportions with the sockets set into its border, a row for paging back through earlier runs, and a controls card underneath that opens into the settings.",
+          "Every node is built the same way: a header floating above a media card that shows the output at its native proportions, sockets set into the card's border, a row for paging back through earlier runs, and a controls card underneath that opens into the settings.",
         aspect: "16/10",
         mobileAspect: "4/5",
         placeholderClass: "bg-[#171717]",
@@ -210,7 +210,7 @@ export const projects: Project[] = [
       {
         title: "Edit Video",
         caption:
-          "Generated clips land on a stacked timeline: one row per clip, each starting before the clip above ends, like sequence layers in After Effects. Drag clips in time, crossfade the overlaps, ramp a clip's speed and burn in text.",
+          "Clips wired into Edit Video land on a stacked timeline: one row per clip, each starting before the clip above ends, like sequence layers in After Effects. Drag clips in time, crossfade the overlaps, ramp a clip's speed and burn in text.",
         aspect: "16/10",
         mobileAspect: "3/4",
         placeholderClass: "bg-[#171717]",
@@ -282,7 +282,7 @@ export const projects: Project[] = [
     blurb:
       "Browser-based video editor for seamless looped videos with Bezier speed curves, beat sync, and audio mixing. Client-side processing via Mediabunny.",
     description:
-      "A free, open-source browser-only video editor focused on one thing: making perfect loops. Bezier speed curves sculpt each clip's tail back into the next clip's head, cuts can snap to the beat of a track, and one long video can be split into eased sections. Everything runs client-side over Mediabunny — no upload, no server.",
+      "A free, open-source browser-only video editor focused on one thing: making perfect loops. Bezier speed curves ease each clip in and out so the cuts and the loop point disappear, cuts can snap to the beat of a track, and one long video can be split into eased sections. Everything runs client-side over Mediabunny — no upload, no server.",
     meta: "118 stars · TypeScript",
     year: "2025",
     href: "https://github.com/shrimbly/easy-peasy-ease",
@@ -312,7 +312,7 @@ export const projects: Project[] = [
       {
         title: "Beat sync",
         caption:
-          "Add a track and the editor finds its tempo, then snaps every cut to the beat, the second beat, or every fourth.",
+          "Add a track and the editor finds its tempo, then snaps every cut to every beat, every second beat or every fourth.",
         aspect: "16/9",
         mobileAspect: "4/5",
         placeholderClass: "bg-[#0d1210]",
@@ -330,7 +330,7 @@ export const projects: Project[] = [
       {
         title: "The landing",
         caption:
-          "The wordmark is a variable font whose letters thin as the pointer passes over them, set over slow light rays. Pick Stitch or Split, then drop your clips in.",
+          "The wordmark is a variable font whose letters thin as the pointer passes over them, set over slow light rays. Choose Stitch or Split, then drop your clips in or tap to browse.",
         aspect: "22/9",
         mobileAspect: "4/3",
         placeholderClass: "bg-[#0d1210]",
