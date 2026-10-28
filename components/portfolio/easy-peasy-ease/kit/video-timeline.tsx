@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 import { FilmstripFrame } from "./filmstrip-frame";
 import { followValue } from "./motion-value-utils";
+import { usePageWheelPassthrough } from "./use-page-wheel-passthrough";
 
 /**
  * Port of easy-peasy-ease/components/VideoTimeline.tsx (+ TimelineZoomSlider).
@@ -29,8 +30,13 @@ import { followValue } from "./motion-value-utils";
  *   auto-scroll then update imperatively, with no React render per frame.
  * - md: variants follow the EpeRoot container (768px), not the viewport.
  * - The vertical-wheel-to-horizontal-scroll handler is dropped so the page
- *   always scrolls; the scrub track is touch-action: pan-y.
- * - Segments are <button>s (select + seek to start), so they are keyboard reachable.
+ *   always scrolls (mostly vertical trackpad swipes are handed to the page,
+ *   see usePageWheelPassthrough); the scrub track is touch-action: pan-y.
+ * - Segments are <button>s (select + seek to start), so they are keyboard
+ *   reachable. Letting go after a scrub doesn't count as a click on the
+ *   segment under the press.
+ * - Ruler ticks stop at the last whole second inside the timeline, so no tick
+ *   or label hangs past the end and widens the scroll area.
  * - Radii in px (product rounded-lg = 12px, rounded-md = 8px).
  */
 
@@ -39,6 +45,9 @@ export const TIMELINE_MIN_VISIBLE_SECONDS = 3;
 /** Horizontal breathing room inside the scroll viewport. All time<->pixel
  *  maths stays anchored to the inner track (x=0 at the gutter's inside edge). */
 const TIMELINE_GUTTER_PX = 12;
+
+/** Pointer travel (px) after which a press on the track is a scrub, not a click. */
+const SCRUB_CLICK_SLOP_PX = 4;
 
 const lerp = (start: number, end: number, value: number) => start + (end - start) * value;
 
@@ -223,6 +232,8 @@ export function VideoTimeline({
   const knobRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const isDraggingRef = useRef(false);
+  /** Where the current track press started, and whether it has moved far enough to be a scrub. */
+  const pressRef = useRef<{ x: number; scrubbed: boolean } | null>(null);
   const timeRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -249,7 +260,8 @@ export function VideoTimeline({
 
   const rawTrackWidth = totalDuration > 0 ? totalDuration * pixelsPerSecond : contentViewportWidth;
   const trackWidth = Math.max(rawTrackWidth, contentViewportWidth);
-  const tickCount = Math.max(Math.ceil(totalDuration) + 1, 1);
+  // Whole seconds up to the end, never past it (a tick beyond the end widened the scroll area).
+  const tickCount = Math.floor(totalDuration + 1e-6) + 1;
 
   // Keep the zoom slider sensible when the timeline shrinks.
   useEffect(() => {
@@ -257,6 +269,8 @@ export function VideoTimeline({
       onZoomChange(0);
     }
   }, [zoomDisabled, zoomValue, onZoomChange]);
+
+  usePageWheelPassthrough(viewportRef);
 
   // Measure the scroll viewport width (the observer reports once on attach).
   useEffect(() => {
@@ -341,6 +355,7 @@ export function VideoTimeline({
   // Handle timeline interaction (click or drag).
   const handleTrackPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
+    pressRef.current = { x: e.clientX, scrubbed: false };
     onSeek(timeFromClientX(e.clientX));
     beginDrag();
     const target = e.target as HTMLElement;
@@ -381,6 +396,8 @@ export function VideoTimeline({
     if (!isDragging) return;
 
     const handlePointerMove = (e: globalThis.PointerEvent) => {
+      const press = pressRef.current;
+      if (press && Math.abs(e.clientX - press.x) > SCRUB_CLICK_SLOP_PX) press.scrubbed = true;
       onSeek(timeFromClientX(e.clientX));
     };
     const handlePointerUp = () => {
@@ -459,12 +476,18 @@ export function VideoTimeline({
                         aria-pressed={isSelected}
                         aria-label={`${label}, ${segmentDuration.toFixed(2)} seconds`}
                         className={cn(
-                          "relative block h-full flex-none border-r border-border/50 text-left transition-[background-color,box-shadow,width] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset data-[playing=true]:bg-primary/10",
+                          "relative block h-full flex-none border-r border-border/50 text-left transition-[background-color,box-shadow,width] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset data-[playing=true]:bg-primary/10",
                           isSelected && "ring-2 ring-primary ring-inset",
                         )}
                         style={{ width: `${Math.max(segmentWidth, 0)}px` }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          // The press is captured on this segment, so letting go
+                          // after a scrub clicks it too; that click would undo
+                          // the scrub. Keyboard clicks (detail 0) always select.
+                          const press = pressRef.current;
+                          pressRef.current = null;
+                          if (e.detail > 0 && press?.scrubbed) return;
                           onSegmentSelect(segment.id);
                           // Also seek to the segment start so playback doesn't reset the selection.
                           onSeek(boundary.startTime);

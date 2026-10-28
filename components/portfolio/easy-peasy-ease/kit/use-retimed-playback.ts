@@ -54,6 +54,11 @@ export interface RetimedPlayback {
   sourceTime: MotionValue<number>;
   /** Instantaneous speed vs real time (×N readouts). */
   speed: MotionValue<number>;
+  /**
+   * True while playing but holding the clock for a clip's first frame (slow
+   * network): the clock, playhead and readouts wait with the picture.
+   */
+  waiting: MotionValue<boolean>;
   /** React state; changes on play/pause only. */
   isPlaying: boolean;
   /** React state; the clip on screen (changes at cuts, not per frame). */
@@ -72,7 +77,8 @@ export interface RetimedPlayback {
  * Drives one <video> per clip so output time maps through each clip's ease
  * curve (see retime-engine.ts). Per-frame values are motion values; React
  * state only changes on play/pause and at cuts. Render the videos with
- * <RetimedVideo playback={...} />.
+ * <RetimedVideo playback={...} />. While a clip has no frame yet the playing
+ * clock holds (see `waiting`), so nothing runs ahead of the picture.
  */
 export function useRetimedPlayback({
   clips,
@@ -158,6 +164,7 @@ export function useRetimedPlayback({
       clipEased: engine.clipEased,
       sourceTime: engine.sourceTime,
       speed: engine.speed,
+      waiting: engine.waiting,
       isPlaying,
       activeIndex,
       play,

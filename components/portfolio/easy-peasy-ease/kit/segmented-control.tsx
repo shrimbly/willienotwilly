@@ -13,12 +13,16 @@ import { cn } from "@/lib/utils";
  * Landing: <SegmentedControl activeIndex={i} indicatorClassName="bg-(color:--brand-strong)">
  *   with <button aria-pressed className={segmentedControlItemClassName}> items.
  * Inspector tabs (Video / Audio): see inspectorTabsListClassName below.
+ *
+ * Added: a pressed item sits on the light indicator, where the product's lime
+ * focus ring (--ring is --primary) disappears, so its ring is the dark
+ * primary-foreground instead.
  */
 export const segmentedControlClassName =
   "epe-landing-surface relative isolate inline-grid h-10 grid-cols-2 rounded-[12px] border border-border/70 bg-secondary/40 p-1";
 
 export const segmentedControlItemClassName =
-  "relative z-10 inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-transparent px-2 text-sm font-medium text-muted-foreground transition-[color,scale] duration-200 ease-out before:absolute before:inset-x-0 before:inset-y-[-4px] before:content-[''] hover:text-foreground active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none aria-pressed:text-primary-foreground";
+  "relative z-10 inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-transparent px-2 text-sm font-medium text-muted-foreground transition-[color,scale] duration-200 ease-out before:absolute before:inset-x-0 before:inset-y-[-4px] before:content-[''] hover:text-foreground active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none aria-pressed:text-primary-foreground aria-pressed:focus-visible:ring-(color:--primary-foreground)/60";
 
 /**
  * The FinalVideoEditor inspector tabs are Radix TabsList / TabsTrigger whose

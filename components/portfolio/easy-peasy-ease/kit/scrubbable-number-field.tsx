@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 
@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
  * Figma-style [−] value [+] field. Drag the value to scrub, click to type,
  * arrows / PageUp / PageDown / Home / End to step. Radii in px (rounded-md = 8px)
  * and border-control-border as border-(color:--control-border).
+ *
+ * Changes from the product: the readout is touch-action: pan-y, so a vertical
+ * swipe that starts on it still scrolls the page (the browser cancels the
+ * pointer, and any scrub from the first few pixels is undone); Enter and
+ * Escape in the edit box hand focus back to the readout instead of <body>.
  */
 interface ScrubbableNumberFieldProps {
   id?: string;
@@ -59,6 +64,9 @@ export function ScrubbableNumberField({
   const scrubOriginRef = useRef<ScrubOrigin | null>(null);
   const didScrubRef = useRef(false);
   const skipBlurCommitRef = useRef(false);
+  const readoutRef = useRef<HTMLButtonElement>(null);
+  /** Enter / Escape ended the edit: focus the readout once it is back. */
+  const refocusReadoutRef = useRef(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState("");
@@ -80,6 +88,12 @@ export function ScrubbableNumberField({
     if (Number.isFinite(parsedValue)) updateValue(parsedValue);
     setIsEditing(false);
   }, [draftValue, updateValue]);
+
+  useEffect(() => {
+    if (isEditing || !refocusReadoutRef.current) return;
+    refocusReadoutRef.current = false;
+    readoutRef.current?.focus({ preventScroll: true });
+  }, [isEditing]);
 
   const adjustValue = (adjustment: number) => {
     const parsedDraft = Number.parseFloat(draftValue);
@@ -120,6 +134,17 @@ export function ScrubbableNumberField({
     stopScrubbing();
   };
 
+  // The browser took the touch for a page scroll (touch-action: pan-y): undo
+  // whatever the first pixels of the swipe scrubbed.
+  const handlePointerCancel = (event: PointerEvent<HTMLButtonElement>) => {
+    const origin = scrubOriginRef.current;
+    if (origin && origin.pointerId === event.pointerId && didScrubRef.current) {
+      updateValue(origin.value);
+    }
+    didScrubRef.current = false;
+    handlePointerEnd(event);
+  };
+
   const handleReadoutClick = () => {
     if (didScrubRef.current) {
       didScrubRef.current = false;
@@ -141,10 +166,14 @@ export function ScrubbableNumberField({
   const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       event.preventDefault();
+      refocusReadoutRef.current = true;
       event.currentTarget.blur();
     }
     if (event.key === "Escape") {
       event.preventDefault();
+      // Don't let the Escape close an enclosing popover or dialog too.
+      event.stopPropagation();
+      refocusReadoutRef.current = true;
       skipBlurCommitRef.current = true;
       setIsEditing(false);
     }
@@ -213,6 +242,7 @@ export function ScrubbableNumberField({
         />
       ) : (
         <button
+          ref={readoutRef}
           id={id}
           type="button"
           role="slider"
@@ -223,14 +253,14 @@ export function ScrubbableNumberField({
           aria-valuetext={`${value.toFixed(precision)}${unit ? ` ${unit}` : ""}`}
           title="Click to edit or drag horizontally to adjust"
           className={cn(
-            "relative h-9 min-w-0 touch-none select-none border-x border-border/70 px-2 font-mono text-sm font-medium tabular-nums text-foreground outline-none transition-[background-color,color] duration-150 after:absolute after:inset-x-0 after:inset-y-[-2px] after:content-[''] hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-40",
+            "relative h-9 min-w-0 touch-pan-y select-none border-x border-border/70 px-2 font-mono text-sm font-medium tabular-nums text-foreground outline-none transition-[background-color,color] duration-150 after:absolute after:inset-x-0 after:inset-y-[-2px] after:content-[''] hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-40",
             isScrubbing ? "cursor-ew-resize bg-accent/80 text-primary" : "cursor-ew-resize",
           )}
           onClick={handleReadoutClick}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
+          onPointerCancel={handlePointerCancel}
           onLostPointerCapture={stopScrubbing}
           onKeyDown={handleValueKeyDown}
           disabled={disabled}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, type CSSProperties, type HTMLAttributes, type Ref } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties, type HTMLAttributes, type Ref } from "react";
 import { animate, motion, useMotionTemplate, useMotionValue, useReducedMotion } from "motion/react";
 
+import { createBezierEasing } from "@/lib/easy-peasy-ease/easing-functions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,12 +11,18 @@ import { cn } from "@/lib/utils";
  * god-rays plus the hover beam the landing turns on over the drop zone.
  *
  * Changes from the product:
- * - Sized by its container, not the viewport: length defaults to "70%", the
- *   beam is 105% tall and clamp(220px, 28cqw, 420px) wide (cqw of the EpeRoot).
+ * - Sized by its container, not the viewport: length defaults to "70%" of the
+ *   LightRays box (the product's 70vh), the hover beam is 105% tall and
+ *   clamp(220px, 28cqw, 420px) wide (cqw of the EpeRoot); `beamWidth` and
+ *   `beamHeight` override the beam.
  * - Rays come from a seeded generator (`seed`), so the server and client
  *   render the same layout and there is no post-mount pop-in.
- * - `active={false}` (pass useDemoActive().active) parks the rays in their
- *   static reduced-motion pose instead of looping forever offscreen.
+ * - Every ray starts in the static reduced-motion pose (server markup
+ *   included) and its loop picks up from that pose, some rays brightening and
+ *   some fading, instead of waiting out a random delay at opacity 0.
+ * - `active={false}` (pass useDemoActive().active) pauses the loop where it is,
+ *   and `active` resumes it from there, so scrolling the tile back in never
+ *   blacks the rays out. Under reduced motion the static pose stays.
  *
  * Landing call: <LightRays color="oklch(0.889 0.027 234 / 0.15)" count={7} speed={14} interactive={hovered} />
  */
@@ -29,8 +36,20 @@ interface LightRaysProps
   /** Only the trailing alpha is used (the hue is --ambient-light's). Must end in "<number>)". */
   color?: string;
   blur?: number;
+  /** Seconds per ray cycle (each ray runs 0.75–1.25× this). */
   speed?: number;
+  /**
+   * Ray length, any CSS length; percentages are of the LightRays box height.
+   * The default "70%" equals the product's 70vh only in a viewport-tall tile.
+   * In a wide, short tile it leaves the rays stubby: pass a larger percentage
+   * or a px length (the wordmark demo uses "135%"; the product is about 630px
+   * on a 900px-tall desktop).
+   */
   length?: string;
+  /** Hover beam width (default "clamp(220px, 28cqw, 420px)", the product's 28vw clamp in EpeRoot cqw). */
+  beamWidth?: string;
+  /** Hover beam height (default "105%" of the LightRays box, the product's 105vh). */
+  beamHeight?: string;
   interactive?: boolean;
   active?: boolean;
   seed?: number;
@@ -85,44 +104,88 @@ const createRays = (count: number, cycle: number, seed: number): LightRay[] => {
   });
 };
 
+/** motion's "easeInOut", which the product's ray keyframes use per segment. */
+const RAY_EASE = "cubic-bezier(0.42, 0, 0.58, 1)";
+/** The product's reduced-motion pose, as a share of each ray's intensity. */
+const STILL_OPACITY = 0.45;
+/** The product's repeatDelay, as a share of the ray's duration. */
+const RAY_REST = 0.1;
+/** Share of a half-cycle at which RAY_EASE reaches STILL_OPACITY. */
+const STILL_PHASE = (() => {
+  const ease = createBezierEasing(0.42, 0, 0.58, 1);
+  let low = 0;
+  let high = 1;
+  for (let i = 0; i < 32; i++) {
+    const mid = (low + high) / 2;
+    if (ease(mid) < STILL_OPACITY) low = mid;
+    else high = mid;
+  }
+  return (low + high) / 2;
+})();
+
 const Ray = ({
   left,
   rotate,
   width,
   swing,
-  delay,
   duration,
   intensity,
-  still,
-}: LightRay & { still: boolean }) => {
+  rising,
+  running,
+  reduceMotion,
+}: Omit<LightRay, "id" | "delay"> & { rising: boolean; running: boolean; reduceMotion: boolean }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<Animation | null>(null);
+  const runningRef = useRef(running);
+
+  // The product's loop (0 -> intensity -> 0, a swing either side, then a rest)
+  // as a Web Animation, so it can pause in place and resume from there.
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || reduceMotion || typeof element.animate !== "function") return;
+    const low = `${rotate - swing}deg`;
+    const high = `${rotate + swing}deg`;
+    const cycle = 1 + RAY_REST;
+    const animation = element.animate(
+      [
+        { offset: 0, opacity: 0, rotate: low, easing: RAY_EASE },
+        { offset: 0.5 / cycle, opacity: intensity, rotate: high, easing: RAY_EASE },
+        { offset: 1 / cycle, opacity: 0, rotate: low },
+        { offset: 1, opacity: 0, rotate: low },
+      ],
+      { duration: duration * cycle * 1000, iterations: Infinity },
+    );
+    // Begin at the still pose on screen (the rotation differs by a tenth of
+    // the swing, under 0.3deg), on the way up or down.
+    const half = rising ? STILL_PHASE : 2 - STILL_PHASE;
+    animation.currentTime = half * 0.5 * duration * 1000;
+    if (!runningRef.current) animation.pause();
+    animationRef.current = animation;
+    return () => {
+      animation.cancel();
+      animationRef.current = null;
+    };
+  }, [duration, intensity, reduceMotion, rising, rotate, swing]);
+
+  useEffect(() => {
+    runningRef.current = running;
+    const animation = animationRef.current;
+    if (!animation) return;
+    if (running) animation.play();
+    else animation.pause();
+  }, [running]);
+
   return (
-    <motion.div
-      className="pointer-events-none absolute -top-[12%] left-[var(--ray-left)] h-[var(--light-rays-length)] w-[var(--ray-width)] origin-top -translate-x-1/2 rounded-full bg-gradient-to-b from-[color-mix(in_srgb,var(--light-rays-color)_70%,transparent)] to-transparent opacity-0 mix-blend-screen blur-[var(--light-rays-blur)]"
+    <div
+      ref={ref}
+      className="pointer-events-none absolute -top-[12%] left-[var(--ray-left)] h-[var(--light-rays-length)] w-[var(--ray-width)] origin-top -translate-x-1/2 rounded-full bg-gradient-to-b from-[color-mix(in_srgb,var(--light-rays-color)_70%,transparent)] to-transparent mix-blend-screen blur-[var(--light-rays-blur)]"
       style={
         {
           "--ray-left": `${left}%`,
           "--ray-width": `${width}px`,
+          opacity: intensity * STILL_OPACITY,
+          rotate: `${rotate}deg`,
         } as CSSProperties
-      }
-      initial={{ rotate }}
-      animate={
-        still
-          ? { opacity: intensity * 0.45, rotate }
-          : {
-              opacity: [0, intensity, 0],
-              rotate: [rotate - swing, rotate + swing, rotate - swing],
-            }
-      }
-      transition={
-        still
-          ? { duration: 0 }
-          : {
-              duration,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay,
-              repeatDelay: duration * 0.1,
-            }
       }
     />
   );
@@ -143,7 +206,7 @@ const HoverBeam = ({ active, reduceMotion }: { active: boolean; reduceMotion: bo
     <motion.div aria-hidden className="pointer-events-none absolute inset-0">
       <motion.div
         data-hover-beam="true"
-        className="absolute -top-[10%] left-1/2 h-[105%] w-[clamp(220px,28cqw,420px)] -translate-x-1/2"
+        className="absolute -top-[10%] left-1/2 h-(--light-rays-beam-height) w-(--light-rays-beam-width) -translate-x-1/2"
         style={{
           opacity,
           background:
@@ -171,6 +234,8 @@ export function LightRays({
   blur = 36,
   speed = 14,
   length = "70%",
+  beamWidth = "clamp(220px, 28cqw, 420px)",
+  beamHeight = "105%",
   interactive = false,
   active = true,
   seed = 7,
@@ -207,6 +272,8 @@ export function LightRays({
           "--light-rays-color": animatedColor,
           "--light-rays-blur": `${blur}px`,
           "--light-rays-length": length,
+          "--light-rays-beam-width": beamWidth,
+          "--light-rays-beam-height": beamHeight,
           ...style,
         } as CSSProperties
       }
@@ -229,8 +296,16 @@ export function LightRays({
               "radial-gradient(circle at 80% 10%, color-mix(in srgb, var(--light-rays-color) 35%, transparent), transparent 75%)",
           }}
         />
-        {rays.map((ray) => (
-          <Ray key={ray.id} {...ray} still={shouldReduceMotion || !active} />
+        {rays.map(({ id, delay, ...ray }) => (
+          <Ray
+            key={id}
+            {...ray}
+            // The product's random start delay now decides which way each ray
+            // leaves the shared still pose.
+            rising={delay < cycleDuration / 2}
+            running={active}
+            reduceMotion={shouldReduceMotion}
+          />
         ))}
         <HoverBeam active={interactive} reduceMotion={shouldReduceMotion} />
       </div>

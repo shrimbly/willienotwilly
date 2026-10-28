@@ -27,6 +27,12 @@ import {
  * - "rate": the active video plays with playbackRate = the curve's local
  *   speed, corrected toward the target, and falls back to seeks below 1/16x
  *   or when it drifts more than 0.2 s.
+ *
+ * The playing clock waits for pictures: it holds while the clip under it has
+ * no frame yet (HAVE_CURRENT_DATA), and stops short of a cut into a clip that
+ * has none, so on a slow network the playhead, readouts and picture stay on
+ * the same clip. A clip that errors, can't play, or still has nothing after
+ * MAX_DATA_WAIT_MS stops holding the clock (its poster shows).
  */
 
 export interface RetimeClip {
@@ -90,6 +96,12 @@ interface Slot {
   primed: boolean;
   /** A priming play() is pending; seeks wait for it to settle. */
   priming: boolean;
+  /** Has had a decoded frame (sticky: a seek may drop readyState for a moment). */
+  hasData: boolean;
+  /** performance.now() when the clock began waiting for this clip's first frame (0 = not waiting). */
+  waitingSince: number;
+  /** Stop holding the clock for this clip (errored, blocked, or waited too long). */
+  skipWait: boolean;
   frameCallback: number;
   cleanup: (() => void) | null;
 }
@@ -101,6 +113,8 @@ const MAX_RATE = 16;
 const RATE_DRIFT_LIMIT = 0.2;
 const RATE_GAIN = 4;
 const PRIME_TIMEOUT_MS = 3000;
+/** Longest the clock holds for one clip's first frame before running on its poster. */
+const MAX_DATA_WAIT_MS = 10000;
 
 type FrameMetadata = { mediaTime: number; expectedDisplayTime: number };
 type FrameCallbackVideo = HTMLVideoElement & {
@@ -130,6 +144,8 @@ export class RetimeEngine {
   readonly sourceTime: MotionValue<number>;
   /** Instantaneous playback speed vs real time (1 = normal). */
   readonly speed: MotionValue<number>;
+  /** Playing, but the clock is held until a clip's first frame arrives. */
+  readonly waiting: MotionValue<boolean>;
 
   onPlayingChange: ((playing: boolean) => void) | null = null;
   onActiveIndexChange: ((index: number) => void) | null = null;
@@ -178,6 +194,7 @@ export class RetimeEngine {
     this.clipEased = motionValue(sample.eased);
     this.sourceTime = motionValue(sample.sourceTime);
     this.speed = motionValue(this.map.speedAt(sample.index, sample.progress));
+    this.waiting = motionValue(false);
   }
 
   get totalDuration() {
@@ -209,6 +226,8 @@ export class RetimeEngine {
       ) {
         slot.requestedFrame = -1;
       }
+      // A new file loads from scratch.
+      if (before && before.src !== clips[i].src) this.resetDataWait(slot);
     }
     if (this.loop && this.map.total > 0) {
       this.t = ((this.t % this.map.total) + this.map.total) % this.map.total;
@@ -229,6 +248,11 @@ export class RetimeEngine {
     this.enabled = enabled;
     if (this.live) {
       this.slots.forEach((slot, i) => {
+        // A clip that timed out last visit gets a fresh wait (errors are re-read).
+        if (!slot.hasData) {
+          slot.waitingSince = 0;
+          slot.skipWait = false;
+        }
         this.prime(i, slot);
         this.watchFrames(i, slot);
       });
@@ -262,6 +286,8 @@ export class RetimeEngine {
     if (this.playing) return;
     if (!this.loop && this.t >= this.map.total) this.t = 0;
     this.playing = true;
+    // The first-frame wait counts from this play, not from before a pause.
+    for (const slot of this.slots) if (slot) slot.waitingSince = 0;
     this.onPlayingChange?.(true);
     this.startLoop();
   }
@@ -271,6 +297,7 @@ export class RetimeEngine {
     this.playing = false;
     this.onPlayingChange?.(false);
     this.stopLoop();
+    this.waiting.set(false);
     // A priming play() pauses itself when it settles.
     for (const slot of this.slots) {
       if (slot && !slot.priming) slot.video?.pause();
@@ -302,6 +329,9 @@ export class RetimeEngine {
       presentedTime: -1,
       primed: false,
       priming: false,
+      hasData: false,
+      waitingSince: 0,
+      skipWait: false,
       frameCallback: 0,
       cleanup: null,
     });
@@ -315,6 +345,7 @@ export class RetimeEngine {
     slot.presentedTime = -1;
     slot.primed = false;
     slot.priming = false;
+    this.resetDataWait(slot);
     if (!video) return;
 
     // An element that already played (re-registered under a new index) needs no priming.
@@ -322,6 +353,7 @@ export class RetimeEngine {
     video.muted = true;
     video.playsInline = true;
     const onSettled = () => {
+      if (video.readyState >= HAVE_CURRENT_DATA) slot.hasData = true;
       if (!this.live) return;
       if (!video.seeking) slot.presentedTime = video.currentTime;
       // Without requestVideoFrameCallback, `seeked` is the best latency signal.
@@ -338,13 +370,19 @@ export class RetimeEngine {
       if (index !== this.wantedIndex()) this.park(index);
       else this.present();
     };
+    // A file that fails to load must not hold the clock.
+    const onError = () => {
+      slot.skipWait = true;
+    };
     video.addEventListener("seeked", onSettled);
     video.addEventListener("loadeddata", onSettled);
     video.addEventListener("loadedmetadata", onMetadata);
+    video.addEventListener("error", onError);
     slot.cleanup = () => {
       video.removeEventListener("seeked", onSettled);
       video.removeEventListener("loadeddata", onSettled);
       video.removeEventListener("loadedmetadata", onMetadata);
+      video.removeEventListener("error", onError);
       this.unwatchFrames(slot);
     };
     video.dataset.active = String(index === this.visibleIndex);
@@ -411,6 +449,7 @@ export class RetimeEngine {
   /** No rAF, no frame callbacks, every video paused; in-flight seeks just land. */
   private quiesce() {
     this.stopLoop();
+    this.waiting.set(false);
     for (const slot of this.slots) {
       if (!slot) continue;
       this.unwatchFrames(slot);
@@ -443,6 +482,17 @@ export class RetimeEngine {
     this.lastNow = now;
     const total = this.map.total;
     let t = this.t + dt * this.clockRate;
+    // Hold while the clip on the clock, or the one it is about to cut to, has
+    // no frame to show yet; the videos keep loading and seeking meanwhile.
+    const held =
+      this.awaitingData(this.map.sourceAt(this.t, { loop: this.loop }).index, now) ||
+      this.awaitingData(this.map.sourceAt(t, { loop: this.loop }).index, now);
+    this.waiting.set(held);
+    if (held) {
+      this.present();
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
     if (total > 0) {
       if (this.loop) t %= total;
       else if (t >= total) {
@@ -457,6 +507,33 @@ export class RetimeEngine {
     this.present(dt);
     this.raf = requestAnimationFrame(this.tick);
   };
+
+  /** The clock should wait for this clip's first frame. */
+  private awaitingData(index: number, now: number) {
+    const slot = this.slots[index];
+    const video = slot?.video;
+    if (!slot || !video || slot.hasData || slot.skipWait) return false;
+    if (video.readyState >= HAVE_CURRENT_DATA) {
+      slot.hasData = true;
+      return false;
+    }
+    if (video.error) {
+      slot.skipWait = true;
+      return false;
+    }
+    if (!slot.waitingSince) slot.waitingSince = now;
+    if (now - slot.waitingSince > MAX_DATA_WAIT_MS) {
+      slot.skipWait = true;
+      return false;
+    }
+    return true;
+  }
+
+  private resetDataWait(slot: Slot) {
+    slot.hasData = false;
+    slot.waitingSince = 0;
+    slot.skipWait = false;
+  }
 
   /** Show the frame for the current clock: drive the wanted video, swap when it is ready. */
   private present(dt = 0) {
@@ -616,6 +693,11 @@ export class RetimeEngine {
       if (!slot.primed && error instanceof DOMException && error.name === "AbortError") {
         this.prime(index, slot);
         return;
+      }
+      // Inline play is blocked (e.g. iOS Low Power Mode): frames may never
+      // come, so the clock runs on the poster instead of waiting for them.
+      if (!slot.primed && error instanceof DOMException && error.name === "NotAllowedError") {
+        slot.skipWait = true;
       }
       if (this.strategy === "seek" || !this.running || index !== this.wantedIndex()) video.pause();
       slot.requestedFrame = -1;

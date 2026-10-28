@@ -21,7 +21,12 @@ import { followValue } from "./motion-value-utils";
  *   <html> MutationObserver are gone.
  * - 16:9 below 640px / square above is driven by the EpeRoot container, not
  *   the viewport (`aspect` forces one or the other).
- * - Optional `progress` draws a dot riding the curve at (p, ease(p)).
+ * - Optional `progress` draws a dot riding the curve at (p, ease(p)). The dot
+ *   and the handles move by transform in container units of the plot (a size
+ *   container), so a playing clip or a curve change costs no layout and logs
+ *   no layout shifts.
+ * - The gap above the readout belongs to the readout, so hiding it (below
+ *   640px, or readout={false}) leaves no empty margin under the plot.
  * - Dev-only drag logging removed.
  */
 interface CubicBezierEditorProps {
@@ -57,7 +62,7 @@ const GRID_LINES = Array.from({ length: 15 }, (_, index) => {
 });
 
 const HANDLE_CLASS =
-  "group absolute flex size-10 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed";
+  "group absolute left-0 top-0 flex size-10 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed";
 const HANDLE_DOT_CLASS =
   "pointer-events-none size-4 rounded-full border-2 border-background/80 bg-primary/80 shadow transition-[scale,box-shadow] duration-150 group-active:scale-[0.96]";
 
@@ -66,6 +71,9 @@ const ASPECT_CLASS = {
   square: "aspect-square",
   wide: "aspect-[16/9]",
 } as const;
+
+/** x, y in percent of the plot; the -50% centring is the translate utilities. */
+const dotTransform = (x: number, y: number) => `translate(${x.toFixed(3)}cqw, ${y.toFixed(3)}cqh)`;
 
 const now = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -204,7 +212,8 @@ function CubicBezierEditorComponent({
   }, [disabled, onCommit, updateHandleFromClient]);
 
   // Progress dot: positioned imperatively so a 60fps motion value never
-  // re-renders the editor.
+  // re-renders the editor, and by transform (cqw/cqh of the plot) so moving
+  // it never touches layout.
   const ease = useMemo(() => createBezierEasing(value[0], value[1], value[2], value[3]), [value]);
   useEffect(() => {
     const dot = dotRef.current;
@@ -212,8 +221,7 @@ function CubicBezierEditorComponent({
     const place = (p: number) => {
       const x = clamp(p) * 100;
       const y = (1 - ease(clamp(p))) * 100;
-      dot.style.left = `${x}%`;
-      dot.style.top = `${y}%`;
+      dot.style.transform = dotTransform(x, y);
       const gx = guideXRef.current;
       const gy = guideYRef.current;
       if (gx && gy) {
@@ -228,16 +236,12 @@ function CubicBezierEditorComponent({
     return followValue(progress, place);
   }, [ease, progress]);
 
+  // Handles move by transform too, so a curve that changes under the visitor
+  // (a preset, the next clip) logs no layout shift.
   const controlStyles = useMemo(
     () => ({
-      p1: {
-        left: `${(value[0] * 100).toFixed(2)}%`,
-        top: `${((1 - value[1]) * 100).toFixed(2)}%`,
-      },
-      p2: {
-        left: `${(value[2] * 100).toFixed(2)}%`,
-        top: `${((1 - value[3]) * 100).toFixed(2)}%`,
-      },
+      p1: { transform: dotTransform(value[0] * 100, (1 - value[1]) * 100) },
+      p2: { transform: dotTransform(value[2] * 100, (1 - value[3]) * 100) },
     }),
     [value],
   );
@@ -261,14 +265,20 @@ function CubicBezierEditorComponent({
   const hasProgress = progress !== undefined;
 
   return (
-    <div className={cn("min-w-0 space-y-3", className)}>
+    <div className={cn("min-w-0", className)}>
       <div className="relative w-full rounded-[8px] border border-border bg-muted/50 p-1">
         {/* Wider-than-tall in narrow tiles to save vertical space; the SVG uses
             preserveAspectRatio="none" and the drag maths normalises by the
             rect's own width/height, so a non-square plot stays correct. */}
+        {/* A size container so the progress dot can move in cqw/cqh. All of
+            its content is absolutely positioned, so containment changes nothing. */}
         <div
           ref={editorRef}
-          className={cn("relative mx-auto w-full max-w-md", ASPECT_CLASS[aspect], plotClassName)}
+          className={cn(
+            "relative mx-auto w-full max-w-md [container-type:size]",
+            ASPECT_CLASS[aspect],
+            plotClassName,
+          )}
         >
           <div
             className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm"
@@ -334,8 +344,8 @@ function CubicBezierEditorComponent({
             <span
               ref={dotRef}
               aria-hidden="true"
-              className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-[0_0_12px_var(--primary)]"
-              style={{ left: "0%", top: "100%" }}
+              className="pointer-events-none absolute left-0 top-0 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-[0_0_12px_var(--primary)] will-change-transform"
+              style={{ transform: dotTransform(0, 100) }}
             />
           )}
           <button
@@ -369,7 +379,7 @@ function CubicBezierEditorComponent({
         // overhangs the plot evenly instead of wrapping each point.
         <div
           className={cn(
-            "justify-center whitespace-nowrap",
+            "mt-3 justify-center whitespace-nowrap",
             readout ? "flex" : "hidden @min-[640px]/epe:flex",
           )}
         >

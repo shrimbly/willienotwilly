@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
  * The popover is absolutely positioned, not portaled, exactly as in the
  * product: keep it inside an ancestor that does not clip, or pass
  * `side="top"` / a smaller `popoverClassName` max-height in short tiles.
- * Opening focuses the selected option without scrolling the page.
+ * Opening focuses the selected option without scrolling the page; the list's
+ * own scroll never chains to the page (overscroll-behavior: contain).
  */
 const POPOVER_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 const POPOVER_ROW_REVEAL_DURATION = 0.18;
@@ -227,10 +228,17 @@ export function EasingCurvePicker({
                 ? { opacity: 0 }
                 : { opacity: 0, transform: "scaleY(0.75)", filter: "blur(4px)" }
             }
+            // Settle the filter to none, as the rows do: a lingering
+            // blur(0px) keeps a filter layer under the whole list.
             animate={
               shouldReduceMotion
                 ? { opacity: 1 }
-                : { opacity: 1, transform: "scaleY(1)", filter: "blur(0px)" }
+                : {
+                    opacity: 1,
+                    transform: "scaleY(1)",
+                    filter: "blur(0px)",
+                    transitionEnd: { filter: "none" },
+                  }
             }
             exit={
               shouldReduceMotion
@@ -245,7 +253,7 @@ export function EasingCurvePicker({
             transition={{ duration: shouldReduceMotion ? 0.12 : 0.22, ease: POPOVER_EASE }}
             style={{ transformOrigin: origin }}
             className={cn(
-              "absolute z-50 max-h-[min(60vh,420px)] w-72 overflow-y-auto rounded-[16px] border border-border bg-popover p-2 shadow-xl",
+              "absolute z-50 max-h-[min(60vh,420px)] w-72 overflow-y-auto overscroll-contain rounded-[16px] border border-border bg-popover p-2 shadow-xl",
               side === "top" ? "bottom-full mb-2" : "top-full mt-2",
               align === "end" ? "right-0" : "left-0",
               popoverClassName,
