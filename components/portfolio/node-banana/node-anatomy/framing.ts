@@ -17,9 +17,9 @@ export const LABEL_MAX = 260;
 export const COMPACT_MAX_H = 460;
 /** Room kept right of the callout column. */
 export const LABEL_MARGIN = 20;
-/** Room above the node on wide tiles, and below it (the hint sits there, bottom-left). */
+/** Room above the node on wide tiles, and below it: the hint's corner (12px in, 14px tall) and some air. */
 const WIDE_TOP = 20;
-const WIDE_BOTTOM = 28;
+const WIDE_BOTTOM = 34;
 /** The tallest settings panel the Gemini models open (five 22px rows). */
 const PANEL_BUDGET = 6 + 5 * 22 + 4 * 4 + 8;
 /** The camera never zooms out past this (the node's 10px field text stays ~9px): it lets the node's top run off the tile instead. */

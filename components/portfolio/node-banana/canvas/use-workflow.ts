@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useCanvasView, type CanvasView, type GraphNodeSpec, type NodeGraph } from "../kit";
+import { useCanvasView, type Bounds, type CanvasView, type GraphNodeSpec, type NodeGraph } from "../kit";
 
 /** What a workflow tab knows about the demo around it. */
 export interface WorkflowEnv {
@@ -42,50 +42,77 @@ export function useWorkflowState() {
   return { selected, setSelected, running, run };
 }
 
-interface Insets {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
+/**
+ * The canvas shapes a workflow lays itself out for: wide tiles show the whole
+ * workflow at its saved coordinates, mid-size ones a few nodes closer up, and
+ * portrait or near-square ones (height > 0.9 × width) the phone layout.
+ */
+type Shape = "wide" | "mid" | "phone";
+
+/** Wide canvases narrower than this (a ~1100px tile) frame a few nodes rather than the whole workflow. */
+const WIDE_MIN_W = 1088;
+
+interface Framing {
+  /** Room kept round the framed nodes. The top band holds the hint (left) and the Agent pill (right). */
+  pad: { top: number; right: number; bottom: number; left: number };
+  maxZoom: number;
+  /** The zoom a frame must reach to be picked over the next, smaller one. */
+  readable: number;
+  /** Below `readable`, zoom in to it anyway and let the outer nodes run off the sides. */
+  crop: boolean;
 }
 
-/** Wide tiles leave room for the hint and the Agent pill; portrait layouts clear the pill themselves. */
-const WIDE_PAD: Insets = { top: 64, right: 28, bottom: 36, left: 28 };
-const PHONE_PAD: Insets = { top: 14, right: 8, bottom: 14, left: 8 };
+const FRAMING: Record<Shape, Framing> = {
+  wide: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 1, readable: 0.6, crop: true },
+  mid: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 0.72, readable: 0.45, crop: false },
+  // The right column of a phone layout starts low enough to clear the pill.
+  phone: { pad: { top: 36, right: 8, bottom: 14, left: 8 }, maxZoom: 0.75, readable: 0.45, crop: false },
+};
 
 /** Where a layout puts a node: [x, y, width] in world px. */
 export type Placement = readonly [number, number, number];
 
-export interface PhoneLayout {
-  /** Where the layout puts each node, for portrait and near-square canvases (height > 0.9 × width). */
-  place: (id: string) => Placement;
-  /** The nodes framed at rest, wide and phone (default: all). */
-  frame?: { wide?: string[]; phone?: string[] };
+export interface WorkflowLayout {
+  /** Where the phone layout puts each node. */
+  phone: (id: string) => Placement;
+  /** Where mid-size canvases put each node (default: the saved coordinates). */
+  mid?: (id: string) => Placement;
+  /**
+   * The nodes each shape frames at rest, best first (default: all of them).
+   * The first that fits at a readable zoom wins; failing that, the last.
+   */
+  frames?: Partial<Record<Shape, ReadonlyArray<ReadonlyArray<string>>>>;
 }
 
 /**
  * The camera of one workflow tab. On every resize until the visitor pans or
- * zooms it picks the layout for the canvas's shape (the saved coordinates in
- * `nodes`, or the phone layout), moves the nodes into it, and fits the framed
- * nodes inside its padding, at most at zoom 1 (0.75 in the phone layout).
+ * zooms it picks the layout for the canvas's shape, moves the nodes into it,
+ * and frames the nodes that shape shows inside its padding.
  */
-export function useWorkflowView(graph: NodeGraph, nodes: ReadonlyArray<GraphNodeSpec>, phone: PhoneLayout): CanvasView {
-  const current = useRef<"wide" | "phone">("wide");
+export function useWorkflowView(graph: NodeGraph, nodes: ReadonlyArray<GraphNodeSpec>, layout: WorkflowLayout): CanvasView {
+  const current = useRef<Shape>("wide");
   const view = useCanvasView({
     fit: () => {
       if (view.width <= 0 || view.height <= 0) return null;
-      const compact = view.height > view.width * 0.9;
-      const want = compact ? "phone" : "wide";
-      if (current.current !== want) {
-        current.current = want;
-        placeNodes(graph, view, compact ? phone.place : (id) => saved(nodes, id));
+      const shape: Shape = view.height > view.width * 0.9 ? "phone" : view.width < WIDE_MIN_W ? "mid" : "wide";
+      if (current.current !== shape) {
+        current.current = shape;
+        const savedAt = (id: string) => saved(nodes, id);
+        placeNodes(graph, view, shape === "phone" ? layout.phone : shape === "mid" ? (layout.mid ?? savedAt) : savedAt);
       }
-      const content = graph.measure(phone.frame?.[want]);
-      if (!content) return null;
-      const pad = compact ? PHONE_PAD : WIDE_PAD;
+      const { pad, maxZoom, readable, crop } = FRAMING[shape];
       const availW = Math.max(1, view.width - pad.left - pad.right);
       const availH = Math.max(1, view.height - pad.top - pad.bottom);
-      const zoom = Math.min(compact ? 0.75 : 1, availW / content.width, availH / content.height);
+      let content: Bounds | null = null;
+      let zoom = 0;
+      for (const ids of layout.frames?.[shape] ?? [graph.ids]) {
+        content = graph.measure(ids);
+        if (!content) return null;
+        zoom = Math.min(maxZoom, availW / content.width, availH / content.height);
+        if (zoom >= readable) break;
+      }
+      if (!content) return null;
+      if (crop) zoom = Math.max(zoom, Math.min(readable, availH / content.height));
       // The rectangle that, fitted edge to edge, centres the content at that zoom inside the padding.
       const left = pad.left + (availW - content.width * zoom) / 2;
       const top = pad.top + (availH - content.height * zoom) / 2;

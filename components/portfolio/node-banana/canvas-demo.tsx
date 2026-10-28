@@ -9,7 +9,7 @@ import { CarsWorkflow } from "./canvas/cars-workflow";
 import { MannequinWorkflow } from "./canvas/mannequin-workflow";
 import type { WorkflowEnv } from "./canvas/use-workflow";
 import { WorkflowCanvas } from "./canvas/workflow-canvas";
-import { AgentPill, AppWindow, NbRoot, useCanvasView, type AppTab } from "./kit";
+import { AgentPill, AppWindow, DemoHint, NbRoot, useCanvasView, type AppTab } from "./kit";
 
 // The hero: the Node Banana desktop window as the landing site draws it
 // (site/src/partials/app-window.html), live. Two workflow tabs at their saved
@@ -92,20 +92,19 @@ export function NodeBananaCanvasDemo() {
         onTabClose={closeTab}
         onNewTab={newTab}
         framed={false}
-        // Concentric with the page tile's squircle corners (32px, 40px from sm), 5px inside them.
-        className="[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]"
+        className={cn(
+          // Concentric with the page tile's squircle corners (32px, 40px from sm), 5px inside them.
+          "[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]",
+          // Phone tiles still fit both workflow tabs (the shown one truncates first); only "+" goes.
+          "@max-[479px]:[&_[data-rest]]:flex",
+        )}
         frameOverlay={
           <>
             <AgentPill className="absolute top-3 right-4 z-10" onClick={openAgentDemo} />
-            <span
-              aria-hidden
-              className={cn(
-                "nb-hero-hint nb-font-mono nb-tracking-eyebrow nb-text-ink-3 pointer-events-none absolute top-4 left-5 z-10 text-[10px] uppercase transition-opacity duration-500 @max-md:hidden",
-                touched && "opacity-0",
-              )}
-            >
+            {/* Every layout keeps the canvas's top band clear for it. */}
+            <DemoHint corner="top-left" hidden={touched}>
               Drag a node
-            </span>
+            </DemoHint>
           </>
         }
       >

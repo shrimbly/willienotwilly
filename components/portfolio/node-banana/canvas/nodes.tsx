@@ -202,8 +202,6 @@ export function LlmGenerateNode({ output, height = 160, onRun, ...shell }: Shell
 
 const MIN_GRID = 1;
 const MAX_GRID = 10;
-/** The app's default Split Grid width (NODE_DEFAULT_W has no entry for it). */
-const SPLIT_GRID_W = 300;
 
 /** Rows / Columns stepper (SplitGridNode's GridDimField). */
 function GridDimField({ label, value, disabled, onChange }: { label: string; value: number; disabled?: boolean; onChange: (v: number) => void }) {
@@ -249,7 +247,7 @@ export function SplitGridNode({ image, onRun, ...shell }: Shell & { image: { src
   return (
     <NodeCard
       {...shell}
-      resizable={resizeTo(shell.resizable, SPLIT_GRID_W, 240)}
+      resizable={resizeTo(shell.resizable, NODE_DEFAULT_W.splitGrid, 240)}
       onRun={onRun}
       title="Split Grid"
       inputs={SPLIT_INPUTS}

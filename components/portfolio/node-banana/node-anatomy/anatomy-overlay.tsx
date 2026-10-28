@@ -33,6 +33,8 @@ const LABEL_GAP = 14;
 const LABEL_GAP_COMPACT = 10;
 /** Keep laying out for a while after the last change: CSS transitions and the trailing controls card settle on their own. */
 const SETTLE_MS = 450;
+/** Space the hint keeps from the node. */
+const HINT_AIR = 4;
 
 export interface AnatomyOverlayProps {
   rootRef: RefObject<HTMLDivElement | null>;
@@ -47,8 +49,6 @@ export interface AnatomyOverlayProps {
   onHover: (part: PartId | null) => void;
   /** A callout or marker is pressed: pin (or unpin) its part. */
   onPick: (part: PartId) => void;
-  /** The one-line hint before the first interaction. */
-  hint: boolean;
 }
 
 /**
@@ -57,7 +57,7 @@ export interface AnatomyOverlayProps {
  * numbered markers on the node and a legend under it. Positions follow the
  * node's DOM every frame anything moves, written straight to the elements.
  */
-export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, onHover, onPick, hint }: AnatomyOverlayProps) {
+export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, onHover, onPick }: AnatomyOverlayProps) {
   const layerRef = useRef<HTMLDivElement | null>(null);
   const els = useRef(new Map<string, HTMLElement | SVGElement>());
   const bind = (key: string) => (el: HTMLElement | SVGElement | null) => {
@@ -74,6 +74,8 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
     let frame = 0;
     let until = 0;
     let disposed = false;
+    let listInset = -1;
+    let hintCrowded = false;
 
     const layout = (): boolean => {
       const node = root.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`);
@@ -82,8 +84,27 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
       if (!node || W <= 0 || view.width <= 0) return false;
       const geometry = measure(root, node, view.zoom.get());
       if (!geometry) return false;
-      const { parts, cardRight } = geometry;
+      const { parts, cardRight, extent } = geometry;
       const narrow = isNarrow(W, H);
+      // The node's dropdowns open upward rather than under the phone legend (SelectWell reads this inset).
+      const inset = narrow ? (layer.querySelector<HTMLElement>("[data-anat-legend]")?.offsetHeight ?? 0) : 0;
+      if (inset !== listInset) {
+        listInset = inset;
+        root.style.setProperty("--nb-list-inset-bottom", String(inset));
+      }
+      // The framing keeps the hint's corner clear, except where the node is too tall for the tile and
+      // its top runs into it: the hint then steps aside (node-anatomy.css).
+      const hint = root.querySelector("[data-demo-hint]")?.getBoundingClientRect();
+      const R = root.getBoundingClientRect();
+      const crowded =
+        hint !== undefined &&
+        hint.right - R.left + HINT_AIR > extent.left &&
+        hint.bottom - R.top + HINT_AIR > extent.top &&
+        hint.top - R.top - HINT_AIR < extent.bottom;
+      if (crowded !== hintCrowded) {
+        hintCrowded = crowded;
+        root.toggleAttribute("data-anat-crowded", crowded);
+      }
 
       for (const p of PARTS) {
         const g = parts[p.id];
@@ -171,6 +192,8 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
       root.removeEventListener("pointermove", schedule);
       root.removeEventListener("pointerup", schedule);
       root.removeEventListener("transitionrun", schedule);
+      root.style.removeProperty("--nb-list-inset-bottom");
+      root.removeAttribute("data-anat-crowded");
       if (frame) cancelAnimationFrame(frame);
     };
   }, [rootRef, view, graph, nodeId]);
@@ -252,17 +275,16 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
           {activePart ? activePart.text : "Every node is built from these five parts."}
         </p>
       </div>
-
-      <p className="nb-anat__hint" data-hidden={hint ? undefined : ""} aria-hidden>
-        <span className="nb-anat__hint-hover">Hover a part</span>
-        <span className="nb-anat__hint-touch">Tap a part</span>
-      </p>
     </div>
   );
 }
 
 /** Screen-space boxes (relative to the root) of the node's parts, and where each callout attaches. */
-function measure(root: HTMLElement, node: HTMLElement, zoom: number): { parts: Record<PartId, PartGeometry>; cardRight: number } | null {
+function measure(
+  root: HTMLElement,
+  node: HTMLElement,
+  zoom: number,
+): { parts: Record<PartId, PartGeometry>; cardRight: number; extent: { top: number; bottom: number; left: number } } | null {
   const R = root.getBoundingClientRect();
   const box = (el: Element | null | undefined): Box | null => {
     if (!el) return null;
@@ -323,7 +345,10 @@ function measure(root: HTMLElement, node: HTMLElement, zoom: number): { parts: R
       marker: { x: controls.x + controls.w + 14, y: summaryMid },
     },
   };
-  return { parts, cardRight: output ? Math.max(cardRight, output.tip) : cardRight };
+  // The node's outer edges on the hint's side: header top, controls card bottom, input socket tips.
+  const left = inputs.length ? Math.min(...inputs.map((s) => s.tip)) : card.x;
+  const extent = { top: header.y, bottom: controls.y + controls.h, left };
+  return { parts, cardRight: output ? Math.max(cardRight, output.tip) : cardRight, extent };
 }
 
 /** Four corner brackets `offset` outside a box, arms up to `arm` long. */

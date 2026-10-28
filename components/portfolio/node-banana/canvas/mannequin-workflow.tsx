@@ -23,7 +23,7 @@ import {
   type SocketSpec,
 } from "../kit";
 import { IMAGE_MODEL_INPUTS, PromptConstructorNode, SchemaFields, TEXT_SOCKETS, type ParamSpec } from "./nodes";
-import { downloadFile, saved, useWorkflowState, useWorkflowView, type PhoneLayout, type Placement, type WorkflowEnv } from "./use-workflow";
+import { downloadFile, saved, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Invisible Mannequin": the landing site's first tab (app-window.html), at
@@ -44,11 +44,16 @@ const NODES: GraphNodeSpec[] = [
   { id: "generateVideo-17", x: 1522, y: 393, width: 300, inputs: SEEDANCE_INPUTS, outputs: GENERATE_VIDEO_OUTPUTS },
 ];
 
+/** The photo and its prompt into Generate Image: what smaller tiles frame, the rest running off the edge. */
+const FIRST_STEP = ["imageInput-22", "prompt-23", "nanoBanana-3"];
+
 /**
  * Portrait tiles: the site's two columns (site.js PHONE_LAYOUTS.mannequin),
- * rebalanced so all five nodes fit a 4/5 phone tile at once: the constructor
- * moves under the prompt, the nodes take near-default widths, and the right
- * column starts lower so the Agent pill sits over empty canvas. [x, y, width].
+ * rebalanced so all five nodes fit a tall tile at once: the constructor moves
+ * under the prompt, the nodes take near-default widths, and the right column
+ * starts lower so the Agent pill sits over empty canvas. Phones too short for
+ * all five at a readable size frame the first step; the rest runs off the
+ * bottom. [x, y, width].
  */
 const PHONE_LAYOUT: Record<string, Placement> = {
   "imageInput-22": [0, 0, 300],
@@ -57,7 +62,25 @@ const PHONE_LAYOUT: Record<string, Placement> = {
   "nanoBanana-3": [380, 151, 280],
   "generateVideo-17": [380, 641, 280],
 };
-const PHONE: PhoneLayout = { place: (id) => PHONE_LAYOUT[id] ?? saved(NODES, id) };
+
+/**
+ * Mid-size tiles: the same row at the nodes' default widths, pulled together,
+ * so the first step fills the tile and the video side runs off to the right.
+ */
+const MID_LAYOUT: Record<string, Placement> = {
+  "imageInput-22": [-375, 362, 300],
+  "prompt-23": [25, 447, 300],
+  "nanoBanana-3": [374, 369, 300],
+  "promptConstructor-13": [828, 514, 340],
+  "generateVideo-17": [1270, 393, 300],
+};
+
+const ALL = NODES.map((n) => n.id);
+const LAYOUT: WorkflowLayout = {
+  phone: (id) => PHONE_LAYOUT[id] ?? saved(NODES, id),
+  mid: (id) => MID_LAYOUT[id] ?? saved(NODES, id),
+  frames: { mid: [FIRST_STEP], phone: [ALL, FIRST_STEP] },
+};
 
 const EDGES: GraphEdgeSpec[] = [
   { id: "m-input-gen", from: "imageInput-22", fromHandle: "image", to: "nanoBanana-3", toHandle: "image-0" },
@@ -88,7 +111,7 @@ const SEEDANCE_PARAMS: ParamSpec[] = [
 
 export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
   const graph = useNodeGraph({ nodes: NODES, edges: EDGES });
-  const view = useWorkflowView(graph, NODES, PHONE);
+  const view = useWorkflowView(graph, NODES, LAYOUT);
   const { selected, setSelected, running, run } = useWorkflowState();
   const [cleared, setCleared] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -108,7 +131,7 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
   });
 
   return (
-    <WorkflowCanvas view={view} graph={graph} env={env} onPaneClick={() => setSelected(null)}>
+    <WorkflowCanvas view={view} env={env} onPaneClick={() => setSelected(null)}>
       <NoodleLayer
         id="hero-mannequin"
         graph={graph}

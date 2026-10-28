@@ -202,23 +202,22 @@
     text-wrap: pretty;
   }
 
-  /* ---------- The one hint ---------- */
+  /* ---------- Open dropdowns ---------- */
 
-  .nb .nb-anat__hint {
-    position: absolute;
-    left: 16px;
-    top: 14px;
-    margin: 0;
-    font-family: var(--nb-font-mono);
-    font-size: 10px;
-    line-height: 14px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--nb-ink-3);
-    transition: opacity 400ms ease-out;
+  /* A settings list or the node's menu opens in the world, under this layer:
+     the marks, leaders and markers step out of its way while it is open. */
+  .nb:has([data-nb-node] :is([role="listbox"], [role="menu"])) :is(.nb-anat__svg, .nb-anat__marker) {
+    opacity: 0;
+    pointer-events: none;
   }
-  .nb .nb-anat__hint[data-hidden] { opacity: 0; }
+
+  /* ---------- The hint (the kit's DemoHint): pointing devices hover, fingers tap ---------- */
+
   .nb .nb-anat__hint-hover { display: none; }
+  /* It shows with the callouts, once the overlay has measured the node, and steps
+     aside where the node is too tall for the tile and runs into its corner. */
+  .nb:has(> .nb-anat:not([data-ready])) [data-demo-hint],
+  .nb[data-anat-crowded] [data-demo-hint] { opacity: 0; }
   @media (hover: hover) {
     .nb .nb-anat__hint-hover { display: inline; }
     .nb .nb-anat__hint-touch { display: none; }
@@ -230,7 +229,6 @@
   }
   /* Wide landscape tiles: the callout column (isNarrow in framing.ts). */
   @container nb (min-width: 520px) and (orientation: landscape) {
-    .nb .nb-anat__hint { top: auto; bottom: 10px; left: 18px; }
     .nb .nb-anat__leader,
     .nb .nb-anat__dot { display: inline; }
     .nb .nb-anat__label { display: block; }

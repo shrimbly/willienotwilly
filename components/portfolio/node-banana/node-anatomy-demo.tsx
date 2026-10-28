@@ -8,6 +8,7 @@ import { useDemoActive } from "@/components/portfolio/use-demo-active";
 
 import {
   Canvas,
+  DemoHint,
   GenerateImageNode,
   ImageInputNode,
   MenuDivider,
@@ -20,7 +21,7 @@ import {
 } from "./kit";
 import { AnatomyOverlay } from "./node-anatomy/anatomy-overlay";
 import { EDGES, GENERATE_ID, GENERATE_W, INPUT_IDS, INPUT_PHOTO, NODES, PROMPT, RESULTS, START_HISTORY, START_SETTINGS } from "./node-anatomy/data";
-import { useFraming, useInputDock } from "./node-anatomy/framing";
+import { isNarrow, useFraming, useInputDock } from "./node-anatomy/framing";
 import { PART_ORDER, partAt, type PartId } from "./node-anatomy/parts";
 
 /** How far the node gives under a drag before it springs home (world px). */
@@ -29,9 +30,6 @@ const CYCLE_MS = 2800;
 const RUN_MS = 3000;
 /** The docked inputs: faded, inert, and without the controls card (only its edge would show). */
 const INPUT_CLASS = "pointer-events-none opacity-50 [&_[data-trailing]]:invisible";
-
-/** The node's two resize edges (the kit renders them as its direct children). */
-const RESIZE_EDGE = `[data-node-id="${GENERATE_ID}"] > [role='separator']`;
 
 interface History {
   /** Indexes into RESULTS, newest first. */
@@ -145,51 +143,35 @@ export function NodeBananaNodeAnatomyDemo() {
   }, [graph, reducedMotion, stopSprings]);
   useEffect(() => stopSprings, [stopSprings]);
 
-  // Root-level wiring (capture phase: the resize edges stop their own events
-  // from bubbling): hold the camera while an edge is dragged, keep home in
-  // step with a left-edge resize, and spring an arrow-key nudge back once the
-  // keys rest.
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    let nudge: ReturnType<typeof setTimeout> | undefined;
-    const rehome = () => {
+  // An arrow-key nudge of the node springs back once the keys rest.
+  const nudge = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(nudge.current), []);
+
+  // Hold the camera while an edge resizes the node, and keep home in step
+  // with a left-edge resize (it moves the node).
+  const resizable = {
+    min: 200,
+    max: 480,
+    defaultWidth: GENERATE_W,
+    onResizeStart: () => hold(true),
+    onResizeEnd: () => {
       const p = graph.position(GENERATE_ID);
       if (p) home.current = p;
-    };
-    const onDown = (e: globalThis.PointerEvent) => {
-      if (!(e.target as Element).closest(RESIZE_EDGE)) return;
-      hold(true);
-      const up = () => {
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", up);
-        rehome();
-        hold(false);
-      };
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", up);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (!e.key.startsWith("Arrow")) return;
-      const target = e.target as Element;
-      if (target.closest(RESIZE_EDGE)) {
-        // The edge applies the step after this listener.
-        clearTimeout(nudge);
-        nudge = setTimeout(rehome);
-      } else if (target.matches(`[data-node-id="${GENERATE_ID}"]`)) {
-        stopSprings();
-        clearTimeout(nudge);
-        nudge = setTimeout(springHome, 400);
-      }
-    };
-    el.addEventListener("pointerdown", onDown, true);
-    el.addEventListener("keydown", onKey, true);
-    return () => {
-      el.removeEventListener("pointerdown", onDown, true);
-      el.removeEventListener("keydown", onKey, true);
-      clearTimeout(nudge);
-    };
-  }, [graph, hold, springHome, stopSprings]);
+      hold(false);
+    },
+  };
+
+  // The tile's layout (callout column, or markers and a legend) decides where the hint fits.
+  const [narrow, setNarrow] = useState(false);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const measure = () => setNarrow(isNarrow(el.clientWidth, el.clientHeight));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const onPointerOver = (e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== "mouse") return;
@@ -214,7 +196,11 @@ export function NodeBananaNodeAnatomyDemo() {
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     touch();
-    if (e.key === "Escape") {
+    if (e.key.startsWith("Arrow") && e.target instanceof Element && e.target.matches(`[data-node-id="${GENERATE_ID}"]`)) {
+      stopSprings();
+      clearTimeout(nudge.current);
+      nudge.current = setTimeout(springHome, 400);
+    } else if (e.key === "Escape") {
       setSelected(false);
       setPinned(null);
     } else if (e.key === "Enter" && e.altKey && selected && !running) {
@@ -299,10 +285,11 @@ export function NodeBananaNodeAnatomyDemo() {
           }
           menuBadge={fallback}
           headerControls={highlight === "header" ? "always" : "auto"}
-          resizable={{ min: 200, max: 480, defaultWidth: GENERATE_W }}
+          resizable={resizable}
           constrain={constrain}
           onDragStart={stopSprings}
-          onDragEnd={(moved) => moved && springHome()}
+          // A drag the page took over puts the node back where the press found it, which may be mid-spring.
+          onDragEnd={(moved: boolean, cancelled?: boolean) => (moved || cancelled) && springHome()}
         />
       </Canvas>
       <AnatomyOverlay
@@ -320,8 +307,12 @@ export function NodeBananaNodeAnatomyDemo() {
           touch();
           setPinned((p) => (p === part ? null : part));
         }}
-        hint={!interacted}
       />
+      {/* Wide tiles keep the bottom-left corner clear, phones the top band above the node. */}
+      <DemoHint corner={narrow ? "top-left" : "bottom-left"} hidden={interacted}>
+        <span className="nb-anat__hint-hover">Hover a part</span>
+        <span className="nb-anat__hint-touch">Tap a part</span>
+      </DemoHint>
     </NbRoot>
   );
 }

@@ -42,7 +42,7 @@ import {
   TEXT_SOCKETS,
   type ParamSpec,
 } from "./nodes";
-import { downloadFile, saved, useWorkflowState, useWorkflowView, type PhoneLayout, type Placement, type WorkflowEnv } from "./use-workflow";
+import { downloadFile, saved, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Cars": the landing site's second tab, a 14-node contact-sheet workflow
@@ -94,6 +94,8 @@ const EDGES: GraphEdgeSpec[] = [
 const DRAW = EDGES.map((e) => e.id);
 /** The opening view, as the site frames this tab: the photo through to the split grid. Pan for the rest. */
 const OPENING = ["imageInput-6", "prompt-9", "llmGenerate-10", "nanoBanana-11", "splitGrid-13"];
+/** Smaller tiles stop at the contact sheet. */
+const TO_SHEET = OPENING.slice(0, 4);
 
 /**
  * Portrait tiles (the site has none: its phones only show the first tab):
@@ -104,16 +106,16 @@ const OPENING = ["imageInput-6", "prompt-9", "llmGenerate-10", "nanoBanana-11", 
 const PHONE_LAYOUT: Record<string, Placement> = {
   "imageInput-6": [0, 0, 300],
   "prompt-9": [0, 303, 300],
-  "llmGenerate-10": [400, 146, 320],
-  "nanoBanana-11": [400, 456, 320],
+  "llmGenerate-10": [380, 146, 320],
+  "nanoBanana-11": [380, 456, 320],
 };
-const PHONE_SHIFT = -740;
-const PHONE: PhoneLayout = {
-  place: (id) => {
+const PHONE_SHIFT = -760;
+const LAYOUT: WorkflowLayout = {
+  phone: (id) => {
     const [x, y, width] = saved(NODES, id);
     return PHONE_LAYOUT[id] ?? [x + PHONE_SHIFT, y, width];
   },
-  frame: { wide: OPENING, phone: Object.keys(PHONE_LAYOUT) },
+  frames: { wide: [OPENING], mid: [OPENING, TO_SHEET], phone: [TO_SHEET] },
 };
 
 const geminiProImage = (resolution: string): ParamSpec[] => [
@@ -132,7 +134,7 @@ const KLING_PARAMS: ParamSpec[] = [
 
 export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
   const graph = useNodeGraph({ nodes: NODES, edges: EDGES });
-  const view = useWorkflowView(graph, NODES, PHONE);
+  const view = useWorkflowView(graph, NODES, LAYOUT);
   const { selected, setSelected, running, run } = useWorkflowState();
   const [cleared, setCleared] = useState<string[]>([]);
   const [heights, setHeights] = useState<Record<string, number>>({});
@@ -169,7 +171,7 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
   );
 
   return (
-    <WorkflowCanvas view={view} graph={graph} env={env} onPaneClick={() => setSelected(null)}>
+    <WorkflowCanvas view={view} env={env} onPaneClick={() => setSelected(null)}>
       <NoodleLayer
         id="hero-cars"
         graph={graph}

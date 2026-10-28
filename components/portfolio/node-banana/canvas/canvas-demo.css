@@ -10,11 +10,10 @@
     animation-play-state: paused;
   }
 
-  /* Portrait frames (isCompact: height > 0.9 × width) lay the workflows out
-     from the top-left corner, where the "Drag a node" hint would sit. */
-  @container (aspect-ratio < 10 / 9) {
-    .nb .nb-hero-hint {
-      display: none;
-    }
+  /* The image's Download and Clear tools fade in on hover; keyboard focus
+     shows them at once, so the focused button is never caught invisible. */
+  .nb .nb-hero-canvas [data-media-clip] div:has(> button:focus-visible) {
+    opacity: 1;
+    transition: none;
   }
 }
