@@ -17,16 +17,34 @@ export const LANDING_MODE_COPY = {
   },
 } as const satisfies Record<LandingMode, { title: string; detail: string; description: string }>;
 
+export type LandingNotice = { tone: "error" | "accept"; text: string };
+
 /**
- * The product's validation messages for a drop (processVideosUpload,
- * handleDropZoneDrop). Returns null when the product would accept the files.
+ * What the landing says about dropped or picked files. The errors are the
+ * product's (handleDropZoneDrop, processVideosUpload, processSplitVideoUpload).
+ * Where the product would move on to its clip queue or split editor, the
+ * replica says so instead.
  */
-export function validateLandingDrop(mode: LandingMode, files: File[]): string | null {
-  const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+export function landingNotice(
+  mode: LandingMode,
+  files: File[],
+  from: "drop" | "picker",
+): LandingNotice {
+  const videos = files.filter((file) => file.type.startsWith("video/"));
   if (mode === "split") {
-    return videoFiles.length === 1 ? null : "Split mode accepts exactly one video file.";
+    if (from === "drop" && videos.length !== 1) {
+      return { tone: "error", text: "Split mode accepts exactly one video file." };
+    }
+    if (from === "picker" && !files[0]?.type.startsWith("video/")) {
+      return { tone: "error", text: "Drop a single MP4 or WebM video file." };
+    }
+    return { tone: "accept", text: "Got your video. In the app, the split editor opens next." };
   }
-  return videoFiles.length > 0 ? null : "Drop one or more MP4 or WebM video files.";
+  if (videos.length === 0) {
+    return { tone: "error", text: "Drop one or more MP4 or WebM video files." };
+  }
+  const clips = videos.length === 1 ? "1 clip" : `${videos.length} clips`;
+  return { tone: "accept", text: `Got ${clips}. In the app, the clip queue opens next.` };
 }
 
 /**

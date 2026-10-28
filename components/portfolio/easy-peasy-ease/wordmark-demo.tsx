@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { DragEvent } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { Layers, Scissors, Upload } from "lucide-react";
 
@@ -15,8 +15,9 @@ import { SegmentedControl, segmentedControlItemClassName } from "./kit/segmented
 import {
   LANDING_MODE_COPY,
   landingModeVariants,
-  validateLandingDrop,
+  landingNotice,
   type LandingMode,
+  type LandingNotice,
 } from "./wordmark/landing-mode";
 import { PressureWordmark } from "./wordmark/pressure-wordmark";
 import "./wordmark/wordmark.css";
@@ -25,12 +26,18 @@ import "./wordmark/wordmark.css";
 // max-w-2xl column tracks its text-7xl title, with a floor for narrow tiles.
 const DROP_ZONE_WIDTH = "w-[min(100%,max(20rem,calc(var(--epe-wm-type)*8.9)))]";
 const ROW_GAP = "mt-[clamp(8px,2.6cqh,16px)]";
+// The product's lime focus ring vanishes on the lime pressed segment; a dark
+// ring keeps keyboard focus visible there.
+const MODE_BUTTON = cn(
+  segmentedControlItemClassName,
+  "aria-pressed:focus-visible:ring-(color:--primary-foreground)/60",
+);
 
 /**
  * The Easy Peasy Ease landing screen (app/page.tsx, upload state): LightRays,
  * the TextPressure wordmark, the Stitch / Split segmented control and the
- * drop zone. Nothing uploads: a drop shows the product's accept state, or its
- * validation message for files it would reject.
+ * drop zone. Nothing uploads: dropping or picking files shows the product's
+ * validation message, or a note on where the app would go next.
  */
 export function EasyPeasyEaseWordmarkDemo() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -39,7 +46,8 @@ export function EasyPeasyEaseWordmarkDemo() {
   const [mode, setMode] = useState<LandingMode>("stitch");
   const [isDropZoneHovered, setIsDropZoneHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<LandingNotice | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reveal = revealed ? "visible" : "hidden";
   const modeDirection = mode === "split" ? 1 : -1;
@@ -48,7 +56,7 @@ export function EasyPeasyEaseWordmarkDemo() {
 
   const chooseMode = (next: LandingMode) => {
     setMode(next);
-    setUploadError(null);
+    setNotice(null);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -56,7 +64,13 @@ export function EasyPeasyEaseWordmarkDemo() {
     event.stopPropagation();
     setIsDragOver(false);
     setIsDropZoneHovered(false);
-    setUploadError(validateLandingDrop(mode, Array.from(event.dataTransfer.files)));
+    setNotice(landingNotice(mode, Array.from(event.dataTransfer.files), "drop"));
+  };
+
+  const handlePick = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length > 0) setNotice(landingNotice(mode, files, "picker"));
   };
 
   // Anything dropped on the tile outside the drop zone is refused, so the
@@ -76,16 +90,23 @@ export function EasyPeasyEaseWordmarkDemo() {
     >
       <p className="sr-only">
         Move the pointer, or drag a finger, across the EasyPeasyEase wordmark to thin its letters.
-        Switch between Stitch clips and Split one video, and hover or drop a video file on the drop
-        zone. Nothing is uploaded.
+        Switch between Stitch clips and Split one video, then drop a video on the drop zone or press
+        it to choose one. Nothing is uploaded.
       </p>
       <div className="epe-wm-frame absolute inset-0 flex flex-col">
         <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
           <LightRays
+            aria-hidden="true"
             className="absolute inset-0 z-0"
             color="oklch(0.889 0.027 234 / 0.15)"
             count={7}
             speed={14}
+            // The product's rays are 70vh, 630px on a 900px desktop. The type
+            // here is product size, so the rays are too. The seed spreads them
+            // across the width, a few starting early, so light shows soon after
+            // the tile scrolls in.
+            length="135%"
+            seed={4673}
             interactive={isDropZoneHovered || isDragOver}
             active={active}
           />
@@ -133,7 +154,7 @@ export function EasyPeasyEaseWordmarkDemo() {
                   type="button"
                   aria-pressed={mode === "stitch"}
                   onClick={() => chooseMode("stitch")}
-                  className={segmentedControlItemClassName}
+                  className={MODE_BUTTON}
                 >
                   <Layers className="h-4 w-4" />
                   <span className="text-sm font-medium">Stitch clips</span>
@@ -142,7 +163,7 @@ export function EasyPeasyEaseWordmarkDemo() {
                   type="button"
                   aria-pressed={mode === "split"}
                   onClick={() => chooseMode("split")}
-                  className={segmentedControlItemClassName}
+                  className={MODE_BUTTON}
                 >
                   <Scissors className="h-4 w-4" />
                   <span className="text-sm font-medium">Split one video</span>
@@ -159,8 +180,11 @@ export function EasyPeasyEaseWordmarkDemo() {
               className={cn(ROW_GAP, DROP_ZONE_WIDTH, "flex max-h-[300px] min-h-[84px] flex-1")}
             >
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={copy.title}
                 data-drag-over={isDragOver ? "" : undefined}
-                className="epe-landing-drop-zone group flex w-full cursor-pointer items-center justify-center rounded-[16px] border-2 border-dashed border-muted-foreground/30 p-[clamp(8px,3cqh,48px)] text-center outline-none hover:border-primary/45 data-drag-over:border-primary/45"
+                className="epe-landing-drop-zone group flex w-full cursor-pointer items-center justify-center rounded-[16px] border-2 border-dashed border-muted-foreground/30 p-[clamp(8px,3cqh,48px)] text-center outline-none hover:border-primary/45 focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/25 data-drag-over:border-primary/45"
                 onPointerEnter={() => setIsDropZoneHovered(true)}
                 onPointerMove={() => {
                   if (!isDropZoneHovered) setIsDropZoneHovered(true);
@@ -182,6 +206,13 @@ export function EasyPeasyEaseWordmarkDemo() {
                   }
                 }}
                 onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
               >
                 <div className="grid place-items-center">
                   <AnimatePresence initial={false} mode="sync" custom={modeDirection}>
@@ -224,21 +255,38 @@ export function EasyPeasyEaseWordmarkDemo() {
                 </div>
               </div>
             </EpeBlurFade>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              multiple={mode === "stitch"}
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={handlePick}
+              className="hidden"
+            />
 
             {/* The product puts the upload error above this line; sharing the
                 line keeps the drop zone from resizing when one appears. */}
-            <div className={cn(ROW_GAP, "grid min-h-5 w-[min(100%,40rem)] place-items-center")}>
+            <div
+              aria-live="polite"
+              className={cn(ROW_GAP, "grid min-h-5 w-[min(100%,40rem)] place-items-center")}
+            >
               <AnimatePresence initial={false} mode="sync" custom={modeDirection}>
-                {uploadError ? (
+                {notice ? (
                   <motion.p
-                    key="error"
-                    role="alert"
+                    key={notice.text}
                     initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
                     animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
                     exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-                    className="col-start-1 row-start-1 text-center text-sm text-(color:--danger-foreground)"
+                    className={cn(
+                      "col-start-1 row-start-1 text-center text-pretty",
+                      notice.tone === "error"
+                        ? "text-sm text-(color:--danger-foreground)"
+                        : "text-xs text-(color:--success-foreground)",
+                    )}
                   >
-                    {uploadError}
+                    {notice.text}
                   </motion.p>
                 ) : (
                   <EpeBlurFade
@@ -268,6 +316,7 @@ export function EasyPeasyEaseWordmarkDemo() {
           By Willie —{" "}
           <a
             href="https://github.com/shrimbly/easy-peasy-ease"
+            aria-label="code on GitHub"
             className="epe-landing-footer-link inline-block underline transition-[color,transform] duration-150 hover:text-foreground focus-visible:text-foreground"
             target="_blank"
             rel="noreferrer"
@@ -277,6 +326,7 @@ export function EasyPeasyEaseWordmarkDemo() {
           —{" "}
           <a
             href="https://x.com/ReflctWillie"
+            aria-label="x, Willie on X"
             className="epe-landing-footer-link inline-block underline transition-[color,transform] duration-150 hover:text-foreground focus-visible:text-foreground"
             target="_blank"
             rel="noreferrer"
