@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { animate } from "motion/react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { animate, type AnimationPlaybackControls } from "motion/react";
 import { LifeBuoy, Play } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -19,17 +19,19 @@ import {
   type GenerateImageSettings,
 } from "./kit";
 import { AnatomyOverlay } from "./node-anatomy/anatomy-overlay";
-import { EDGES, GENERATE_ID, GENERATE_W, INPUT_PHOTO, NODES, PROMPT, RESULTS, START_HISTORY, START_SETTINGS } from "./node-anatomy/data";
-import { NARROW_MAX, useFraming } from "./node-anatomy/framing";
+import { EDGES, GENERATE_ID, GENERATE_W, INPUT_IDS, INPUT_PHOTO, NODES, PROMPT, RESULTS, START_HISTORY, START_SETTINGS } from "./node-anatomy/data";
+import { useFraming, useInputDock } from "./node-anatomy/framing";
 import { PART_ORDER, partAt, type PartId } from "./node-anatomy/parts";
 
 /** How far the node gives under a drag before it springs home (world px). */
 const GIVE = 36;
 const CYCLE_MS = 2800;
 const RUN_MS = 3000;
+/** The docked inputs: faded, inert, and without the controls card (only its edge would show). */
+const INPUT_CLASS = "pointer-events-none opacity-50 [&_[data-trailing]]:invisible";
 
-const RESIZE_EDGE = "[role='separator'][aria-label^='Resize node']";
-const SUMMARY_ROW = "[data-controls-card] > div:first-child";
+/** The node's two resize edges (the kit renders them as its direct children). */
+const RESIZE_EDGE = `[data-node-id="${GENERATE_ID}"] > [role='separator']`;
 
 interface History {
   /** Indexes into RESULTS, newest first. */
@@ -52,16 +54,18 @@ export function NodeBananaNodeAnatomyDemo() {
 
   const [labelHover, setLabelHover] = useState<PartId | null>(null);
   const [nodeHover, setNodeHover] = useState<PartId | null>(null);
+  const [nodeFocus, setNodeFocus] = useState<PartId | null>(null);
   const [pinned, setPinned] = useState<PartId | null>(null);
   const [cycle, setCycle] = useState<number | null>(null);
   const [interacted, setInteracted] = useState(false);
 
-  const { view, hold } = useFraming({ rootRef: root, graph, nodeId: GENERATE_ID, expanded, reducedMotion });
+  const { view, hold, startsOpen } = useFraming({ rootRef: root, graph, nodeId: GENERATE_ID, expanded, reducedMotion });
+  useInputDock(view, graph, GENERATE_ID, INPUT_IDS);
 
-  // Phones start with the settings closed: the node has to fit above the legend.
+  // Phones and short tiles start with the settings closed, so the node fits at a readable size.
   useLayoutEffect(() => {
-    if (root.current && root.current.clientWidth < NARROW_MAX) setExpanded(false);
-  }, []);
+    if (!startsOpen()) setExpanded(false);
+  }, [startsOpen]);
 
   // Before the first interaction, step the highlight through the parts.
   const cycling = active && !interacted;
@@ -76,7 +80,7 @@ export function NodeBananaNodeAnatomyDemo() {
     };
   }, [cycling]);
 
-  const highlight: PartId | null = labelHover ?? nodeHover ?? pinned ?? (interacted || cycle === null ? null : PART_ORDER[cycle]);
+  const highlight: PartId | null = labelHover ?? nodeHover ?? nodeFocus ?? pinned ?? (interacted || cycle === null ? null : PART_ORDER[cycle]);
 
   const touch = useCallback(() => setInteracted(true), []);
 
@@ -115,66 +119,77 @@ export function NodeBananaNodeAnatomyDemo() {
     setHistory((h) => ({ ...h, index: (h.index + dir + h.items.length) % h.items.length }));
   };
 
-  // Dragging: the node gives a little, then springs back to its place (the
-  // controls card trails it both ways).
-  const rest = useRef({ x: 0, y: 0 });
+  // Dragging (or nudging with the arrow keys): the node gives a little, then
+  // springs back home (the controls card trails it both ways). Home starts at
+  // the world origin and only moves when a left-edge resize moves the node.
+  const home = useRef({ x: 0, y: 0 });
+  const springs = useRef<AnimationPlaybackControls[]>([]);
   const constrain = useCallback((x: number, y: number) => {
-    const r = rest.current;
-    return { x: r.x + GIVE * Math.tanh((x - r.x) / GIVE), y: r.y + GIVE * Math.tanh((y - r.y) / GIVE) };
+    const h = home.current;
+    return { x: h.x + GIVE * Math.tanh((x - h.x) / GIVE), y: h.y + GIVE * Math.tanh((y - h.y) / GIVE) };
   }, []);
-  const onDragStart = () => {
-    rest.current = graph.position(GENERATE_ID) ?? rest.current;
-  };
-  const onDragEnd = (moved: boolean) => {
+  const stopSprings = useCallback(() => {
+    springs.current.forEach((a) => a.stop());
+    springs.current = [];
+  }, []);
+  const springHome = useCallback(() => {
     const node = graph.node(GENERATE_ID);
-    if (!moved || !node) return;
-    if (reducedMotion) graph.moveTo(GENERATE_ID, rest.current.x, rest.current.y);
+    if (!node) return;
+    stopSprings();
+    const { x, y } = home.current;
+    if (reducedMotion) graph.moveTo(GENERATE_ID, x, y);
     else {
       const spring = { type: "spring", stiffness: 420, damping: 30 } as const;
-      animate(node.x, rest.current.x, spring);
-      animate(node.y, rest.current.y, spring);
+      springs.current = [animate(node.x, x, spring), animate(node.y, y, spring)];
     }
-  };
+  }, [graph, reducedMotion, stopSprings]);
+  useEffect(() => stopSprings, [stopSprings]);
 
-  // Root-level wiring: which part the pointer is over, the resize edges'
-  // double-click (back to the default width) and holding the camera while one is dragged.
+  // Root-level wiring (capture phase: the resize edges stop their own events
+  // from bubbling): hold the camera while an edge is dragged, keep home in
+  // step with a left-edge resize, and spring an arrow-key nudge back once the
+  // keys rest.
   useEffect(() => {
     const el = root.current;
     if (!el) return;
-    const onDown = (e: globalThis.PointerEvent) => {
-      const target = e.target as Element;
-      // The kit's node drag captures the pointer on press, which sends the
-      // click to the node instead of the summary row, so the row never
-      // toggles. Select here and keep the drag from starting on the row.
-      if (target.closest(SUMMARY_ROW) && !target.closest("button") && target.closest(`[data-node-id="${GENERATE_ID}"]`)) {
-        e.stopPropagation();
-        setSelected(true);
-        return;
-      }
-      if (target.closest(RESIZE_EDGE)) {
-        hold(true);
-        const up = () => {
-          window.removeEventListener("pointerup", up);
-          window.removeEventListener("pointercancel", up);
-          const node = graph.node(GENERATE_ID);
-          if (node) rest.current = { x: node.x.get(), y: node.y.get() };
-          hold(false);
-        };
-        window.addEventListener("pointerup", up);
-        window.addEventListener("pointercancel", up);
-      }
+    let nudge: ReturnType<typeof setTimeout> | undefined;
+    const rehome = () => {
+      const p = graph.position(GENERATE_ID);
+      if (p) home.current = p;
     };
-    const onDouble = (e: MouseEvent) => {
+    const onDown = (e: globalThis.PointerEvent) => {
       if (!(e.target as Element).closest(RESIZE_EDGE)) return;
-      graph.setWidth(GENERATE_ID, GENERATE_W);
+      hold(true);
+      const up = () => {
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        rehome();
+        hold(false);
+      };
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!e.key.startsWith("Arrow")) return;
+      const target = e.target as Element;
+      if (target.closest(RESIZE_EDGE)) {
+        // The edge applies the step after this listener.
+        clearTimeout(nudge);
+        nudge = setTimeout(rehome);
+      } else if (target.matches(`[data-node-id="${GENERATE_ID}"]`)) {
+        stopSprings();
+        clearTimeout(nudge);
+        nudge = setTimeout(springHome, 400);
+      }
     };
     el.addEventListener("pointerdown", onDown, true);
-    el.addEventListener("dblclick", onDouble);
+    el.addEventListener("keydown", onKey, true);
     return () => {
       el.removeEventListener("pointerdown", onDown, true);
-      el.removeEventListener("dblclick", onDouble);
+      el.removeEventListener("keydown", onKey, true);
+      clearTimeout(nudge);
     };
-  }, [graph, hold]);
+  }, [graph, hold, springHome, stopSprings]);
 
   const onPointerOver = (e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== "mouse") return;
@@ -182,6 +197,12 @@ export function NodeBananaNodeAnatomyDemo() {
     const part = inNode ? partAt(e.target) : null;
     setNodeHover(part);
     if (part) touch();
+  };
+  // Keyboard parity with hover: a control inside the node focused from the
+  // keyboard traces its part (a click's focus does not, or it would stick).
+  const onFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    setNodeFocus(target.closest(`[data-node-id="${GENERATE_ID}"]`) && target.matches(":focus-visible") ? partAt(target) : null);
   };
   const onPointerDownCapture = (e: PointerEvent<HTMLDivElement>) => {
     touch();
@@ -212,11 +233,14 @@ export function NodeBananaNodeAnatomyDemo() {
       onPointerOver={onPointerOver}
       onPointerLeave={() => setNodeHover(null)}
       onPointerDownCapture={onPointerDownCapture}
+      onFocus={onFocus}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setNodeFocus(null)}
       onKeyDown={onKeyDown}
     >
       <p className="sr-only">
-        Point at or focus a label to trace that part of the node. Select the node to show its socket names and resize edges, page
-        back through earlier results under the image, open the settings from the summary row, or run the node from its header.
+        Point at or focus a label to trace that part of the node. Select the node (click it, or press Enter on it) to show its socket
+        names, resize edges and header actions. Page back through earlier results under the image, open the settings from the
+        summary row, and run the node from its header or with Alt+Enter.
       </p>
       <Canvas
         view={view}
@@ -234,22 +258,19 @@ export function NodeBananaNodeAnatomyDemo() {
           paused={!active}
           still={reducedMotion}
         />
-        <ImageInputNode
-          graph={graph}
-          id="photo"
-          draggable={false}
-          image={INPUT_PHOTO}
-          filename="DSCF4258.JPG"
-          dimensions={{ width: 2460, height: 1640 }}
-          className="pointer-events-none opacity-40"
-        />
-        <PromptNode graph={graph} id="prompt" draggable={false} value={PROMPT} height={130} className="pointer-events-none opacity-40" />
+        {/* Context only: slivers docked at the tile's edge, their noodles running into the node. */}
+        <div aria-hidden>
+          <ImageInputNode graph={graph} id="photo" draggable={false} image={INPUT_PHOTO} className={INPUT_CLASS} />
+          <PromptNode graph={graph} id="prompt" draggable={false} value={PROMPT} height={100} className={INPUT_CLASS} />
+        </div>
         <GenerateImageNode
           graph={graph}
           id={GENERATE_ID}
           title="Generate Image"
           aria-label="Generate Image node"
           image={image}
+          // The demo mounts only near the viewport, so its main image may as well load eagerly.
+          priority
           history={{ index: history.index, count: history.items.length, onPrev: () => page(-1), onNext: () => page(1) }}
           settings={settings}
           onSettingsChange={(s) => {
@@ -278,13 +299,12 @@ export function NodeBananaNodeAnatomyDemo() {
           }
           menuBadge={fallback}
           headerControls={highlight === "header" ? "always" : "auto"}
-          resizable={{ min: 200, max: 480 }}
+          resizable={{ min: 200, max: 480, defaultWidth: GENERATE_W }}
           constrain={constrain}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          onDragStart={stopSprings}
+          onDragEnd={(moved) => moved && springHome()}
         />
       </Canvas>
-      <div className="nb-anat-fade" aria-hidden />
       <AnatomyOverlay
         rootRef={root}
         view={view}

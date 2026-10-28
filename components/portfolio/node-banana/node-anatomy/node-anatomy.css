@@ -224,24 +224,23 @@
     .nb .nb-anat__hint-touch { display: none; }
   }
 
-  /* The inputs fade into the tile's left edge. */
-  .nb .nb-anat-fade {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 14%;
-    pointer-events: none;
-    background: linear-gradient(to right, var(--nb-canvas), rgb(23 23 23 / 0));
+  /* The smallest phones need a third line for the longer descriptions. */
+  @container nb (max-width: 320px) {
+    .nb .nb-anat__legend-text { height: 51px; }
   }
-
-  @container nb (min-width: 520px) {
-    .nb .nb-anat__hint { top: auto; bottom: 14px; left: 18px; }
+  /* Wide landscape tiles: the callout column (isNarrow in framing.ts). */
+  @container nb (min-width: 520px) and (orientation: landscape) {
+    .nb .nb-anat__hint { top: auto; bottom: 10px; left: 18px; }
     .nb .nb-anat__leader,
     .nb .nb-anat__dot { display: inline; }
     .nb .nb-anat__label { display: block; }
     .nb .nb-anat__marker,
     .nb .nb-anat__legend { display: none; }
+  }
+  /* Short wide tiles (COMPACT_MAX_H in framing.ts): tighter callouts so all five fit the column. */
+  @container nb (min-width: 520px) and (orientation: landscape) and (max-height: 459px) {
+    .nb .nb-anat__eyebrow { font-size: 10px; line-height: 14px; }
+    .nb .nb-anat__text { margin-top: 2px; font-size: 11px; line-height: 15px; }
   }
   @container nb (min-width: 900px) {
     .nb .nb-anat__eyebrow { font-size: 12px; }

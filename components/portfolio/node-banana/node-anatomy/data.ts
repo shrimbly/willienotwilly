@@ -40,22 +40,25 @@ export const START_SETTINGS: GenerateImageSettings = {
   imageSearch: false,
 };
 
-/** The first three paragraphs of the prompt the site's LLM node filled in from the photo. */
+/** The prompt the site's LLM node filled in from the photo (its first paragraph); only the docked card's edge ever shows. */
 export const PROMPT =
-  "Analyze the input image and silently inventory all automotive-critical details: the specific vehicle make, model, and year (1973 MGB GT V8), custom modifications (factory-original chrome bumpers with overriders, period-correct multi-spoke alloy wheels with black centers and polished rims, and a custom '73MGV8' license plate), tire tread design, interior visibility through glass, engineering details, light direction, and reflection quality.\n\n" +
-  "The setting is a pristine, high-budget automotive photography studio. A massive softbox downlight (large diffusion bank) hangs directly overhead, creating long, clean highlights on the vehicle. The background is a seamless, dark studio cyclorama. Outside the area with the car it is extremely dark, with the walls of the studio only faintly visible. Render the vehicle with hyper-realistic detail, capturing the precise texture of the materials, distinct mechanical components, and accurate light reflections.\n\n" +
-  "The vehicle’s body color, wheel color, and all material colors must exactly match the input image, with no reinterpretation, correction, enhancement, or stylization.";
+  "Analyze the input image and silently inventory all automotive-critical details: the specific vehicle make, model, and year (1973 MGB GT V8), custom modifications (factory-original chrome bumpers with overriders, period-correct multi-spoke alloy wheels with black centers and polished rims, and a custom '73MGV8' license plate), tire tread design, interior visibility through glass, engineering details, light direction, and reflection quality.";
 
 export const INPUT_PHOTO: NodeImage = { ...NB_ASSETS.cars.input, alt: "Photo of a blue 1973 MGB GT V8 parked on a lawn" };
 
 export const GENERATE_ID = "generate";
 export const GENERATE_W = NODE_DEFAULT_W.generateImage;
 
-// World px. The node under study sits at the origin; its two inputs are set
-// off to the left so only their right edges and the noodles reach the tile.
+/** The node's two inputs, docked at the tile's left edge (useInputDock sets their x). */
+export const INPUT_IDS = ["photo", "prompt"] as const;
+
+// World px. The node under study sits at the origin. Its inputs stack either
+// side of its sockets (cards 83 and 110 tall), so their noodles meet it from
+// above and below, and both start below the node's header line so neither
+// runs off the top of the tile.
 export const NODES: GraphNodeSpec[] = [
-  { id: "photo", x: -360, y: -122, width: 260, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
-  { id: "prompt", x: -380, y: 140, width: 280, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
+  { id: "photo", x: -300, y: -30, width: 120, inputs: IMAGE_INPUT_INPUTS, outputs: IMAGE_INPUT_OUTPUTS },
+  { id: "prompt", x: -300, y: 77, width: 220, inputs: PROMPT_INPUTS, outputs: PROMPT_OUTPUTS },
   { id: GENERATE_ID, x: 0, y: 0, width: GENERATE_W, inputs: GENERATE_IMAGE_INPUTS, outputs: GENERATE_IMAGE_OUTPUTS },
 ];
 

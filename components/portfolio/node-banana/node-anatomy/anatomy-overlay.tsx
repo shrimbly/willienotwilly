@@ -3,7 +3,7 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 
 import type { CanvasView, NodeGraph } from "../kit";
-import { LABEL_MARGIN, LABEL_MAX, LEAD, NARROW_MAX } from "./framing";
+import { COMPACT_MAX_H, LABEL_MARGIN, LABEL_MAX, LEAD, isNarrow } from "./framing";
 import { PARTS, type PartId } from "./parts";
 import "./node-anatomy.css";
 
@@ -28,9 +28,9 @@ interface PartGeometry {
   marker: Point;
 }
 
-/** The callout's eyebrow centre line, from the label's top. */
-const EYEBROW_MID = 8;
+/** Space between callouts in the column (tighter on short tiles). */
 const LABEL_GAP = 14;
+const LABEL_GAP_COMPACT = 10;
 /** Keep laying out for a while after the last change: CSS transitions and the trailing controls card settle on their own. */
 const SETTLE_MS = 450;
 
@@ -83,7 +83,7 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
       const geometry = measure(root, node, view.zoom.get());
       if (!geometry) return false;
       const { parts, cardRight } = geometry;
-      const narrow = W < NARROW_MAX;
+      const narrow = isNarrow(W, H);
 
       for (const p of PARTS) {
         const g = parts[p.id];
@@ -99,33 +99,36 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
       // Wide: one column right of the node, labels kept apart, leaders bent to reach them.
       const colX = cardRight + LEAD;
       const colW = Math.max(120, Math.min(LABEL_MAX, W - colX - LABEL_MARGIN));
+      const gap = H < COMPACT_MAX_H ? LABEL_GAP_COMPACT : LABEL_GAP;
       const items = PARTS.map((p) => {
         const label = get(`label-${p.id}`) as HTMLElement | undefined;
         if (label && widths.get(p.id) !== colW) {
           label.style.width = `${colW}px`;
           widths.set(p.id, colW);
         }
-        return { id: p.id, anchor: parts[p.id].anchor, h: label?.offsetHeight ?? 0, top: 0 };
+        // The leader meets the eyebrow's centre line.
+        const mid = ((label?.firstElementChild as HTMLElement | null)?.offsetHeight ?? 16) / 2;
+        return { id: p.id, anchor: parts[p.id].anchor, h: label?.offsetHeight ?? 0, mid, top: 0 };
       }).sort((a, b) => a.anchor.y - b.anchor.y);
 
       items.forEach((it, i) => {
-        it.top = it.anchor.y - EYEBROW_MID;
-        if (i > 0) it.top = Math.max(it.top, items[i - 1].top + items[i - 1].h + LABEL_GAP);
+        it.top = it.anchor.y - it.mid;
+        if (i > 0) it.top = Math.max(it.top, items[i - 1].top + items[i - 1].h + gap);
       });
       let limit = H - 14;
       for (let i = items.length - 1; i >= 0; i--) {
         items[i].top = Math.min(items[i].top, limit - items[i].h);
-        limit = items[i].top - LABEL_GAP;
+        limit = items[i].top - gap;
       }
       let floor = 14;
       for (const it of items) {
         it.top = Math.max(it.top, floor);
-        floor = it.top + it.h + LABEL_GAP;
+        floor = it.top + it.h + gap;
       }
 
       const knee = colX - 18;
       for (const it of items) {
-        const ly = it.top + EYEBROW_MID;
+        const ly = it.top + it.mid;
         const label = get(`label-${it.id}`);
         if (label) label.style.transform = `translate(${colX.toFixed(1)}px, ${it.top.toFixed(1)}px)`;
         const { x, y } = it.anchor;
@@ -209,15 +212,16 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
         </button>
       ))}
 
+      {/* Tap targets on the node; the legend's chips are the same controls for keyboards and screen readers. */}
       {PARTS.map((p, i) => (
         <button
           key={p.id}
           ref={bind(`marker-${p.id}`)}
           type="button"
+          tabIndex={-1}
+          aria-hidden
           className="nb-anat__marker"
           data-active={active === p.id ? "" : undefined}
-          aria-label={`${p.name}: ${p.text}`}
-          aria-pressed={pinned === p.id}
           {...handlers(p.id)}
         >
           {i + 1}
@@ -228,7 +232,14 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
         <ol className="nb-anat__chips">
           {PARTS.map((p, i) => (
             <li key={p.id}>
-              <button type="button" className="nb-anat__chip" data-active={active === p.id ? "" : undefined} aria-pressed={pinned === p.id} {...handlers(p.id)}>
+              <button
+                type="button"
+                className="nb-anat__chip"
+                data-active={active === p.id ? "" : undefined}
+                aria-label={`${p.name}: ${p.text}`}
+                aria-pressed={pinned === p.id}
+                {...handlers(p.id)}
+              >
                 <span className="nb-anat__chip-num" aria-hidden>
                   {i + 1}
                 </span>
@@ -237,7 +248,9 @@ export function AnatomyOverlay({ rootRef, view, graph, nodeId, active, pinned, o
             </li>
           ))}
         </ol>
-        <p className="nb-anat__legend-text">{activePart ? activePart.text : "Every node is built from these five parts."}</p>
+        <p className="nb-anat__legend-text" aria-hidden>
+          {activePart ? activePart.text : "Every node is built from these five parts."}
+        </p>
       </div>
 
       <p className="nb-anat__hint" data-hidden={hint ? undefined : ""} aria-hidden>
