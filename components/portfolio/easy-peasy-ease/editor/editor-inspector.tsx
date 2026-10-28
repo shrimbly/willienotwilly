@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useRef } from "react";
 import type { ComponentProps, KeyboardEvent } from "react";
 import type { MotionValue } from "motion/react";
 
@@ -20,6 +20,12 @@ import {
 import { MAX_CLIP_SECONDS, MIN_CLIP_SECONDS, type EditorClip } from "./editor-clips";
 
 const TABS = ["Video", "Audio"] as const;
+
+// Not useId: the hero is server-rendered through next/dynamic, and when its
+// lazy chunk suspends during hydration React replays it without its tree
+// fork, so useId differs between server and client. The hero renders once
+// per page, so fixed ids are unique.
+const ID = "epe-editor";
 
 interface EditorInspectorProps extends Omit<ComponentProps<"aside">, "children"> {
   clip: EditorClip;
@@ -59,7 +65,6 @@ export function EditorInspector({
   className,
   ...props
 }: EditorInspectorProps) {
-  const uid = useId();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -89,9 +94,9 @@ export function EditorInspector({
               }}
               type="button"
               role="tab"
-              id={`${uid}-tab-${i}`}
+              id={`${ID}-tab-${i}`}
               aria-selected={tab === i}
-              aria-controls={`${uid}-panel-${i}`}
+              aria-controls={`${ID}-panel-${i}`}
               tabIndex={tab === i ? 0 : -1}
               data-state={tab === i ? "active" : "inactive"}
               onClick={() => onTabChange(i as 0 | 1)}
@@ -107,8 +112,8 @@ export function EditorInspector({
       <div className="min-h-0 flex-1">
         <div
           role="tabpanel"
-          id={`${uid}-panel-0`}
-          aria-labelledby={`${uid}-tab-0`}
+          id={`${ID}-panel-0`}
+          aria-labelledby={`${ID}-tab-0`}
           hidden={tab !== 0}
           className="h-full"
         >
@@ -133,10 +138,10 @@ export function EditorInspector({
             <div className="epe-editor-body">
               <div className="epe-editor-fields">
                 <div className="shrink-0 space-y-1.5">
-                  <FieldLabel htmlFor={`${uid}-duration`}>Seconds</FieldLabel>
+                  <FieldLabel htmlFor={`${ID}-duration`}>Seconds</FieldLabel>
                   <ScrubbableNumberField
                     key={clip.id}
-                    id={`${uid}-duration`}
+                    id={`${ID}-duration`}
                     label="Clip duration"
                     min={MIN_CLIP_SECONDS}
                     max={MAX_CLIP_SECONDS}
@@ -150,9 +155,9 @@ export function EditorInspector({
                   />
                 </div>
                 <div className="epe-editor-curve-field min-w-0 space-y-1.5">
-                  <FieldLabel htmlFor={`${uid}-curve`}>Curve</FieldLabel>
+                  <FieldLabel htmlFor={`${ID}-curve`}>Curve</FieldLabel>
                   <EasingCurvePicker
-                    id={`${uid}-curve`}
+                    id={`${ID}-curve`}
                     value={clip.preset}
                     options={EASING_PRESETS}
                     onChange={onPresetChange}
@@ -160,7 +165,7 @@ export function EditorInspector({
                     popoverClassName={
                       pickerSide === "top"
                         ? "max-h-[calc(100cqh_-_5rem)] w-[min(18rem,calc(100cqw_-_1.5rem))]"
-                        : "max-h-[min(420px,calc(100cqh_-_13rem))]"
+                        : "max-h-(--epe-editor-picker-h)"
                     }
                     fullWidth
                   />
@@ -211,8 +216,8 @@ export function EditorInspector({
 
         <div
           role="tabpanel"
-          id={`${uid}-panel-1`}
-          aria-labelledby={`${uid}-tab-1`}
+          id={`${ID}-panel-1`}
+          aria-labelledby={`${ID}-tab-1`}
           hidden={tab !== 1}
           className="h-full"
         >

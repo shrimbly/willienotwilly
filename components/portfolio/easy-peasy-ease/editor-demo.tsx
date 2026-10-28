@@ -16,6 +16,7 @@ import {
 } from "./editor/editor-clips";
 import { EditorInspector } from "./editor/editor-inspector";
 import { useClipHold } from "./editor/use-clip-hold";
+import { useScrubClickGuard } from "./editor/use-scrub-click-guard";
 import { EpeRoot } from "./kit/epe-root";
 import { RetimedVideo } from "./kit/retimed-video";
 import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback";
@@ -81,6 +82,7 @@ export function EasyPeasyEaseEditorDemo() {
   useMotionValueEvent(playback.clipIndex, "change", setFollowIndex);
 
   const hold = useClipHold({ followIndex, playback });
+  const scrubClickGuard = useScrubClickGuard();
   const selected = Math.min(hold.holdIndex ?? followIndex, clips.length - 1);
   const current = clips[selected];
 
@@ -93,11 +95,6 @@ export function EasyPeasyEaseEditorDemo() {
     observer.observe(shell);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    (window as unknown as { __epeRetime?: unknown }).__epeRetime = playback;
-  }, [playback]);
 
   const { map, seek, play } = playback;
   const { retarget, holdSegment, releaseSegment } = hold;
@@ -184,7 +181,7 @@ export function EasyPeasyEaseEditorDemo() {
           <div className="epe-editor-stage flex min-h-0 min-w-0 flex-1 flex-col shadow-xl">
             <div
               onPointerDown={releaseSegment}
-              className="relative min-h-0 w-full flex-1 overflow-hidden rounded-t-[12px] border border-border bg-black"
+              className="epe-editor-preview relative min-h-0 w-full flex-1 overflow-hidden rounded-t-[12px] border border-border bg-black"
             >
               <RetimedVideo playback={playback} />
             </div>
@@ -221,17 +218,19 @@ export function EasyPeasyEaseEditorDemo() {
               />
             </div>
 
-            <VideoTimeline
-              segments={segments}
-              currentTime={playback.time}
-              selectedSegmentId={current.id}
-              onSeek={handleSeek}
-              onSegmentSelect={handleSegmentSelect}
-              zoomValue={zoom}
-              onZoomChange={setZoom}
-              viewportClassName="rounded-t-none rounded-b-[12px] pb-2 @min-[768px]/epe:pb-3"
-              className="epe-editor-timeline"
-            />
+            <div className="contents" {...scrubClickGuard}>
+              <VideoTimeline
+                segments={segments}
+                currentTime={playback.time}
+                selectedSegmentId={current.id}
+                onSeek={handleSeek}
+                onSegmentSelect={handleSegmentSelect}
+                zoomValue={zoom}
+                onZoomChange={setZoom}
+                viewportClassName="rounded-t-none rounded-b-[12px] pb-2 @min-[768px]/epe:pb-3"
+                className="epe-editor-timeline"
+              />
+            </div>
           </div>
 
           <div className="epe-editor-inspector-cell">

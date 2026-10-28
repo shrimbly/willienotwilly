@@ -1,6 +1,6 @@
 /*
  * Layout of the Easy Peasy Ease hero editor (editor-demo.tsx). The product
- * switches from flex-col to a row at lg; the tile is 16:9 on desktop and 3:4
+ * switches from flex-col to a row at lg; the tile is 16:9 on desktop and 2:3
  * on phones, so here the switch follows the tile's orientation and the denser
  * variants follow its height. Every selector is scoped under .epe.
  */
@@ -35,7 +35,7 @@
     "curve header"
     "curve fields";
   gap: 0.5rem 0.75rem;
-  min-height: clamp(9.5rem, 30cqh, 16rem);
+  height: 100%;
 }
 
 .epe .epe-editor-body {
@@ -51,6 +51,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* The curve popover opening downwards stops short of the tile's bottom edge. */
+  --epe-editor-picker-h: min(420px, calc(100cqh - 13rem));
 }
 
 .epe .epe-editor-curve {
@@ -69,14 +71,34 @@
   display: none;
 }
 
-@container epe-editor (orientation: portrait) and (max-width: 329px) {
+/*
+ * Portrait: the preview asks for the clips' 3:2 at full width and gives way
+ * first; the inspector keeps its fields' height and takes any height left.
+ */
+@container epe-editor (orientation: portrait) {
+  .epe .epe-editor-stage {
+    flex: 0 1 auto;
+  }
+
+  .epe .epe-editor-preview {
+    flex: 1 1 auto;
+    height: calc((100cqw - 1rem) * 2 / 3);
+  }
+
+  .epe .epe-editor-inspector-cell {
+    flex: 1 0 auto;
+  }
+}
+
+/* 320px phones: a narrower field column (the curve name truncates) keeps the plot usable. */
+@container epe-editor (orientation: portrait) and (max-width: 309px) {
   .epe .epe-editor-panel {
     grid-template-columns: minmax(0, 1fr) 8rem;
   }
 }
 
-@container epe-editor (orientation: portrait) and (max-height: 439px) {
-  .epe .epe-editor-timeline,
+/* Phones: the timeline's selection names the clip, and the preview gets the room. */
+@container epe-editor (orientation: portrait) and (max-height: 579px) {
   .epe .epe-editor-header {
     display: none;
   }
@@ -85,7 +107,12 @@
     grid-template-areas:
       "curve fields"
       "curve fields";
-    min-height: 0;
+  }
+}
+
+@container epe-editor (orientation: portrait) and (max-height: 439px) {
+  .epe .epe-editor-timeline {
+    display: none;
   }
 
   /* Without the timeline, the controls bar closes the connected card. */
@@ -96,8 +123,15 @@
   }
 }
 
+/* Phone plots: hug the left edge so the hint clears the in-out curves. */
+@container epe-editor-curve (max-height: 179px) {
+  .epe .epe-editor-hint {
+    left: 0.375rem;
+  }
+}
+
 /* Too small a plot to carry the hint over the curve. */
-@container epe-editor-curve (max-width: 139px) {
+@container epe-editor-curve (max-width: 119px) or (max-height: 119px) {
   .epe .epe-editor-hint {
     display: none;
   }
@@ -127,8 +161,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    height: 100%;
-    min-height: 0;
   }
 
   .epe .epe-editor-body {
@@ -203,6 +235,10 @@
     display: none;
   }
 
+  .epe .epe-editor-fields {
+    --epe-editor-picker-h: calc(100cqh - 9.5rem);
+  }
+
   .epe .epe-editor-inspector {
     padding: 0.75rem;
   }
@@ -216,5 +252,9 @@
 @container epe-editor (orientation: landscape) and (max-height: 399px) {
   .epe .epe-editor-header {
     display: none;
+  }
+
+  .epe .epe-editor-fields {
+    --epe-editor-picker-h: calc(100cqh - 7rem);
   }
 }
