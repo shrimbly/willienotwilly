@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { ComfyWordmark, ellipsisClass, useCanvas } from "../kit";
+import { ComfyWordmark, ellipsisClass, touchClaim, useCanvas, type TouchClaim } from "../kit";
 
 // ComfyAppNode's controls card (src/components/nodes/ui/ControlsCard.tsx with
 // the site's comfy variant): the Comfy wordmark in a 44px icon column, the
@@ -25,7 +25,7 @@ export interface ComfyControlsCardProps {
   width?: number;
   onWidthChange: (width: number | undefined) => void;
   panelId: string;
-  /** Pressing anywhere on the card (the node selects on press, as React Flow does). */
+  /** A click anywhere on the card (its panel never drags the node, so the node's own select never hears it). */
   onPress?: () => void;
   children: ReactNode;
 }
@@ -56,7 +56,7 @@ export function ComfyControlsCard({ title, values, expanded, onToggle, width, on
     <div
       ref={card}
       data-controls-card
-      onPointerDownCapture={onPress}
+      onClickCapture={onPress}
       className="nb-controls-card overflow-visible"
       style={width !== undefined ? { width, maxWidth: "none" } : undefined}
     >
@@ -110,7 +110,8 @@ export function ComfyControlsCard({ title, values, expanded, onToggle, width, on
  * A grab strip along one edge of the controls card. The bar sits at the
  * card's edge and the hit zone reaches 12px past it (the site's hit area);
  * the card is centred, so moving one edge by dx changes the width by 2·dx.
- * Double-click hands the width back to the node.
+ * Double-click hands the width back to the node. A finger only resizes once
+ * it moves sideways: a vertical swipe that starts on the strip scrolls the page.
  */
 function WidthGrip({
   side,
@@ -126,7 +127,7 @@ function WidthGrip({
   onChange: (width: number | undefined) => void;
 }) {
   const view = useCanvas();
-  const drag = useRef<{ x0: number; w0: number; zoom: number } | null>(null);
+  const drag = useRef<{ x0: number; w0: number; explicit: boolean; zoom: number; touch: TouchClaim | null; moved: boolean } | null>(null);
   const sign = side === "right" ? 1 : -1;
   const clamp = (w: number) => Math.round(Math.max(CONTROLS_MIN_W, Math.min(CONTROLS_RESIZE_MAX_W, w)));
 
@@ -135,16 +136,23 @@ function WidthGrip({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { x0: event.clientX, w0: width, zoom: view?.zoom.get() ?? 1 };
+    drag.current = { x0: event.clientX, w0: width, explicit, zoom: view?.zoom.get() ?? 1, touch: touchClaim(event), moved: false };
   };
   const onPointerMove = (event: PointerEvent<HTMLSpanElement>) => {
     const d = drag.current;
-    if (!d) return;
+    if (!d || (d.touch && !d.touch.move(event.clientX, event.clientY))) return;
+    d.moved = true;
     const dx = ((event.clientX - d.x0) / d.zoom) * sign;
     const next = clamp(d.w0 + dx * 2);
     if (next !== width || !explicit) onChange(next);
   };
   const end = () => (drag.current = null);
+  // The browser took the gesture for the page after all: put the width back.
+  const cancel = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d?.moved) onChange(d.explicit ? d.w0 : undefined);
+  };
 
   return (
     <span
@@ -160,7 +168,7 @@ function WidthGrip({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={end}
-      onPointerCancel={end}
+      onPointerCancel={cancel}
       onDoubleClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -174,7 +182,7 @@ function WidthGrip({
         onChange(clamp(width + step * sign * (event.shiftKey ? 80 : 20)));
       }}
       className={cn(
-        "group/wgrip absolute top-0 bottom-0 z-[2] flex w-[18px] cursor-ew-resize touch-none items-center",
+        "group/wgrip absolute top-0 bottom-0 z-[2] flex w-[18px] cursor-ew-resize touch-pan-y items-center",
         side === "left" ? "-left-3 justify-end" : "-right-3 justify-start",
       )}
     >

@@ -5,8 +5,6 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
-import { CHROME_SURFACE } from "../kit";
-
 import { AssetDetail } from "./asset-detail";
 import { AssetGrid } from "./asset-grid";
 import { AssetNotice } from "./asset-notice";
@@ -32,13 +30,12 @@ function Popovers({ layer }: { layer: HTMLElement | null }) {
   return <BulkTagEditor ids={popover.ids} x={popover.x} y={popover.y} above={popover.above} layer={layer} />;
 }
 
-export function AssetsView({ inView, hint, hidden, wheel }: { inView: boolean; hint: boolean; hidden: boolean; wheel: boolean }) {
+export function AssetsView({ inView, hidden, wheel }: { inView: boolean; hidden: boolean; wheel: boolean }) {
   const { state, actions, reducedMotion } = useLibrary();
   // A callback ref, so popovers get the layer as a value rather than reading a ref while rendering
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const detailOpen = state.detailId !== null;
   const confirming = state.confirm !== null;
-  const quiet = !state.notice && state.selection.length === 0 && !detailOpen;
 
   return (
     <div
@@ -95,7 +92,7 @@ export function AssetsView({ inView, hint, hidden, wheel }: { inView: boolean; h
         <AssetDetail />
       </div>
 
-      {/* Bulk bar, notices and the one hint, centred over the grid or the detail's stage */}
+      {/* Bulk bar and notices, centred over the grid or the detail's stage */}
       <div
         className={cn(
           "pointer-events-none absolute right-0 bottom-4 left-0 z-40 flex flex-col items-center gap-2 px-3 @[560px]:bottom-5",
@@ -104,22 +101,6 @@ export function AssetsView({ inView, hint, hidden, wheel }: { inView: boolean; h
       >
         <AssetNotice />
         {!detailOpen && <BulkBar layer={layer} />}
-        <AnimatePresence>
-          {hint && quiet && (
-            <motion.span
-              key="hint"
-              aria-hidden
-              className={cn(CHROME_SURFACE, "nb-font-mono nb-tracking-eyebrow flex h-7 items-center rounded-full px-3 text-[10px] text-neutral-400 uppercase")}
-              // The same first frame on the server and the client; reduced motion only drops the fade
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.25 } }}
-              transition={reducedMotion ? { duration: 0 } : { duration: 0.4, delay: 1.2, ease: EASE_OUT }}
-            >
-              Open an asset to see its run
-            </motion.span>
-          )}
-        </AnimatePresence>
       </div>
 
       <Popovers layer={layer} />

@@ -103,7 +103,7 @@ export const PROMPT_HEIGHT = 132;
 export const COMFY_ASPECT = comfyParis.width / comfyParis.height;
 export const COMFY_MIN_W = 260;
 
-/** Tile sizes: a phone shows the Comfy node alone, a tablet adds its inputs, a desktop the whole graph. */
+/** Tile sizes: a phone shows the Comfy node alone; a tablet the whole graph, drawn tighter; a desktop the whole graph. */
 export type Tier = "s" | "m" | "l";
 
 export function tierFor(width: number): Tier {
@@ -126,18 +126,22 @@ export const LAYOUTS: Record<Tier, Placement> = {
     comfy: { x: 0, y: 0, width: 300 },
     output: { x: 420, y: 34, width: 260 },
   },
-  m: WIDE,
+  // A narrower Comfy and Output node and shorter noodles, so the whole graph fits at a readable zoom.
+  m: {
+    reference: { x: -290, y: -34, width: 220 },
+    prompt: { x: -290, y: 160, width: 220 },
+    comfy: { x: 0, y: 0, width: 360 },
+    output: { x: 430, y: 40, width: 220 },
+  },
   l: WIDE,
 };
 
-/** Which nodes the camera fits on each tier. */
-export const FIT_SET: Record<Tier, NodeId[]> = {
-  s: ["comfy"],
-  m: ["reference", "prompt", "comfy"],
-  l: ["reference", "prompt", "comfy", "output"],
-};
+const WHOLE_GRAPH: NodeId[] = ["reference", "prompt", "comfy", "output"];
 
-/** Room around the fitted nodes: the run bar sits under them, the hint above the Comfy node. */
+/** Which nodes the camera fits on each tier. */
+export const FIT_SET: Record<Tier, NodeId[]> = { s: ["comfy"], m: WHOLE_GRAPH, l: WHOLE_GRAPH };
+
+/** Room around the fitted nodes: the run bar sits under them. */
 export const FIT_PADDING: Record<Tier, { top: number; right: number; bottom: number; left: number }> = {
   s: { top: 18, right: 14, bottom: 70, left: 14 },
   m: { top: 28, right: 24, bottom: 76, left: 24 },
@@ -145,7 +149,7 @@ export const FIT_PADDING: Record<Tier, { top: number; right: number; bottom: num
 };
 
 /** Widest the Comfy node may be dragged, so it stops short of its neighbours. */
-export const COMFY_MAX_W: Record<Tier, number> = { s: 420, m: 520, l: 520 };
+export const COMFY_MAX_W: Record<Tier, number> = { s: 420, m: 400, l: 520 };
 
 /** Collapsed height of each node at a width, computed as NodeCard lays it out (no DOM needed). */
 export function nodeHeight(id: NodeId, width: number): number {

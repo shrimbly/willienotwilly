@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import Image from "next/image";
-import { motion } from "motion/react";
+import { animate, motion } from "motion/react";
 import { AudioWaveform, Box, Check, Image as ImageIcon, Play, Star, Video } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -18,6 +18,19 @@ import { assetTitle, formatDuration } from "./format";
 const VIDEO_HOVER_DELAY_MS = 300;
 export const EASE_OUT: [number, number, number, number] = [0.2, 0.8, 0.2, 1];
 const MOVE = { duration: 0.45, ease: EASE_OUT };
+/** A hop: out, moved while unseen, and back in once the neighbours have glided clear of its new place. */
+const HOP = { duration: 0.7, times: [0, 0.3, 0.6, 1], swap: 0.21 };
+/** A tile that arrives after the first reveal waits for the ones already there to glide aside. */
+const ARRIVE_DELAY = 0.25;
+
+/**
+ * A reflow that would carry a tile past its neighbours (more than one column,
+ * or onto another row against the reading order, as the last tile of a row
+ * does when an arrival lands first) would drag it across them: it hops instead.
+ */
+function crossesNeighbours(dx: number, dy: number, width: number, height: number): boolean {
+  return Math.abs(dx) > width * 1.5 || (dx < 0 && dy > height / 2) || (dx > 0 && dy < -height / 2);
+}
 
 /** Kind colour (the node sockets' colours): placeholder ground and glyph. */
 const KIND_TONE: Record<AssetKind, { ground: string; glyph: string }> = {
@@ -62,6 +75,7 @@ export interface AssetTileProps {
   /** Show the checkbox at rest (select mode, or something is selected). */
   selecting: boolean;
   enter: TileEnter;
+  /** Its place in the first reveal's stagger (arrivals keep their own wait). */
   delay: number;
   /** Jump rather than glide (a resize relayout). */
   instant: boolean;
@@ -101,6 +115,20 @@ export const AssetTile = memo(function AssetTile({
   const [previewing, setPreviewing] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const title = assetTitle(asset);
+  const tile = useRef<HTMLDivElement>(null);
+
+  // Where the tile was last placed, whether it has moved since it entered, and whether
+  // getting here was a hop (counted, so each hop plays once).
+  const [place, setPlace] = useState({ x, y, moved: false, hop: false, hops: 0 });
+  if (place.x !== x || place.y !== y) {
+    const hop = !instant && !reducedMotion && enter !== "none" && crossesNeighbours(x - place.x, y - place.y, width, height);
+    setPlace({ x, y, moved: true, hop, hops: place.hops + (hop ? 1 : 0) });
+  }
+  useEffect(() => {
+    if (place.hops === 0 || !tile.current) return;
+    const fade = animate(tile.current, { opacity: [1, 0, 0, 1] }, { duration: HOP.duration, times: HOP.times, ease: "easeInOut" });
+    return () => fade.stop();
+  }, [place.hops]);
 
   useEffect(
     () => () => {
@@ -120,10 +148,12 @@ export const AssetTile = memo(function AssetTile({
   };
 
   const still = reducedMotion || enter === "none";
-  const fade = { duration: 0.42, ease: EASE_OUT, delay };
+  const fade = { duration: 0.42, ease: EASE_OUT, delay: enter === "arrive" ? ARRIVE_DELAY : delay };
+  const move = instant || reducedMotion ? { duration: 0 } : place.hop ? { duration: 0, delay: HOP.swap } : MOVE;
 
   return (
     <motion.div
+      ref={tile}
       className="group absolute top-0 left-0"
       style={{ width, height }}
       data-asset-id={id}
@@ -131,8 +161,9 @@ export const AssetTile = memo(function AssetTile({
       animate={{ opacity: 1, scale: 1, x, y }}
       exit={reducedMotion ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, scale: 0.96, transition: { duration: 0.16, ease: "easeOut" } }}
       transition={{
-        x: instant || reducedMotion ? { duration: 0 } : MOVE,
-        y: instant || reducedMotion ? { duration: 0 } : enter === "arrive" ? { ...MOVE, delay } : MOVE,
+        x: move,
+        // An arrival drops in from 14px up; later moves glide like the rest.
+        y: enter === "arrive" && !place.moved && move === MOVE ? { ...MOVE, delay: ARRIVE_DELAY } : move,
         opacity: reducedMotion ? { duration: 0 } : fade,
         scale: reducedMotion ? { duration: 0 } : fade,
       }}

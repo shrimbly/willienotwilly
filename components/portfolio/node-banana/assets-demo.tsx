@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Film, LibraryBig, MessagesSquare } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 import { LIBRARY_ASSETS } from "@/lib/node-banana/assets";
 
-import { AppWindow, NbRoot, ViewToggle } from "./kit";
+import { AppWindow, DemoHint, NbRoot, ViewToggle } from "./kit";
 
 import { AssetsView } from "./assets/assets-view";
 import { ARRIVALS, ASSETS_BY_ID, LibraryProvider, useLibrary } from "./assets/library";
@@ -21,11 +21,6 @@ import "./assets/assets.css";
 const WORKFLOW_NAMES = Object.fromEntries(LIBRARY_ASSETS.map((asset) => [asset.workflow.id, asset.workflow.name]));
 const FIRST_ARRIVAL_MS = 2600;
 const NEXT_ARRIVAL_MS = 4200;
-
-function subscribeVisibility(onChange: () => void) {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-}
 
 function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || !!target.closest("input, textarea, select"));
@@ -73,14 +68,19 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
     return () => clearTimeout(timer);
   }, [reducedMotion, active, touched, next, onCanvas, landedCount, actions, rootRef]);
 
+  // A finger that lands on the tile to scroll the page is not playing with it: a
+  // touch counts once it lifts without the browser taking it over (pointercancel).
   useEffect(() => {
     const root = rootRef.current;
     if (!root || touched) return;
     const touch = () => setTouched(true);
-    root.addEventListener("pointerdown", touch);
+    const press = (event: PointerEvent) => event.pointerType !== "touch" && touch();
+    root.addEventListener("pointerdown", press);
+    root.addEventListener("pointerup", touch);
     root.addEventListener("keydown", touch);
     return () => {
-      root.removeEventListener("pointerdown", touch);
+      root.removeEventListener("pointerdown", press);
+      root.removeEventListener("pointerup", touch);
       root.removeEventListener("keydown", touch);
     };
   }, [rootRef, touched]);
@@ -239,21 +239,28 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
           </>
         }
       >
-        <AssetsView inView={inView} hint={!touched} hidden={onCanvas} wheel={clickedIn && inView} />
+        <AssetsView inView={inView} hidden={onCanvas} wheel={clickedIn && inView} />
         {onCanvas && (
           <div ref={canvasRef} tabIndex={-1} role="region" aria-label={`${WORKFLOW_NAMES[state.canvas.workflowId]} workflow`} className="absolute inset-0 outline-none">
             <WorkflowCanvas key={canvasAsset.id} asset={canvasAsset} active={active} reducedMotion={reducedMotion} />
           </div>
         )}
       </AppWindow>
+      {/*
+        In the title bar past the last tab, the one place the window keeps empty: centred on
+        its row and as far in as the traffic lights. Shortened, then dropped, where the tabs
+        leave less room (they show from 480px).
+      */}
+      <DemoHint corner="top-right" hidden={touched || onCanvas} className="top-[17px] right-4 @min-[480px]:@max-[589px]:hidden">
+        Open an asset<span className="@max-[479px]:hidden @min-[590px]:@max-[699px]:hidden"> to see its run</span>
+      </DemoHint>
     </div>
   );
 }
 
 export function NodeBananaAssetsDemo() {
   const root = useRef<HTMLDivElement | null>(null);
-  const { active, inView, reducedMotion } = useDemoActive(root);
-  const pageVisible = useSyncExternalStore(subscribeVisibility, () => !document.hidden, () => true);
+  const { active, inView, reducedMotion, pageVisible } = useDemoActive(root);
   return (
     <NbRoot ref={root} role="group" aria-label="Node Banana asset library: every image, video and audio file the app made, with the run behind each one">
       <p className="sr-only">

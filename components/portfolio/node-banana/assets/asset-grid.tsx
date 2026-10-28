@@ -26,7 +26,19 @@ const SECTION_GAP = 16;
 const BOTTOM_PADDING = 96;
 const MOVE = { duration: 0.45, ease: EASE_OUT };
 
-function SectionHeader({ label, count, state, onToggle }: { label: string; count: number; state: "all" | "some" | "none"; onToggle: () => void }) {
+function SectionHeader({
+  label,
+  count,
+  state,
+  onToggle,
+  onKeyboardFocus,
+}: {
+  label: string;
+  count: number;
+  state: "all" | "some" | "none";
+  onToggle: () => void;
+  onKeyboardFocus: () => void;
+}) {
   return (
     <div className="nb-bg-canvas pointer-events-auto sticky top-0 z-10 -mx-2 flex items-center gap-2 px-2" style={{ height: HEADER_HEIGHT }}>
       <button
@@ -35,6 +47,7 @@ function SectionHeader({ label, count, state, onToggle }: { label: string; count
         aria-checked={state === "all" ? true : state === "some" ? "mixed" : false}
         aria-label={`Select ${label}`}
         onClick={onToggle}
+        onFocus={(event) => event.currentTarget.matches(":focus-visible") && onKeyboardFocus()}
         className={cn(
           "flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors",
           ring,
@@ -181,6 +194,17 @@ export function AssetGrid({ inView }: { inView: boolean }) {
   );
   const onFocus = useCallback((id: string) => actions.focus(id), [actions]);
 
+  // A day's checkbox reached by keyboard brings the day up under the grid's
+  // top edge with its tiles below it, unless its header is already stuck there.
+  // The browser has already scrolled the page to where the checkbox was before
+  // this moved it, so the page then follows to keep the demo in view.
+  const revealSection = useCallback((top: number, height: number) => {
+    const el = scrollRef.current;
+    if (!el || (top <= el.scrollTop && el.scrollTop < top + height - HEADER_HEIGHT)) return;
+    el.scrollTop = top;
+    (el.closest("[data-nb-root]") ?? el).scrollIntoView({ block: "nearest" });
+  }, []);
+
   const enterFor: TileEnter = settled ? "arrive" : "reveal";
 
   return (
@@ -215,17 +239,26 @@ export function AssetGrid({ inView }: { inView: boolean }) {
                 const picked = ids.filter((id) => selection.has(id)).length;
                 const sectionState = picked === 0 ? "none" : picked === size ? "all" : "some";
                 const label = daySectionLabel(section.day);
+                const height = HEADER_HEIGHT + section.masonry.height;
                 return (
+                  // Placed by `top`, not a transform: sticky positioning reads the layout box, so a
+                  // translated section would leave its header off by the scroll offset.
                   <motion.section
                     key={section.day}
                     aria-label={label}
-                    className="pointer-events-none absolute top-0 z-10"
-                    style={{ left: pad, right: pad, height: HEADER_HEIGHT + section.masonry.height }}
-                    initial={reducedMotion || !settled ? false : { opacity: 0, y: section.top }}
-                    animate={{ opacity: 1, y: section.top }}
-                    transition={{ y: instant || reducedMotion ? { duration: 0 } : MOVE, opacity: { duration: 0.2 } }}
+                    className="pointer-events-none absolute z-10"
+                    style={{ left: pad, right: pad, height }}
+                    initial={reducedMotion || !settled ? false : { opacity: 0, top: section.top }}
+                    animate={{ opacity: 1, top: section.top }}
+                    transition={{ top: instant || reducedMotion ? { duration: 0 } : MOVE, opacity: { duration: 0.2 } }}
                   >
-                    <SectionHeader label={label} count={size} state={sectionState} onToggle={() => actions.setSelected(ids, sectionState !== "all")} />
+                    <SectionHeader
+                      label={label}
+                      count={size}
+                      state={sectionState}
+                      onToggle={() => actions.setSelected(ids, sectionState !== "all")}
+                      onKeyboardFocus={() => revealSection(section.top, height)}
+                    />
                   </motion.section>
                 );
               })}

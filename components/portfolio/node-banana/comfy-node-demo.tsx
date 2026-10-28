@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { animate, type AnimationPlaybackControls } from "motion/react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -36,6 +36,7 @@ import { useComfyRun } from "./comfy-node/use-comfy-run";
 import {
   CHROME_SURFACE,
   Canvas,
+  DemoHint,
   ImageInputNode,
   NbRoot,
   NoodleLayer,
@@ -53,7 +54,7 @@ import {
 
 /** The seed the tile's own first run leaves behind, so its resting state is the same every time. */
 const INTRO_NEXT_SEED = 1209457316;
-/** The run bar's height plus its margin, kept clear when the settings open. */
+/** The run bar's height plus its margin, kept clear when the settings or a dropdown open. */
 const RUN_BAR_SPACE = 72;
 const SPRING_BACK = { duration: 0.42, ease: [0.33, 1, 0.68, 1] as const };
 
@@ -193,8 +194,9 @@ export function NodeBananaComfyNodeDemo() {
     [graph],
   );
 
-  // A press mid-spring catches the node where it is and keeps the seat it was returning to;
-  // otherwise wherever it rests now (moved by the keys, or resized from the left) is its seat.
+  // A drag that starts mid-spring catches the node where it is and keeps the seat it was returning
+  // to; otherwise wherever it rests now (moved by the keys, or resized from the left) is its seat.
+  // Held when the drag starts, not on select: a finger selects only when it lifts.
   const holdSeat = (id: NodeId) => {
     const moving = springs.current.get(id);
     if (moving) {
@@ -228,10 +230,8 @@ export function NodeBananaComfyNodeDemo() {
   const shell = (id: NodeId) => ({
     graph,
     selected: selected === id,
-    onSelect: () => {
-      holdSeat(id);
-      setSelected(id);
-    },
+    onSelect: () => setSelected(id),
+    onDragStart: () => holdSeat(id),
     onDragEnd: () => springBack(id),
   });
 
@@ -283,6 +283,8 @@ export function NodeBananaComfyNodeDemo() {
       onPointerUpCapture={() => setTouched(true)}
       onKeyDownCapture={() => setTouched(true)}
       onKeyDown={onKeyDown}
+      // Dropdowns in the settings open upward rather than under the run bar.
+      style={{ "--nb-list-inset-bottom": RUN_BAR_SPACE } as CSSProperties}
     >
       <p className="sr-only">
         Select the ComfyUI node to resize it from either edge or drag it; open its settings, press Run, then page back through earlier runs.
@@ -302,12 +304,7 @@ export function NodeBananaComfyNodeDemo() {
               tier === "s" ? "bottom-3" : "bottom-4",
             )}
           >
-            {/* The app's Run button draws no focus ring of its own; the tile's keyboard users need one. */}
-            <RunSplitButton
-              onRun={run ? stop : () => queueRun()}
-              running={run !== null}
-              className="has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-blue-500"
-            />
+            <RunSplitButton onRun={run ? stop : () => queueRun()} running={run !== null} />
           </div>
         }
       >
@@ -339,11 +336,11 @@ export function NodeBananaComfyNodeDemo() {
           onExpandedChange={setExpanded}
           controlsWidth={controlsWidth}
           onControlsWidthChange={setControlsWidth}
-          hint={tier === "l" ? "right" : tier === "m" ? "above" : null}
-          hintHidden={touched}
         />
         <OutputNode {...shell("output")} still={outputStill} running={run !== null} />
       </Canvas>
+      {/* Beside the run bar, never under it; it waits out a run, while the button reads Stop. */}
+      <DemoHint hidden={touched || run !== null}>Press Run</DemoHint>
     </NbRoot>
   );
 }

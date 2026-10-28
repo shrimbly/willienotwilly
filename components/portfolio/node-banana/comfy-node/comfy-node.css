@@ -22,40 +22,4 @@
     background-size: 180px 100px;
     mix-blend-mode: soft-light;
   }
-
-  /* The site's handwritten note at the node's top-right corner; it fades once the visitor plays. */
-  .nb .nb-comfy-hint {
-    position: absolute;
-    z-index: 4;
-    display: block;
-    width: 130px;
-    height: 60px;
-    color: var(--nb-ink-2);
-    pointer-events: none;
-    transition: opacity 300ms var(--nb-ease-out);
-  }
-  .nb .nb-comfy-hint[data-variant="right"] { left: calc(100% + 2px); top: -62px; }
-  .nb .nb-comfy-hint[data-variant="above"] { right: -6px; top: -66px; }
-  .nb .nb-comfy-hint[data-hidden] { opacity: 0; }
-
-  .nb .nb-comfy-hint__text {
-    position: absolute;
-    left: 46px;
-    top: 0;
-    font-family: var(--nb-font-hand);
-    font-size: 22px;
-    line-height: 24px;
-    font-weight: 500;
-    white-space: nowrap;
-    transform: rotate(-4deg);
-  }
-  .nb .nb-comfy-hint[data-variant="above"] .nb-comfy-hint__text { left: 0; }
-
-  .nb .nb-comfy-hint__arrow { position: absolute; left: -2px; top: 12px; }
-  .nb .nb-comfy-hint[data-variant="above"] .nb-comfy-hint__arrow {
-    left: auto;
-    right: 0;
-    top: 18px;
-    transform: scaleX(-1);
-  }
 }

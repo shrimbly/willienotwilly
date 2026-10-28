@@ -15,6 +15,7 @@ export function OutputNode({
   running,
   selected,
   onSelect,
+  onDragStart,
   onDragEnd,
 }: {
   graph: NodeGraph;
@@ -23,6 +24,7 @@ export function OutputNode({
   running: boolean;
   selected: boolean;
   onSelect: () => void;
+  onDragStart: () => void;
   onDragEnd: (moved: boolean) => void;
 }) {
   return (
@@ -32,6 +34,7 @@ export function OutputNode({
       title="Output"
       selected={selected}
       onSelect={onSelect}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       running={running}
       media={{ aspect: COMFY_ASPECT }}

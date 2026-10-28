@@ -2,11 +2,10 @@
 
 import { type CSSProperties } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { ComfyWordmark, NodeCard, SummaryValues, dotWindow, type NodeGraph } from "../kit";
+import { CarouselControls, ComfyWordmark, NodeCard, SummaryValues, type NodeGraph } from "../kit";
 import { ComfyControlsCard } from "./comfy-controls-card";
 import { ComfyParameters, type SeedMode } from "./comfy-parameters";
 import { COMFY_ASPECT, COMFY_MIN_W, WORKFLOW_NODE_COUNT, type ComfyParams, type ComfyRun, type Still } from "./data";
@@ -33,8 +32,9 @@ export interface ComfyAppNodeProps {
   selected: boolean;
   /** A press that may become a drag (React Flow selects on press). */
   onSelect: () => void;
-  /** A press on the gap row or the controls card, which never drag: select only. */
+  /** A click on the gap row or the controls card, which never drag: select only. */
   onPress: () => void;
+  onDragStart: () => void;
   onDragEnd: (moved: boolean) => void;
   maxWidth: number;
   /** Double-clicking a resize edge restores this width. */
@@ -53,9 +53,6 @@ export interface ComfyAppNodeProps {
   onExpandedChange: (expanded: boolean) => void;
   controlsWidth?: number;
   onControlsWidthChange: (width: number | undefined) => void;
-  /** The site's "play with me" note, beside the corner or above it; null hides it for good. */
-  hint: "right" | "above" | null;
-  hintHidden: boolean;
 }
 
 export function ComfyAppNode({
@@ -63,6 +60,7 @@ export function ComfyAppNode({
   selected,
   onSelect,
   onPress,
+  onDragStart,
   onDragEnd,
   maxWidth,
   defaultWidth,
@@ -80,8 +78,6 @@ export function ComfyAppNode({
   onExpandedChange,
   controlsWidth,
   onControlsWidthChange,
-  hint,
-  hintHidden,
 }: ComfyAppNodeProps) {
   const running = run !== null && run.status !== "output";
   const current = history[Math.min(index, history.length - 1)];
@@ -96,6 +92,7 @@ export function ComfyAppNode({
       id="comfy"
       selected={selected}
       onSelect={onSelect}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       running={running}
       resizable={{ min: COMFY_MIN_W, max: maxWidth, defaultWidth }}
@@ -106,30 +103,9 @@ export function ComfyAppNode({
       aria-label={`ComfyUI app node: ${WORKFLOW_NAME}`}
       media={{ aspect: COMFY_ASPECT }}
       mediaClassName="bg-neutral-900/60"
-      cardChildren={
-        hint && (
-          <span className="nb-comfy-hint" data-variant={hint} data-hidden={hintHidden ? "" : undefined} aria-hidden>
-            <span className="nb-comfy-hint__text">play with me</span>
-            <svg
-              className="nb-comfy-hint__arrow"
-              width="64"
-              height="52"
-              viewBox="0 0 64 52"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M44 10 C 30 8, 14 16, 8 40" />
-              <path d="M3 32 L 8 41 L 14 34" />
-            </svg>
-          </span>
-        )
-      }
       gap={
         history.length > 1 ? (
-          <RunCarousel index={index} count={history.length} onPrev={onPrev} onNext={onNext} loading={running} onPress={onPress} />
+          <CarouselControls index={index} count={history.length} onPrev={onPrev} onNext={onNext} loading={running} noun="run" onClickCapture={onPress} />
         ) : undefined
       }
       controls={
@@ -199,60 +175,5 @@ function LatentPreview({ still, progress, frame }: { still: Still; progress: num
         <span className="text-[9px] text-neutral-200">Rendering…</span>
       </div>
     </div>
-  );
-}
-
-/**
- * ‹ ••● 1 / 3 ›: the run history (ui/CarouselControls.tsx, noun "run"). The
- * newest run is first; "next" steps back to older ones, both ends wrap, and
- * the arrows rest while a run is in flight.
- */
-function RunCarousel({
-  index,
-  count,
-  onPrev,
-  onNext,
-  loading,
-  onPress,
-}: {
-  index: number;
-  count: number;
-  onPrev: () => void;
-  onNext: () => void;
-  loading: boolean;
-  onPress: () => void;
-}) {
-  const safe = Math.min(Math.max(index, 0), count - 1);
-  return (
-    <div className="nodrag flex h-full items-center justify-center gap-1.5 select-none" onPointerDownCapture={onPress}>
-      <NavButton title="Previous run" onClick={onPrev} disabled={loading} dir="prev" />
-      <div className="flex items-center gap-[3px]" aria-hidden>
-        {dotWindow(safe, count).map((i) => (
-          <span
-            key={i}
-            className={cn("block rounded-full transition-colors", i === safe ? "h-[5px] w-[5px] bg-neutral-300" : "h-1 w-1 bg-neutral-600")}
-          />
-        ))}
-      </div>
-      <span className="nb-text-node min-w-[32px] text-center text-neutral-400 tabular-nums">
-        {`${safe + 1} / ${count}`}
-      </span>
-      <NavButton title="Next run" onClick={onNext} disabled={loading} dir="next" />
-    </div>
-  );
-}
-
-function NavButton({ title, onClick, disabled, dir }: { title: string; onClick: () => void; disabled: boolean; dir: "prev" | "next" }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      className="nb-squircle flex h-5 w-5 items-center justify-center rounded-[6px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-    >
-      {dir === "prev" ? <ChevronLeft size={12} strokeWidth={2} /> : <ChevronRight size={12} strokeWidth={2} />}
-    </button>
   );
 }
