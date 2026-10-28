@@ -22,7 +22,7 @@ function tagStates(records: RecordState[]): Map<string, TagState> {
   return states;
 }
 
-export function TagChip({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
+function TagChip({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
   return (
     <span
       className={cn(
@@ -209,7 +209,7 @@ export function BulkTagEditor({ ids, x, y, above, layer }: { ids: string[]; x: n
           className="nb-bg-canvas h-7 w-full rounded-md px-2 text-xs text-neutral-100 outline-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-500"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto py-1">
+      <div className="nb-assets-scroll nb-assets-scroll-touch min-h-0 flex-1 py-1">
         {rows.length === 0 ? (
           <div className="px-2.5 py-2 text-xs text-neutral-500">No tags yet. Type one above.</div>
         ) : (

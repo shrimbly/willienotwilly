@@ -44,7 +44,10 @@ export function AssetContextMenu({ x, y, anchorId, ids, layer }: { x: number; y:
   const openTags = () => actions.openPopover({ kind: "tags", x, y, ids });
   const removal: MenuPart[] =
     view === "trash"
-      ? [{ key: "restore", label: "Restore", icon: RotateCcw, onSelect: act(() => actions.bulk(ids, { action: "restore" })) }]
+      ? [
+          { key: "restore", label: "Restore", icon: RotateCcw, onSelect: act(() => actions.bulk(ids, { action: "restore" })) },
+          { key: "delete", label: "Delete permanently…", icon: Trash2, danger: true, onSelect: () => actions.confirmDelete(ids) },
+        ]
       : [{ key: "trash", label: "Trash", icon: Trash2, hint: "⌫", onSelect: act(() => actions.bulk(ids, { action: "trash" })) }];
 
   const parts: MenuPart[] = many

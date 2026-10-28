@@ -48,32 +48,59 @@ export async function copyPrompt(asset: LibraryAsset, notify: (message: string, 
   }
 }
 
-function Stage({ asset, autoPlay }: { asset: LibraryAsset; autoPlay: boolean }) {
-  if (asset.kind === "video" && asset.media) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center p-4 @[700px]:p-10">
-        <video
-          key={asset.id}
-          src={asset.media}
-          poster={asset.thumb?.src}
-          controls
-          autoPlay={autoPlay}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          className="max-h-full max-w-full rounded-[2px] bg-black"
-        />
-      </div>
-    );
-  }
+/**
+ * The detail's player: a video plays on open as the app's does, while the
+ * demo is on screen and motion is not reduced. Leaving the screen pauses
+ * whatever plays, and only what the demo paused picks up again on return.
+ */
+function StagePlayer({ asset, onScreen, autoPlay }: { asset: LibraryAsset; onScreen: boolean; autoPlay: boolean }) {
+  const ref = useRef<HTMLVideoElement & HTMLAudioElement>(null);
+  const resume = useRef(asset.kind === "video");
+
+  useEffect(() => {
+    const media = ref.current;
+    if (!media) return;
+    if (!onScreen) {
+      if (!media.paused) {
+        media.pause();
+        resume.current = true;
+      }
+      return;
+    }
+    if (autoPlay && resume.current) {
+      resume.current = false;
+      void media.play().catch(() => {});
+    }
+  }, [onScreen, autoPlay]);
+
   if (asset.kind === "audio") {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4 @[700px]:gap-8 @[700px]:p-10">
         <AssetPlaceholder kind="audio" size={64} className="nb-rounded-card aspect-[2/1] h-auto max-h-[55%] w-auto max-w-[560px] min-w-0" />
-        <audio key={asset.id} src={asset.media} controls preload="none" className="w-full max-w-[560px]" />
+        <audio ref={ref} src={asset.media} controls preload="none" className="w-full max-w-[560px]" />
       </div>
     );
+  }
+  return (
+    <div className="absolute inset-0 flex items-center justify-center p-4 @[700px]:p-10">
+      <video
+        ref={ref}
+        src={asset.media}
+        poster={asset.thumb?.src}
+        controls
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="max-h-full max-w-full rounded-[2px] bg-black"
+      />
+    </div>
+  );
+}
+
+function Stage({ asset, onScreen, autoPlay }: { asset: LibraryAsset; onScreen: boolean; autoPlay: boolean }) {
+  if ((asset.kind === "video" || asset.kind === "audio") && asset.media) {
+    return <StagePlayer key={asset.id} asset={asset} onScreen={onScreen} autoPlay={autoPlay} />;
   }
   return (
     <div role="img" aria-label={assetTitle(asset)} className="absolute inset-0 flex items-center justify-center p-4 select-none @[700px]:p-10">
@@ -159,7 +186,7 @@ function DetailPanel({ asset, showParameters, onToggleParameters }: { asset: Lib
   return (
     <aside
       aria-label="Asset details"
-      className="nb-bg-pane flex min-h-0 w-full flex-1 flex-col overflow-y-auto @[700px]:w-[300px] @[700px]:flex-none @[960px]:w-[340px]"
+      className="nb-bg-pane nb-assets-scroll nb-assets-scroll-touch flex min-h-0 w-full flex-1 flex-col @[700px]:w-[300px] @[700px]:flex-none @[960px]:w-[340px]"
     >
       <div className="px-4 pt-4 pb-4 @[700px]:px-6 @[700px]:pt-5">
         <DialogEyebrow className="block">{assetEyebrow(asset)}</DialogEyebrow>
@@ -204,7 +231,10 @@ function DetailPanel({ asset, showParameters, onToggleParameters }: { asset: Lib
             onClick={() => actions.bulk([asset.id], { action: record.favorite ? "unfavorite" : "favorite" })}
           />
           {view === "trash" ? (
-            <PanelIconButton icon={RotateCcw} label="Restore" onClick={() => actions.bulk([asset.id], { action: "restore" })} />
+            <>
+              <PanelIconButton icon={RotateCcw} label="Restore" onClick={() => actions.bulk([asset.id], { action: "restore" })} />
+              <PanelIconButton icon={Trash2} label="Delete permanently…" danger onClick={() => actions.confirmDelete([asset.id])} />
+            </>
           ) : (
             <PanelIconButton icon={Trash2} label="Trash" danger onClick={() => actions.bulk([asset.id], { action: "trash" })} />
           )}
@@ -226,7 +256,7 @@ function DetailPanel({ asset, showParameters, onToggleParameters }: { asset: Lib
             </button>
           }
         >
-          <p className="max-h-60 overflow-y-auto text-[13px] leading-5 break-words whitespace-pre-wrap text-neutral-200 select-text">{asset.prompt}</p>
+          <p className="nb-assets-scroll text-[13px] leading-5 break-words whitespace-pre-wrap text-neutral-200 select-text @[700px]:max-h-60">{asset.prompt}</p>
         </Section>
       )}
 
@@ -291,7 +321,7 @@ function DetailPanel({ asset, showParameters, onToggleParameters }: { asset: Lib
 }
 
 export function AssetDetail() {
-  const { state, actions, list, reducedMotion } = useLibrary();
+  const { state, actions, list, reducedMotion, onScreen } = useLibrary();
   const ref = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
@@ -370,7 +400,7 @@ export function AssetDetail() {
           </div>
 
           <div className="relative min-h-0 flex-1">
-            <Stage asset={asset} autoPlay={!reducedMotion} />
+            <Stage asset={asset} onScreen={onScreen} autoPlay={!reducedMotion} />
             {hasPrevious && (
               <button type="button" onClick={() => actions.stepDetail(-1)} aria-label="Previous asset" title="Previous (←)" className={cn(stepButton, "left-2 @[700px]:left-3", ring)}>
                 <ChevronLeft size={20} strokeWidth={1.75} />

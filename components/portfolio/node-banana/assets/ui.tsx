@@ -38,6 +38,8 @@ export function DialogTextButton({ className, type = "button", children, ...rest
 const BUTTON_VARIANT = {
   primary: "bg-neutral-200 text-neutral-900 hover:bg-[#ededed]",
   outline: "border nb-border-card text-neutral-200 hover:border-neutral-600 hover:bg-white/[0.03]",
+  ghost: "text-neutral-400 hover:bg-neutral-700/40 hover:text-neutral-100",
+  danger: "text-red-400 hover:bg-red-500/10 hover:text-red-300",
 } as const;
 
 export function DialogButton({
@@ -135,7 +137,7 @@ export function MenuSectionLabel({ className, children, ...rest }: HTMLAttribute
   );
 }
 
-export const menuItemClass = cn(
+const menuItemClass = cn(
   "flex min-h-7 w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors",
   "focus-visible:bg-neutral-700 focus-visible:text-neutral-100 focus-visible:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent",

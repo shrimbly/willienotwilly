@@ -6,11 +6,12 @@ import { ArrowDownUp, Check, ChevronDown, Grid3x3, LayoutGrid, ListFilter, Squar
 import { cn } from "@/lib/utils";
 
 import { formatCount, formatNumber } from "./format";
-import { hasActiveFilters, useLibrary, type LibraryView, type SortOrder, type TileSize } from "./library";
-import { MenuItem, MenuSectionLabel, MenuSurface, placeInto, quietTool, toolClass } from "./ui";
+import { hasActiveFilters, trashedIds, useLibrary, type LibraryView, type SortOrder, type TileSize } from "./library";
+import { DialogButton, MenuItem, MenuSectionLabel, MenuSurface, placeInto, quietTool, toolClass } from "./ui";
 
 // Title and count on the left ("4 of 31" while filters narrow the view); on
-// the right one row of quiet 28px controls (src/components/assets/AssetsHeader.tsx).
+// the right one row of quiet 28px controls, after Empty Trash in the Trash
+// (src/components/assets/AssetsHeader.tsx).
 
 const VIEW_TITLES: Record<LibraryView, string> = { all: "Assets", favorites: "Favorites", trash: "Trash" };
 const SORT_LABELS: Record<SortOrder, string> = { newest: "Newest", oldest: "Oldest" };
@@ -126,6 +127,12 @@ export function AssetsHeader({ layer }: { layer: HTMLElement | null }) {
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
+        {filters.view === "trash" && facets.trash > 0 && (
+          <DialogButton variant="danger" onClick={() => actions.confirmDelete(trashedIds(state))} className="h-7 px-2.5 text-xs @[480px]:h-8 @[480px]:px-3.5 @[480px]:text-[13px]">
+            Empty Trash
+          </DialogButton>
+        )}
+
         {/* Below the docked rail's width the rail opens as a drawer from here */}
         <button
           type="button"
@@ -151,11 +158,12 @@ export function AssetsHeader({ layer }: { layer: HTMLElement | null }) {
           aria-expanded={sortOpen}
           aria-label={`Sort: ${SORT_LABELS[sort]} first`}
           onClick={(event) => toggleSort(event.currentTarget)}
-          className={cn(toolClass, quietTool, "hidden @[560px]:flex", sortOpen && "border-white/[0.18] text-neutral-100")}
+          title={`Sort: ${SORT_LABELS[sort]} first`}
+          className={cn(toolClass, quietTool, sortOpen && "border-white/[0.18] text-neutral-100")}
         >
           <ArrowDownUp size={14} strokeWidth={1.75} className="nb-text-ink-3" />
-          {SORT_LABELS[sort]}
-          <ChevronDown size={12} strokeWidth={2} className="text-neutral-500" />
+          <span className="hidden @[480px]:inline">{SORT_LABELS[sort]}</span>
+          <ChevronDown size={12} strokeWidth={2} className="hidden text-neutral-500 @[480px]:block" />
         </button>
 
         <div role="group" aria-label="Tile size" className="hidden gap-0.5 rounded-[7px] border border-white/[0.09] bg-white/[0.03] p-0.5 @[840px]:flex">

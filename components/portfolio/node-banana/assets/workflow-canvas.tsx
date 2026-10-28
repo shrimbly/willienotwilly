@@ -29,9 +29,11 @@ import {
   nodeLayout,
   useCanvasView,
   useNodeGraph,
+  type Bounds,
   type GenerateImageSettings,
   type GraphEdgeSpec,
   type GraphNodeSpec,
+  type NodeGraph,
   type SocketSpec,
 } from "../kit";
 
@@ -42,6 +44,11 @@ const INPUT_W = 240;
 const PROMPT_W = 300;
 const PROMPT_H = 132;
 const COLUMN_GAP = 110;
+/** Below this the run is too small to read whole: the frame keeps the maker readable instead. */
+const READABLE_ZOOM = 0.8;
+/** Screen margins of the frame: around the whole run, and around the maker alone (wide enough for its socket labels). */
+const FRAME = { x: 48, y: 56, makerX: 64, makerY: 28 };
+const NARROW_FRAME = { x: 16, y: 40, makerX: 52, makerY: 20 };
 
 const COMFY_INPUTS: SocketSpec[] = [
   { id: "image", type: "image", label: "Image" },
@@ -120,6 +127,30 @@ function planFor(asset: LibraryAsset): Plan {
   return { nodes, edges };
 }
 
+/**
+ * The world rectangle the canvas opens on: the whole run when it reads at
+ * this size; otherwise the maker in full, as large as reads, with its
+ * inputs' noodles running in from the left, a drag away.
+ */
+function frameRun(graph: NodeGraph, width: number, height: number): Bounds | null {
+  const all = graph.measure();
+  const maker = graph.measure(["maker"]);
+  if (!all || !maker || width <= 0 || height <= 0) return all;
+  const margin = width < 520 ? NARROW_FRAME : FRAME;
+  const availW = width - margin.x * 2;
+  const availH = height - margin.y * 2;
+  const whole = Math.min(1, availW / all.width, availH / all.height);
+  if (whole >= READABLE_ZOOM) {
+    const w = width / whole;
+    const h = height / whole;
+    return { x: all.x + all.width / 2 - w / 2, y: all.y + all.height / 2 - h / 2, width: w, height: h };
+  }
+  const zoom = Math.min(READABLE_ZOOM, (width - margin.makerX * 2) / maker.width, (height - margin.makerY * 2) / maker.height);
+  const w = width / zoom;
+  const h = height / zoom;
+  return { x: maker.x + maker.width / 2 - w / 2, y: maker.y + maker.height / 2 - h / 2, width: w, height: h };
+}
+
 function NodeImg({ image }: { image: { src: string; width: number; height: number } }) {
   return <Image src={image.src} alt="" width={image.width} height={image.height} unoptimized draggable={false} className="absolute inset-0 h-full w-full object-cover" />;
 }
@@ -140,7 +171,8 @@ function gridLines(): ReactNode {
 export function WorkflowCanvas({ asset, active, reducedMotion }: { asset: LibraryAsset; active: boolean; reducedMotion: boolean }) {
   const [plan] = useState(() => planFor(asset));
   const graph = useNodeGraph(plan);
-  const view = useCanvasView({ fit: () => graph.measure(), padding: { top: 56, right: 48, bottom: 56, left: 48 }, minZoom: 0.1 });
+  // The frame is worked out in screen pixels, so the view adds no padding of its own
+  const view = useCanvasView({ fit: () => frameRun(graph, view.width, view.height), padding: 0, minZoom: 0.1 });
   const [selected, setSelected] = useState<string | null>("maker");
   const shell = (id: string) => ({ graph, id, selected: selected === id, onSelect: () => setSelected(id) });
   const run = asset.run;

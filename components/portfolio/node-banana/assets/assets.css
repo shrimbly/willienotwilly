@@ -4,17 +4,30 @@
  * cannot say.
  */
 @layer components {
-  /* Wheel scrolling chains on to the page at either end of the grid. */
-  .nb .nb-assets-scroller {
+  /*
+   * The view's panes hold still under the wheel, so a pass over the tile
+   * scrolls the page. They scroll once the visitor clicks into the demo with
+   * a mouse, until the pointer leaves it (data-wheel on the view), and chain
+   * on to the page at either end. Keys and code still scroll them.
+   */
+  .nb .nb-assets-scroll {
+    overflow-x: hidden;
+    overflow-y: hidden;
     overscroll-behavior: auto;
-    scrollbar-gutter: stable;
   }
 
-  /* On touch screens a swipe over the tile scrolls the page, never the grid. */
+  .nb [data-wheel] .nb-assets-scroll {
+    overflow-y: auto;
+  }
+
+  /*
+   * On touch screens a swipe over the grid always scrolls the page; only the
+   * sheets a tap opened (the detail panel, the filter drawer) scroll under a
+   * finger, and the page takes over at their ends.
+   */
   @media (pointer: coarse) {
-    .nb .nb-assets-scroller {
-      overflow-y: hidden;
-      scrollbar-gutter: auto;
+    .nb .nb-assets-scroll-touch {
+      overflow-y: auto;
     }
   }
 }

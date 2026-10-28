@@ -10,8 +10,8 @@ import { bulkFavoriteOp, useLibrary } from "./library";
 import { MenuBarLabel, MenuDivider, MenuSurface, ring } from "./ui";
 
 // The selection's actions, bottom-centre (src/components/assets/BulkBar.tsx):
-// count, Tags…, Favorite, Trash, Clear; Restore in the Trash. Labels fold
-// into icons in a narrow tile.
+// count, Tags…, Favorite, Trash, Clear; Restore and Delete permanently… in
+// the Trash. Labels fold into icons in a narrow tile.
 
 function BarButton({
   icon: Icon,
@@ -65,7 +65,10 @@ export function BulkBar({ layer }: { layer: HTMLElement | null }) {
     <MenuSurface variant="bar" role="toolbar" aria-label="Selected assets" className="nb-drop-in pointer-events-auto motion-reduce:animate-none">
       <MenuBarLabel className="py-1 text-[11px]">{formatNumber(selection.length)} selected</MenuBarLabel>
       {filters.view === "trash" ? (
-        <BarButton icon={RotateCcw} label="Restore" onClick={() => actions.bulk(selection, { action: "restore" })} />
+        <>
+          <BarButton icon={RotateCcw} label="Restore" onClick={() => actions.bulk(selection, { action: "restore" })} />
+          <BarButton icon={Trash2} label="Delete permanently…" danger onClick={() => actions.confirmDelete(selection)} />
+        </>
       ) : (
         <>
           <BarButton icon={Tag} label="Tags…" onClick={openTags} buttonRef={tagsButton} />

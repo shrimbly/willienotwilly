@@ -14,7 +14,7 @@ export function dayKey(at: number): string {
   return `2026-10-${pad2(DAY_START.date + Math.floor(at / 1440))}`;
 }
 
-export function dayInfo(key: string) {
+function dayInfo(key: string) {
   return DAYS.find((day) => day.key === key);
 }
 

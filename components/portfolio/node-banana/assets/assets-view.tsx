@@ -14,6 +14,7 @@ import { EASE_OUT } from "./asset-tile";
 import { AssetsHeader, AssetsSortMenu } from "./assets-header";
 import { AssetsRail, RAIL_WIDTH } from "./assets-rail";
 import { BulkBar } from "./bulk-bar";
+import { ConfirmDelete } from "./confirm-delete";
 import { AssetContextMenu } from "./context-menu";
 import { useLibrary } from "./library";
 import { BulkTagEditor } from "./tag-editor";
@@ -31,26 +32,29 @@ function Popovers({ layer }: { layer: HTMLElement | null }) {
   return <BulkTagEditor ids={popover.ids} x={popover.x} y={popover.y} above={popover.above} layer={layer} />;
 }
 
-export function AssetsView({ inView, hint, hidden }: { inView: boolean; hint: boolean; hidden: boolean }) {
+export function AssetsView({ inView, hint, hidden, wheel }: { inView: boolean; hint: boolean; hidden: boolean; wheel: boolean }) {
   const { state, actions, reducedMotion } = useLibrary();
   // A callback ref, so popovers get the layer as a value rather than reading a ref while rendering
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const detailOpen = state.detailId !== null;
+  const confirming = state.confirm !== null;
   const quiet = !state.notice && state.selection.length === 0 && !detailOpen;
 
   return (
     <div
       ref={setLayer}
       data-assets-layer=""
+      data-wheel={wheel || undefined}
       role="region"
       aria-label="Assets"
+      tabIndex={-1}
       inert={hidden}
-      className={cn("nb-bg-canvas absolute inset-0 flex", hidden && "invisible")}
+      className={cn("nb-bg-canvas absolute inset-0 flex outline-none", hidden && "invisible")}
     >
-      <div className="hidden min-h-0 @[840px]:flex" inert={detailOpen}>
+      <div className="hidden min-h-0 @[840px]:flex" inert={detailOpen || confirming}>
         <AssetsRail />
       </div>
-      <div className="relative flex min-w-0 flex-1 flex-col" inert={detailOpen}>
+      <div className="relative flex min-w-0 flex-1 flex-col" inert={detailOpen || confirming}>
         <AssetsHeader layer={layer} />
         <AssetGrid inView={inView} />
       </div>
@@ -87,7 +91,9 @@ export function AssetsView({ inView, hint, hidden }: { inView: boolean; hint: bo
         )}
       </AnimatePresence>
 
-      <AssetDetail />
+      <div className="contents" inert={confirming}>
+        <AssetDetail />
+      </div>
 
       {/* Bulk bar, notices and the one hint, centred over the grid or the detail's stage */}
       <div
@@ -117,6 +123,7 @@ export function AssetsView({ inView, hint, hidden }: { inView: boolean; hint: bo
       </div>
 
       <Popovers layer={layer} />
+      <ConfirmDelete />
     </div>
   );
 }

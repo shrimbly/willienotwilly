@@ -12,14 +12,15 @@ import { assetTitle, formatDuration } from "./format";
 
 // One asset in the grid (src/components/assets/AssetTile.tsx): the picture,
 // badges for what it is, a checkbox and a favorite star. Videos preview on
-// hover after the canvas's 300ms hover delay, unless motion is reduced.
+// hover after the canvas's 300ms hover delay, while the demo is on screen and
+// motion is not reduced.
 
 const VIDEO_HOVER_DELAY_MS = 300;
 export const EASE_OUT: [number, number, number, number] = [0.2, 0.8, 0.2, 1];
 const MOVE = { duration: 0.45, ease: EASE_OUT };
 
 /** Kind colour (the node sockets' colours): placeholder ground and glyph. */
-export const KIND_TONE: Record<AssetKind, { ground: string; glyph: string }> = {
+const KIND_TONE: Record<AssetKind, { ground: string; glyph: string }> = {
   image: { ground: "bg-[color-mix(in_srgb,var(--nb-handle-image)_10%,transparent)]", glyph: "text-[var(--nb-handle-image)]" },
   video: { ground: "bg-[color-mix(in_srgb,var(--nb-handle-video)_10%,transparent)]", glyph: "text-[var(--nb-handle-video)]" },
   audio: { ground: "bg-[color-mix(in_srgb,var(--nb-handle-audio)_10%,transparent)]", glyph: "text-[var(--nb-handle-audio)]" },
@@ -65,6 +66,8 @@ export interface AssetTileProps {
   /** Jump rather than glide (a resize relayout). */
   instant: boolean;
   reducedMotion: boolean;
+  /** Hover may play a video. */
+  preview: boolean;
   onFocus: (id: string) => void;
   onActivate: (id: string, event: ReactMouseEvent) => void;
   onToggleSelect: (id: string, event: ReactMouseEvent) => void;
@@ -87,6 +90,7 @@ export const AssetTile = memo(function AssetTile({
   delay,
   instant,
   reducedMotion,
+  preview,
   onFocus,
   onActivate,
   onToggleSelect,
@@ -106,7 +110,7 @@ export const AssetTile = memo(function AssetTile({
   );
 
   const startPreview = () => {
-    if (kind !== "video" || !asset.media || reducedMotion) return;
+    if (kind !== "video" || !asset.media || !preview) return;
     hoverTimer.current = setTimeout(() => setPreviewing(true), VIDEO_HOVER_DELAY_MS);
   };
   const stopPreview = () => {
@@ -168,7 +172,7 @@ export const AssetTile = memo(function AssetTile({
         ) : (
           <AssetPlaceholder kind={kind} size={kind === "audio" ? Math.min(40, height * 0.45) : 28} />
         )}
-        {previewing && asset.media && (
+        {previewing && preview && asset.media && (
           <video
             src={asset.media}
             muted

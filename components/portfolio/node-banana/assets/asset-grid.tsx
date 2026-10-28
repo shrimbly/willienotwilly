@@ -63,7 +63,7 @@ function EmptyFrame({ icon: Icon, title, children, action }: { icon: typeof Sear
 }
 
 export function AssetGrid({ inView }: { inView: boolean }) {
-  const { state, actions, list, grid, reducedMotion } = useLibrary();
+  const { state, actions, list, grid, reducedMotion, onScreen } = useLibrary();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ width: number; height: number } | null>(null);
   const [instant, setInstant] = useState(true);
@@ -188,7 +188,7 @@ export function AssetGrid({ inView }: { inView: boolean }) {
       <div
         ref={scrollRef}
         data-asset-scroller=""
-        className="nb-assets-scroller absolute inset-0 overflow-x-hidden overflow-y-auto"
+        className="nb-assets-scroll absolute inset-0 [scrollbar-gutter:stable]"
       >
         {list.length === 0 ? (
           <div className="flex h-full flex-col">
@@ -253,6 +253,7 @@ export function AssetGrid({ inView }: { inView: boolean }) {
                         delay={settled ? 0 : 0.2 + Math.min(index, 16) * 0.04}
                         instant={instant}
                         reducedMotion={reducedMotion}
+                        preview={onScreen && !reducedMotion}
                         onFocus={onFocus}
                         onActivate={onActivate}
                         onToggleSelect={onToggleSelect}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -134,6 +135,25 @@ export function AssetsRail({ drawer = false, onClose }: { drawer?: boolean; onCl
   const [open, setOpen] = useState(DEFAULT_OPEN);
   const toggleOpen = (key: GroupKey) => setOpen((current) => ({ ...current, [key]: !current[key] }));
 
+  // A short docked rail starts with Projects, then Type, folded rather than a
+  // row cut in half (the drawer, opened on purpose, scrolls instead); decided
+  // once, at the first measure, before that frame paints
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || drawer) return;
+    // Past the list's own bottom padding, a row would be cut
+    const overflows = () => el.clientHeight > 0 && el.scrollHeight - el.clientHeight > 8;
+    const fold = (key: GroupKey) => flushSync(() => setOpen((current) => ({ ...current, [key]: false })));
+    const observer = new ResizeObserver(() => {
+      observer.disconnect();
+      if (overflows()) fold("projects");
+      if (overflows()) fold("type");
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [drawer]);
+
   const libraryRows: { view: LibraryView; label: string; count: number }[] = [
     { view: "all", label: "All assets", count: facets.total },
     { view: "favorites", label: "Favorites", count: facets.favorites },
@@ -212,7 +232,7 @@ export function AssetsRail({ drawer = false, onClose }: { drawer?: boolean; onCl
           </div>
         )}
 
-        <div className="-mx-4 mt-3.5 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-2">
+        <div ref={listRef} className={cn("nb-assets-scroll -mx-4 mt-3.5 flex min-h-0 flex-1 flex-col px-4 pb-2", drawer && "nb-assets-scroll-touch")}>
           <div role="group" aria-label="Library" className="flex flex-col">
             {libraryRows.map((row) => (
               <DialogFilterItem key={row.view} active={filters.view === row.view} onClick={() => actions.setView(row.view)}>

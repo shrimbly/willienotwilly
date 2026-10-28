@@ -33,6 +33,8 @@ export interface RecordState {
   favorite: boolean;
   tags: string[];
   trashed: boolean;
+  /** Deleted for good from the Trash: gone from every view, beyond Undo. */
+  deleted: boolean;
 }
 
 export type Popover =
@@ -53,7 +55,7 @@ interface UndoEntry {
 }
 
 export type BulkOp =
-  | { action: "favorite" | "unfavorite" | "trash" | "restore" }
+  | { action: "favorite" | "unfavorite" | "trash" | "restore" | "delete" }
   | { action: "tag" | "untag"; tags: string[] };
 
 export interface LibraryState {
@@ -74,6 +76,8 @@ export interface LibraryState {
   notice: Notice | null;
   noticeSeq: number;
   undo: UndoEntry[];
+  /** Assets waiting on "Delete permanently?". */
+  confirm: string[] | null;
   /** The rail as a drawer, where the frame is too narrow to dock it. */
   railOpen: boolean;
   appView: "assets" | "canvas";
@@ -91,11 +95,11 @@ const UNDO_LIMIT = 20;
 
 function initialRecords(): Record<string, RecordState> {
   return Object.fromEntries(
-    LIBRARY_ASSETS.map((asset) => [asset.id, { favorite: !!asset.favorite, tags: asset.tags ?? [], trashed: !!asset.trashed }]),
+    LIBRARY_ASSETS.map((asset) => [asset.id, { favorite: !!asset.favorite, tags: asset.tags ?? [], trashed: !!asset.trashed, deleted: false }]),
   );
 }
 
-export function initialState(): LibraryState {
+function initialState(): LibraryState {
   return {
     records: initialRecords(),
     landed: [],
@@ -112,6 +116,7 @@ export function initialState(): LibraryState {
     notice: null,
     noticeSeq: 0,
     undo: [],
+    confirm: null,
     railOpen: false,
     appView: "assets",
     tabs: ["wf-lookbook", "wf-cars"],
@@ -128,13 +133,14 @@ function searchTerms(q: string): string[] {
 }
 
 /** What the filters show, in sort order. */
-export function listOf(state: Pick<LibraryState, "records" | "landed" | "filters" | "sort">): LibraryAsset[] {
+function listOf(state: Pick<LibraryState, "records" | "landed" | "filters" | "sort">): LibraryAsset[] {
   const { filters, records } = state;
   const terms = searchTerms(filters.q);
   const daysAgo = Object.fromEntries(DAYS.map((day) => [day.key, day.daysAgo]));
   const list = LIBRARY_ASSETS.filter((asset) => {
     if (!inLibrary(state, asset)) return false;
     const record = records[asset.id];
+    if (record.deleted) return false;
     if (filters.view === "trash" ? !record.trashed : record.trashed) return false;
     if (filters.view === "favorites" && !record.favorite) return false;
     if (filters.kinds.length && !filters.kinds.includes(asset.kind)) return false;
@@ -181,7 +187,7 @@ export interface Facets {
 }
 
 /** Counts for the rail, over the whole library whatever the filters show. */
-export function facetsOf(state: Pick<LibraryState, "records" | "landed">): Facets {
+function facetsOf(state: Pick<LibraryState, "records" | "landed">): Facets {
   const kinds = Object.fromEntries(ASSET_KINDS.map((kind) => [kind, 0])) as Record<AssetKind, number>;
   const projects = new Map<string, FacetRow>();
   const workflows = new Map<string, FacetRow & { last: number }>();
@@ -193,6 +199,7 @@ export function facetsOf(state: Pick<LibraryState, "records" | "landed">): Facet
   for (const asset of LIBRARY_ASSETS) {
     if (!inLibrary(state, asset)) continue;
     const record = state.records[asset.id];
+    if (record.deleted) continue;
     if (record.trashed) {
       trash++;
       continue;
@@ -243,6 +250,11 @@ export function hasActiveFilters(filters: Filters): boolean {
   );
 }
 
+/** Everything in the Trash, whatever the filters show: what Empty Trash deletes. */
+export function trashedIds(state: Pick<LibraryState, "records" | "landed">): string[] {
+  return LIBRARY_ASSETS.filter((asset) => inLibrary(state, asset) && state.records[asset.id].trashed && !state.records[asset.id].deleted).map((asset) => asset.id);
+}
+
 /** Favorite the lot, or unfavorite it when every one already is. */
 export function bulkFavoriteOp(records: Record<string, RecordState>, ids: string[]): BulkOp {
   return { action: ids.length > 0 && ids.every((id) => records[id]?.favorite) ? "unfavorite" : "favorite" };
@@ -255,6 +267,8 @@ function describe(op: BulkOp, count: number): string {
       return `Trashed ${n}`;
     case "restore":
       return `Restored ${n}`;
+    case "delete":
+      return `Deleted ${n}`;
     case "favorite":
       return `Added ${n} to Favorites`;
     case "unfavorite":
@@ -276,6 +290,8 @@ function applyOp(record: RecordState, op: BulkOp): RecordState {
       return { ...record, trashed: true };
     case "restore":
       return { ...record, trashed: false };
+    case "delete":
+      return { ...record, deleted: true };
     case "tag":
       return { ...record, tags: [...record.tags, ...op.tags.filter((tag) => !hasTag(record.tags, tag))] };
     case "untag":
@@ -302,6 +318,7 @@ type Action =
   | { type: "stepDetail"; delta: number }
   | { type: "popover"; popover: Popover | null }
   | { type: "bulk"; ids: string[]; op: BulkOp }
+  | { type: "confirm"; ids: string[] | null }
   | { type: "undo" }
   | { type: "notice"; message: string; tone?: "info" | "error" }
   | { type: "dismissNotice" }
@@ -389,13 +406,20 @@ function reducer(state: LibraryState, action: Action): LibraryState {
         before[id] = state.records[id];
         records[id] = applyOp(state.records[id], action.op);
       }
-      const removing = action.op.action === "trash" || action.op.action === "restore";
+      const deleting = action.op.action === "delete";
+      const removing = deleting || action.op.action === "trash" || action.op.action === "restore";
       const label = describe(action.op, ids.length);
       let next: LibraryState = {
         ...state,
         records,
-        undo: [...state.undo, { label, before }].slice(-UNDO_LIMIT),
+        // What is deleted for good stays deleted: no Undo brings it back
+        undo: deleting
+          ? state.undo
+              .map((entry) => ({ ...entry, before: Object.fromEntries(Object.entries(entry.before).filter(([id]) => !ids.includes(id))) }))
+              .filter((entry) => Object.keys(entry.before).length > 0)
+          : [...state.undo, { label, before }].slice(-UNDO_LIMIT),
         popover: state.popover?.kind === "tags" ? state.popover : null,
+        confirm: null,
       };
       // The open detail moves on when its asset leaves the list
       if (state.detailId) {
@@ -413,8 +437,10 @@ function reducer(state: LibraryState, action: Action): LibraryState {
         }
       }
       if (removing) next = { ...next, selection: next.selection.filter((id) => !ids.includes(id)) };
-      return withNotice(next, label, "info", true);
+      return withNotice(next, label, "info", !deleting);
     }
+    case "confirm":
+      return { ...state, confirm: action.ids && action.ids.length > 0 ? action.ids : null, popover: null };
     case "undo": {
       const entry = state.undo[state.undo.length - 1];
       if (!entry) return state;
@@ -471,6 +497,8 @@ export interface LibraryActions {
   openPopover: (popover: Popover) => void;
   closePopover: () => void;
   bulk: (ids: string[], op: BulkOp) => void;
+  /** Ask before deleting for good; closes with null. */
+  confirmDelete: (ids: string[] | null) => void;
   undo: () => void;
   notify: (message: string, tone?: "info" | "error") => void;
   dismissNotice: () => void;
@@ -502,6 +530,8 @@ interface LibraryContextValue {
   facets: Facets;
   grid: GridApi;
   reducedMotion: boolean;
+  /** In view in a visible tab: media plays only then. */
+  onScreen: boolean;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -512,7 +542,7 @@ export function useLibrary(): LibraryContextValue {
   return value;
 }
 
-export function LibraryProvider({ reducedMotion, children }: { reducedMotion: boolean; children: ReactNode }) {
+export function LibraryProvider({ reducedMotion, onScreen, children }: { reducedMotion: boolean; onScreen: boolean; children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const gridHandlers = useRef<GridHandlers | null>(null);
   const grid = useMemo<GridApi>(
@@ -551,6 +581,7 @@ export function LibraryProvider({ reducedMotion, children }: { reducedMotion: bo
       openPopover: (popover) => dispatch({ type: "popover", popover }),
       closePopover: () => dispatch({ type: "popover", popover: null }),
       bulk: (ids, op) => dispatch({ type: "bulk", ids, op }),
+      confirmDelete: (ids) => dispatch({ type: "confirm", ids }),
       undo: () => dispatch({ type: "undo" }),
       notify: (message, tone) => dispatch({ type: "notice", message, tone }),
       dismissNotice: () => dispatch({ type: "dismissNotice" }),
@@ -569,13 +600,8 @@ export function LibraryProvider({ reducedMotion, children }: { reducedMotion: bo
   const facets = useMemo(() => facetsOf({ records, landed }), [records, landed]);
 
   const value = useMemo(
-    () => ({ state, actions, list, facets, grid, reducedMotion }),
-    [state, actions, list, facets, grid, reducedMotion],
+    () => ({ state, actions, list, facets, grid, reducedMotion, onScreen }),
+    [state, actions, list, facets, grid, reducedMotion, onScreen],
   );
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
-}
-
-/** The record as the library holds it now. */
-export function recordOf(state: LibraryState, id: string): RecordState {
-  return state.records[id];
 }

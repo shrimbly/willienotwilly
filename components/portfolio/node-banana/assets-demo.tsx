@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Film, LibraryBig, MessagesSquare } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -21,6 +21,11 @@ import "./assets/assets.css";
 const WORKFLOW_NAMES = Object.fromEntries(LIBRARY_ASSETS.map((asset) => [asset.workflow.id, asset.workflow.name]));
 const FIRST_ARRIVAL_MS = 2600;
 const NEXT_ARRIVAL_MS = 4200;
+
+function subscribeVisibility(onChange: () => void) {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
 
 function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || !!target.closest("input, textarea, select"));
@@ -43,6 +48,8 @@ function RestToggle({ icon }: { icon: ReactNode }) {
 function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivElement | null>; active: boolean; inView: boolean }) {
   const { state, actions, grid, reducedMotion } = useLibrary();
   const [touched, setTouched] = useState(false);
+  const [clickedIn, setClickedIn] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const onCanvas = state.appView === "canvas";
 
   // Fresh generations land at the top while the demo plays untouched; under
@@ -78,6 +85,35 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
     };
   }, [rootRef, touched]);
 
+  // Focus follows the switch between the library and the canvas, so the keys
+  // keep working; never pulled in from outside the demo
+  const wasCanvas = useRef(onCanvas);
+  useEffect(() => {
+    if (wasCanvas.current === onCanvas) return;
+    wasCanvas.current = onCanvas;
+    const root = rootRef.current;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && !root?.contains(focused)) return;
+    const target = onCanvas ? canvasRef.current : root?.querySelector<HTMLElement>("[data-assets-layer]");
+    target?.focus({ preventScroll: true });
+  }, [onCanvas, rootRef]);
+
+  // The panes take the wheel only after a mouse click inside, until the pointer leaves
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const engage = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") setClickedIn(true);
+    };
+    const release = () => setClickedIn(false);
+    root.addEventListener("pointerdown", engage);
+    root.addEventListener("pointerleave", release);
+    return () => {
+      root.removeEventListener("pointerdown", engage);
+      root.removeEventListener("pointerleave", release);
+    };
+  }, [rootRef]);
+
   /**
    * The view's keys, as the app's handleAssetsKey has them, while focus is in
    * the demo: Esc closes the detail, then clears the selection; arrows move
@@ -100,6 +136,8 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
       }
       return;
     }
+    // The delete confirm keeps its own keys
+    if (state.confirm) return;
     if (lower === "a" && !mod && !event.shiftKey && !event.altKey) {
       own();
       if (event.repeat) return;
@@ -145,9 +183,10 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
         const detail = rootRef.current?.querySelector<HTMLElement>("[data-asset-detail]");
         if (document.fullscreenElement) void document.exitFullscreen?.();
         else void detail?.requestFullscreen?.().catch(() => {});
-      } else if ((key === "Delete" || key === "Backspace") && state.filters.view !== "trash") {
+      } else if (key === "Delete" || key === "Backspace") {
         own();
-        actions.bulk([state.detailId], { action: "trash" });
+        if (state.filters.view === "trash") actions.confirmDelete([state.detailId]);
+        else actions.bulk([state.detailId], { action: "trash" });
       }
       return;
     }
@@ -168,11 +207,13 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
       actions.toggleSelect(state.focusedId);
       return;
     }
-    if ((key === "Delete" || key === "Backspace") && state.filters.view !== "trash") {
+    if (key === "Delete" || key === "Backspace") {
       const ids = state.selection.length > 0 ? state.selection : state.focusedId ? [state.focusedId] : [];
       if (!ids.length) return;
       own();
-      actions.bulk(ids, { action: "trash" });
+      // Out of the Trash, Delete trashes; in it, it asks to delete for good
+      if (state.filters.view === "trash") actions.confirmDelete(ids);
+      else actions.bulk(ids, { action: "trash" });
     }
   };
 
@@ -198,9 +239,9 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
           </>
         }
       >
-        <AssetsView inView={inView} hint={!touched} hidden={onCanvas} />
+        <AssetsView inView={inView} hint={!touched} hidden={onCanvas} wheel={clickedIn && inView} />
         {onCanvas && (
-          <div className="absolute inset-0">
+          <div ref={canvasRef} tabIndex={-1} role="region" aria-label={`${WORKFLOW_NAMES[state.canvas.workflowId]} workflow`} className="absolute inset-0 outline-none">
             <WorkflowCanvas key={canvasAsset.id} asset={canvasAsset} active={active} reducedMotion={reducedMotion} />
           </div>
         )}
@@ -212,13 +253,14 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
 export function NodeBananaAssetsDemo() {
   const root = useRef<HTMLDivElement | null>(null);
   const { active, inView, reducedMotion } = useDemoActive(root);
+  const pageVisible = useSyncExternalStore(subscribeVisibility, () => !document.hidden, () => true);
   return (
     <NbRoot ref={root} role="group" aria-label="Node Banana asset library: every image, video and audio file the app made, with the run behind each one">
       <p className="sr-only">
         Filter the library from the rail, star or select tiles, and open an asset to see the prompt, model and settings that made it, then open its
         workflow. Press A to switch between the library and the canvas.
       </p>
-      <LibraryProvider reducedMotion={reducedMotion}>
+      <LibraryProvider reducedMotion={reducedMotion} onScreen={inView && pageVisible}>
         <AssetsWindow rootRef={root} active={active} inView={inView} />
       </LibraryProvider>
     </NbRoot>

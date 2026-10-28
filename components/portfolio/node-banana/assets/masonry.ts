@@ -17,7 +17,7 @@ const MIN_ASPECT = 1 / 3;
 const MAX_ASPECT = 3;
 
 /** Height ÷ width a tile is drawn at: the picture's own when known, else video 16:9, audio a 2:1 strip. */
-export function tileAspect(item: Pick<MasonryItem, "kind" | "width" | "height">): number {
+function tileAspect(item: Pick<MasonryItem, "kind" | "width" | "height">): number {
   if (item.kind === "audio") return 0.5;
   if (item.width && item.height) return Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, item.height / item.width));
   if (item.kind === "video") return 9 / 16;
@@ -110,7 +110,7 @@ export function layoutGrid(items: readonly MasonryItem[], options: GridLayoutOpt
 }
 
 /** The section and local index of a global item index. */
-export function locate(layout: GridLayout, index: number): { section: number; local: number } | null {
+function locate(layout: GridLayout, index: number): { section: number; local: number } | null {
   for (let s = 0; s < layout.sections.length; s++) {
     const section = layout.sections[s];
     if (index >= section.start && index < section.start + section.masonry.tiles.length) return { section: s, local: index - section.start };
