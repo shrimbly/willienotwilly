@@ -18,6 +18,8 @@ import { followValue } from "../kit/motion-value-utils";
 const EASES = EASING_PRESETS.map((name) => bezierEasing(PRESET_BEZIERS[name]));
 
 const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
+/** Room kept between a stepped-to option and the strip's 2rem edge fades. */
+const EDGE_MARGIN = 32;
 
 interface CurveGalleryProps {
   /** Committed preset, or null for a hand-drawn curve. */
@@ -35,6 +37,39 @@ interface CurveGalleryProps {
 function dotPosition(index: number, p: number) {
   const clamped = Math.min(1, Math.max(0, p));
   return { cx: clamped * 100, cy: 100 - EASES[index](clamped) * 100 };
+}
+
+/**
+ * Scroll a strip, never the page, to an option: "nearest" steps it clear of
+ * the edge fades; "reveal" centres it only when it is wholly out of sight, so
+ * a click on a half-visible option does not slide the strip under the pointer.
+ * Centring snaps to a column edge, keeping the half column that peeks past
+ * the right fade.
+ */
+function scrollToOption(
+  strip: HTMLElement,
+  option: HTMLElement,
+  mode: "nearest" | "reveal",
+  behavior: ScrollBehavior = "auto",
+) {
+  if (strip.scrollWidth <= strip.clientWidth) return;
+  const view = strip.scrollLeft;
+  const width = strip.clientWidth;
+  const left =
+    option.getBoundingClientRect().left - strip.getBoundingClientRect().left - strip.clientLeft + view;
+  const right = left + option.offsetWidth;
+  let target: number | null = null;
+  if (mode === "reveal") {
+    if (right <= view || left >= view + width) {
+      const pitch = option.offsetWidth + (parseFloat(getComputedStyle(strip).columnGap) || 0);
+      target = Math.round((left - (width - option.offsetWidth) / 2) / pitch) * pitch;
+    }
+  } else if (left < view + EDGE_MARGIN) {
+    target = left - EDGE_MARGIN;
+  } else if (right > view + width - EDGE_MARGIN) {
+    target = right - width + EDGE_MARGIN;
+  }
+  if (target !== null) strip.scrollTo({ left: target, behavior });
 }
 
 /**
@@ -94,21 +129,44 @@ export const CurveGallery = memo(function CurveGallery({
     };
   }, []);
 
+  // A mostly vertical wheel with some sideways drift (a trackpad) would latch
+  // onto the strip and stall the page, so the page takes those. Straight
+  // vertical wheels pass through on their own; sideways ones still scroll here.
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaX === 0) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if (grid.scrollWidth <= grid.clientWidth) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+      window.scrollBy({ top: event.deltaY * unit, behavior: "instant" });
+    };
+    grid.addEventListener("wheel", onWheel, { passive: false });
+    return () => grid.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // The selection stays in sight, as the product's popover opens on it: on
+  // mount, and when a pick in the picker lands on a preset scrolled away here.
+  const revealedRef = useRef(false);
+  useEffect(() => {
+    const strip = gridRef.current;
+    const option = optionRefs.current[selectedIndex];
+    if (!strip || !option) return;
+    const smooth =
+      revealedRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    revealedRef.current = true;
+    scrollToOption(strip, option, "reveal", smooth ? "smooth" : "auto");
+  }, [selectedIndex]);
+
   const focusOption = (index: number) => {
     const option = optionRefs.current[index];
-    if (!option) return;
+    const strip = gridRef.current;
+    if (!option || !strip) return;
     setFocusIndex(index);
     option.focus({ preventScroll: true });
-    // Keep the option visible inside a scrolling strip without moving the page.
-    const strip = option.parentElement;
-    if (strip && strip.scrollWidth > strip.clientWidth) {
-      const left = option.offsetLeft - strip.offsetLeft;
-      const right = left + option.offsetWidth;
-      if (left < strip.scrollLeft) strip.scrollLeft = left - 8;
-      else if (right > strip.scrollLeft + strip.clientWidth) {
-        strip.scrollLeft = right - strip.clientWidth + 8;
-      }
-    }
+    scrollToOption(strip, option, "nearest");
   };
 
   // The grid reflows (one row, a scrolling strip, or five across), so arrows
@@ -192,11 +250,11 @@ export const CurveGallery = memo(function CurveGallery({
               onKeyDown={(event) => handleKeyDown(index, event)}
               onPointerEnter={(event) => handlePointerEnter(preset, event)}
               className={cn(
-                "flex min-w-0 flex-col items-center gap-1 rounded-sm border p-1.5 transition-colors @min-[640px]/epe:p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset",
+                "epe-curves-option flex min-w-0 flex-col items-center justify-center gap-1 rounded-sm border p-1.5 transition-colors @min-[640px]/epe:p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset",
                 isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-accent",
               )}
             >
-              <span className="relative block h-9 w-9 shrink-0 @min-[640px]/epe:h-10 @min-[640px]/epe:w-10 @min-[1280px]/epe:h-12 @min-[1280px]/epe:w-12">
+              <span className="epe-curves-thumb relative block size-9 shrink-0 @min-[640px]/epe:size-10">
                 <CurveThumb bezier={PRESET_BEZIERS[preset]} className="absolute inset-0 size-full" />
                 <svg
                   viewBox="-8 -8 116 116"
@@ -217,7 +275,7 @@ export const CurveGallery = memo(function CurveGallery({
               </span>
               <span
                 className={cn(
-                  "whitespace-nowrap text-center text-[10px] leading-tight @min-[1280px]/epe:text-[11px]",
+                  "whitespace-nowrap text-center text-[10px] leading-tight",
                   isSelected ? "font-medium text-foreground" : "text-muted-foreground",
                 )}
               >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { animate, type AnimationPlaybackControls } from "motion/react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -31,6 +31,10 @@ const INITIAL_PRESET = DEFAULT_EASING as EasingPresetName;
 const INITIAL_DURATION = 2;
 // Mid-clip, so the reduced-motion resting state shows every curve's halfway point.
 const INITIAL_PROGRESS = 0.5;
+// The portrait layout sizes the plot from what the clip leaves.
+const LAYOUT_STYLE = {
+  "--epe-curves-video-ratio": SOURCE.height / SOURCE.width,
+} as CSSProperties;
 const TWEEN_EASE: Bezier = [0.23, 1, 0.32, 1];
 const TWEEN_DURATION = 0.32;
 
@@ -186,7 +190,7 @@ export function EasyPeasyEaseCurvesDemo() {
         retimes as the curve changes.
       </p>
       <div className="epe-curves-frame absolute inset-0">
-        <div className="epe-curves-layout">
+        <div className="epe-curves-layout" style={LAYOUT_STYLE}>
           <div className="epe-curves-preview flex min-h-0 min-w-0 flex-col shadow-xl">
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-t-[12px] border border-border bg-black">
               <RetimedVideo playback={playback} />
@@ -198,16 +202,20 @@ export function EasyPeasyEaseCurvesDemo() {
                 duration={playback.totalDuration}
                 onPlayPause={playback.toggle}
                 actions={
-                  <div className="flex min-w-0 items-center gap-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground @min-[768px]/epe:gap-4">
+                  <div className="flex min-w-0 flex-1 items-center justify-end gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground @min-[768px]/epe:gap-4">
+                    {/* One line tall: whatever part of the hint the bar has no
+                        room for wraps out of sight (past the empty first item)
+                        instead of truncating. */}
                     <span
                       aria-hidden={touched}
                       className={cn(
-                        "epe-curves-wide-only truncate font-normal normal-case tracking-normal text-(color:--body-muted-foreground) transition-opacity duration-500",
+                        "epe-curves-wide-only flex h-4 min-w-0 flex-1 flex-wrap justify-end overflow-hidden whitespace-nowrap font-normal normal-case tracking-normal text-(color:--body-muted-foreground) transition-opacity duration-500",
                         touched && "opacity-0",
                       )}
                     >
-                      Pick a curve
-                      <span className="hidden @min-[768px]/epe:inline"> or drag a handle</span>
+                      <span className="h-4 w-0" />
+                      <span>Pick a curve</span>
+                      <span className="pl-[0.3em]">or drag a handle</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5 @min-[768px]/epe:gap-2">
                       <span>Speed</span>
@@ -223,6 +231,15 @@ export function EasyPeasyEaseCurvesDemo() {
               />
             </div>
           </div>
+
+          <CurveGallery
+            selected={committed.preset}
+            progress={playback.clipProgress}
+            initialProgress={INITIAL_PROGRESS}
+            onPreview={previewPreset}
+            onSelect={selectPreset}
+            className="epe-curves-gallery"
+          />
 
           <div className="epe-curves-aside">
             <div className="epe-curves-inspector-only epe-curves-header min-w-0 items-center gap-3">
@@ -266,22 +283,13 @@ export function EasyPeasyEaseCurvesDemo() {
               value={shown}
               onChange={drawCurve}
               aspect="square"
-              plotClassName="epe-curves-plot"
+              plotClassName="max-w-none"
               // The readout only shows from 640px; drop its gap with it.
               className="space-y-0 @min-[640px]/epe:space-y-3"
               progress={playback.clipProgress}
               progressGuides
             />
           </div>
-
-          <CurveGallery
-            selected={committed.preset}
-            progress={playback.clipProgress}
-            initialProgress={INITIAL_PROGRESS}
-            onPreview={previewPreset}
-            onSelect={selectPreset}
-            className="epe-curves-gallery"
-          />
         </div>
       </div>
     </EpeRoot>
