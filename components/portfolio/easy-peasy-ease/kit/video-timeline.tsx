@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode, TouchEvent } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import Image from "next/image";
 import type { MotionValue } from "motion/react";
 
@@ -37,6 +37,9 @@ import { usePageWheelPassthrough } from "./use-page-wheel-passthrough";
  *   segment under the press.
  * - Ruler ticks stop at the last whole second inside the timeline, so no tick
  *   or label hangs past the end and widens the scroll area.
+ * - The zoom slider is touch-action: pan-y. A touch only sets the zoom once it
+ *   moves mostly sideways, so a vertical swipe that starts on it scrolls the
+ *   page; a tap still sets it (through the compatibility mouse events).
  * - Radii in px (product rounded-lg = 12px, rounded-md = 8px).
  */
 
@@ -48,6 +51,9 @@ const TIMELINE_GUTTER_PX = 12;
 
 /** Pointer travel (px) after which a press on the track is a scrub, not a click. */
 const SCRUB_CLICK_SLOP_PX = 4;
+
+/** Sideways travel (px) before a touch on the zoom slider drags it (split-track's TOUCH_SLOP). */
+const ZOOM_TOUCH_SLOP_PX = 6;
 
 const lerp = (start: number, end: number, value: number) => start + (end - start) * value;
 
@@ -85,6 +91,11 @@ interface VideoTimelineProps {
   onZoomChange: (value: number) => void;
   /** Extra classes for the scroll viewport (e.g. to square corners in a connected card). */
   viewportClassName?: string;
+  /**
+   * Loading for poster-URL thumbnails (default "lazy"). Pass "eager" when the
+   * timeline is above the fold, e.g. in a hero, where a poster can be the LCP.
+   */
+  thumbnailLoading?: "lazy" | "eager";
   className?: string;
 }
 
@@ -97,6 +108,8 @@ interface ZoomSliderProps {
 export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSliderProps) {
   const sliderRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  /** A touch that may still turn out to be a page scroll. */
+  const touchPressRef = useRef<{ pointerId: number; startX: number; startY: number } | null>(null);
 
   const updateValueFromPointer = useCallback(
     (clientX: number) => {
@@ -119,11 +132,28 @@ export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSlide
     startDragging(event.clientX);
   };
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    if (touch) {
-      startDragging(touch.clientX);
-    }
+  // A touch stays pending until it moves mostly sideways; a mostly vertical
+  // one is the page's scroll (the browser cancels the pointer).
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (disabled || event.pointerType !== "touch") return;
+    touchPressRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const press = touchPressRef.current;
+    if (!press || press.pointerId !== event.pointerId) return;
+    const dx = Math.abs(event.clientX - press.startX);
+    if (dx < ZOOM_TOUCH_SLOP_PX || dx < Math.abs(event.clientY - press.startY)) return;
+    touchPressRef.current = null;
+    startDragging(event.clientX);
+  };
+
+  const endTouchPress = () => {
+    touchPressRef.current = null;
   };
 
   useEffect(() => {
@@ -184,7 +214,7 @@ export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSlide
     <div
       ref={sliderRef}
       className={cn(
-        "relative h-8 w-[70px] cursor-pointer touch-none select-none rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60 @min-[768px]/epe:w-[100px]",
+        "relative h-8 w-[70px] cursor-pointer touch-pan-y select-none rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60 @min-[768px]/epe:w-[100px]",
         disabled && "cursor-not-allowed opacity-50",
       )}
       role="slider"
@@ -196,7 +226,10 @@ export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSlide
       aria-valuetext={`${Math.round(value * 100)}%`}
       aria-disabled={disabled}
       onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endTouchPress}
+      onPointerCancel={endTouchPress}
       onKeyDown={handleKeyDown}
     >
       {/* Track + thumb match the themed range sliders: bright fill left of the
@@ -208,7 +241,7 @@ export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSlide
         }}
       />
       <div
-        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-background bg-primary shadow transition-transform after:absolute after:left-1/2 after:top-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
+        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow transition-transform after:absolute after:left-1/2 after:top-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
         style={{ left: `${value * 100}%` }}
       />
     </div>
@@ -225,6 +258,7 @@ export function VideoTimeline({
   zoomValue,
   onZoomChange,
   viewportClassName,
+  thumbnailLoading = "lazy",
   className,
 }: VideoTimelineProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -499,6 +533,7 @@ export function VideoTimeline({
                             alt=""
                             fill
                             unoptimized
+                            loading={thumbnailLoading}
                             sizes="200px"
                             className="pointer-events-none object-cover opacity-60"
                           />

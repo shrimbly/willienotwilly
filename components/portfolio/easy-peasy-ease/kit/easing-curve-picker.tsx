@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type MotionValue } from "motion/react";
 
+import { createBezierEasing } from "@/lib/easy-peasy-ease/easing-functions";
 import { getPresetBezier, type Bezier } from "@/lib/easy-peasy-ease/easing-presets";
 import { cn } from "@/lib/utils";
+
+import { isNumberMotionValue } from "./motion-value-utils";
 
 /**
  * Port of easy-peasy-ease/components/ui/easing-curve-picker.tsx (working tree).
@@ -43,8 +46,33 @@ interface EasingCurvePickerProps {
   popoverClassName?: string;
 }
 
+interface CurveThumbProps {
+  bezier: readonly number[];
+  className?: string;
+  /**
+   * Output progress 0–1 (number or motion value): adds a dot riding the curve
+   * at (p, ease(p)). It moves by transform, and a motion value is only
+   * followed while the thumbnail is on screen.
+   */
+  progress?: number | MotionValue<number>;
+  /** Extra classes for the dot's own <svg> (fill and stroke are set on its circle). */
+  dotClassName?: string;
+}
+
 /** Tiny cubic-bezier preview: dashed linear reference + the curve itself. */
-export function CurveThumb({ bezier, className }: { bezier: readonly number[]; className?: string }) {
+export function CurveThumb({ bezier, className, progress, dotClassName }: CurveThumbProps) {
+  if (progress === undefined) return <CurveGlyph bezier={bezier} className={className} />;
+  return (
+    <ProgressCurveThumb
+      bezier={bezier}
+      className={className}
+      progress={progress}
+      dotClassName={dotClassName}
+    />
+  );
+}
+
+function CurveGlyph({ bezier, className }: { bezier: readonly number[]; className?: string }) {
   const [x1, y1, x2, y2] = bezier;
   const d = `M0,100 C${x1 * 100},${100 - y1 * 100} ${x2 * 100},${100 - y2 * 100} 100,0`;
   return (
@@ -62,6 +90,94 @@ export function CurveThumb({ bezier, className }: { bezier: readonly number[]; c
       />
       <path d={d} fill="none" stroke="var(--primary)" strokeWidth="8" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/**
+ * Where a curve point (0–100 user units, y down) sits in the thumbnail box.
+ * The glyph's 116-unit viewBox is centred and fitted (xMidYMid meet), so one
+ * unit is 1cqmin / 1.16 of the box, a size container.
+ */
+const thumbDotTransform = (x: number, y: number) =>
+  `translate(calc(50cqw + ${((x - 50) / 1.16).toFixed(3)}cqmin), calc(50cqh + ${((y - 50) / 1.16).toFixed(3)}cqmin))`;
+
+function dotTransformAt(ease: (t: number) => number, p: number) {
+  const t = Math.min(1, Math.max(0, p));
+  return thumbDotTransform(t * 100, 100 - ease(t) * 100);
+}
+
+/**
+ * The glyph plus a dot drawn in its own small <svg> and moved by CSS
+ * transform: geometry attributes (cx/cy) or a transform on an element inside
+ * an <svg> both cost a layout per frame, a transformed <svg> box does not.
+ */
+function ProgressCurveThumb({
+  bezier,
+  className,
+  progress,
+  dotClassName,
+}: Required<Pick<CurveThumbProps, "bezier" | "progress">> & Omit<CurveThumbProps, "bezier" | "progress">) {
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const dotRef = useRef<SVGSVGElement>(null);
+  const [x1, y1, x2, y2] = bezier;
+  const ease = useMemo(() => createBezierEasing(x1, y1, x2, y2), [x1, y1, x2, y2]);
+  // Rendered once; from then on the effect owns the dot's transform.
+  const [initialTransform] = useState(() =>
+    dotTransformAt(ease, isNumberMotionValue(progress) ? progress.get() : progress),
+  );
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const dot = dotRef.current;
+    if (!root || !dot) return;
+    const place = (p: number) => {
+      dot.style.transform = dotTransformAt(ease, p);
+    };
+    if (!isNumberMotionValue(progress)) {
+      place(progress);
+      return;
+    }
+    let unsubscribe: (() => void) | null = null;
+    const follow = (onScreen: boolean) => {
+      if (onScreen && !unsubscribe) unsubscribe = progress.on("change", place);
+      if (!onScreen && unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+      if (onScreen) place(progress.get());
+    };
+    if (typeof IntersectionObserver === "undefined") {
+      follow(true);
+      return () => unsubscribe?.();
+    }
+    // Clipped by the page or by a scrolling strip both count as off screen.
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry) follow(entry.isIntersecting);
+    });
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+      unsubscribe?.();
+    };
+  }, [ease, progress]);
+
+  return (
+    <span ref={rootRef} className={cn("relative block [container-type:size]", className)} aria-hidden="true">
+      <CurveGlyph bezier={bezier} className="absolute inset-0 size-full" />
+      {/* r 10 + half the 5-unit stroke = 12.5 units; 25 units = 25/1.16 cqmin. */}
+      <svg
+        ref={dotRef}
+        viewBox="-12.5 -12.5 25 25"
+        className={cn(
+          "pointer-events-none absolute left-0 top-0 block size-[21.552cqmin] -translate-x-1/2 -translate-y-1/2 will-change-transform",
+          dotClassName,
+        )}
+        style={{ transform: initialTransform }}
+      >
+        <circle r="10" strokeWidth="5" style={{ fill: "var(--primary)", stroke: "var(--popover)" }} />
+      </svg>
+    </span>
   );
 }
 

@@ -21,10 +21,10 @@ import { followValue } from "./motion-value-utils";
  *   <html> MutationObserver are gone.
  * - 16:9 below 640px / square above is driven by the EpeRoot container, not
  *   the viewport (`aspect` forces one or the other).
- * - Optional `progress` draws a dot riding the curve at (p, ease(p)). The dot
- *   and the handles move by transform in container units of the plot (a size
- *   container), so a playing clip or a curve change costs no layout and logs
- *   no layout shifts.
+ * - Optional `progress` draws a dot riding the curve at (p, ease(p)). The dot,
+ *   its guides and the handles move by transform in container units of the
+ *   plot (a size container), so a playing clip or a curve change costs no
+ *   layout and logs no layout shifts.
  * - The gap above the readout belongs to the readout, so hiding it (below
  *   640px, or readout={false}) leaves no empty margin under the plot.
  * - Dev-only drag logging removed.
@@ -75,6 +75,32 @@ const ASPECT_CLASS = {
 /** x, y in percent of the plot; the -50% centring is the translate utilities. */
 const dotTransform = (x: number, y: number) => `translate(${x.toFixed(3)}cqw, ${y.toFixed(3)}cqh)`;
 
+/**
+ * Progress guides. Moving an SVG line's ends (or transforming anything inside
+ * an <svg>) costs a layout per frame, so each guide is a full-length line in
+ * its own small <svg>, inside a clip box that rides the dot. The line is
+ * counter-moved within the clip, so its dashes stay anchored to the axis and
+ * only the part between the dot and the axis shows, as with the old ends.
+ * The clip is 2 units across the 0.5-unit stroke, so its edges never cut it.
+ * No will-change: as plain paint the dashes rasterise exactly as before.
+ */
+const guideTransforms = (x: number, y: number) => ({
+  // Vertical: from the dot down to the x axis.
+  xClip: `translate(${(x - 1).toFixed(3)}cqw, ${y.toFixed(3)}cqh)`,
+  xLine: `translateY(${(-y).toFixed(3)}cqh)`,
+  // Horizontal: from the y axis across to the dot.
+  yClip: `translate(${(x - 100).toFixed(3)}cqw, ${(y - 1).toFixed(3)}cqh)`,
+  yLine: `translateX(${(100 - x).toFixed(3)}cqw)`,
+});
+
+/** Same stroke as the plot's other lines: user units of a 0 0 100 100 plot. */
+const GUIDE_STROKE = {
+  style: { stroke: "var(--primary)" },
+  strokeWidth: 0.5,
+  strokeOpacity: 0.45,
+  strokeDasharray: "1.5 1.5",
+} as const;
+
 const now = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
     ? performance.now()
@@ -99,8 +125,10 @@ function CubicBezierEditorComponent({
   const commitFrameRef = useRef<number | null>(null);
   const pendingValueRef = useRef<{ value: Bezier; capturedAt: number } | null>(null);
   const dotRef = useRef<HTMLSpanElement | null>(null);
-  const guideXRef = useRef<SVGLineElement | null>(null);
-  const guideYRef = useRef<SVGLineElement | null>(null);
+  const guideXClipRef = useRef<HTMLSpanElement | null>(null);
+  const guideXLineRef = useRef<HTMLSpanElement | null>(null);
+  const guideYClipRef = useRef<HTMLSpanElement | null>(null);
+  const guideYLineRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     valueRef.current = value;
@@ -222,15 +250,16 @@ function CubicBezierEditorComponent({
       const x = clamp(p) * 100;
       const y = (1 - ease(clamp(p))) * 100;
       dot.style.transform = dotTransform(x, y);
-      const gx = guideXRef.current;
-      const gy = guideYRef.current;
-      if (gx && gy) {
-        gx.setAttribute("x1", `${x}`);
-        gx.setAttribute("x2", `${x}`);
-        gx.setAttribute("y2", `${y}`);
-        gy.setAttribute("y1", `${y}`);
-        gy.setAttribute("x2", `${x}`);
-        gy.setAttribute("y2", `${y}`);
+      const xClip = guideXClipRef.current;
+      const xLine = guideXLineRef.current;
+      const yClip = guideYClipRef.current;
+      const yLine = guideYLineRef.current;
+      if (xClip && xLine && yClip && yLine) {
+        const guides = guideTransforms(x, y);
+        xClip.style.transform = guides.xClip;
+        xLine.style.transform = guides.xLine;
+        yClip.style.transform = guides.yClip;
+        yLine.style.transform = guides.yLine;
       }
     };
     return followValue(progress, place);
@@ -311,17 +340,6 @@ function CubicBezierEditorComponent({
                 strokeDasharray="4 4"
                 strokeOpacity="0.7"
               />
-              {hasProgress && progressGuides && (
-                <g
-                  style={{ stroke: "var(--primary)" }}
-                  strokeWidth="0.5"
-                  strokeOpacity="0.45"
-                  strokeDasharray="1.5 1.5"
-                >
-                  <line ref={guideXRef} x1="0" y1="100" x2="0" y2="100" />
-                  <line ref={guideYRef} x1="0" y1="100" x2="0" y2="100" />
-                </g>
-              )}
               <g style={{ stroke: "var(--muted-foreground)" }} strokeWidth="0.8">
                 <line x1="0" y1="100" x2={svgPoints.c1.x} y2={svgPoints.c1.y} />
                 <line x1="100" y1="0" x2={svgPoints.c2.x} y2={svgPoints.c2.y} />
@@ -334,6 +352,40 @@ function CubicBezierEditorComponent({
                 strokeLinecap="round"
               />
             </svg>
+            {hasProgress && progressGuides && (
+              <>
+                <span
+                  ref={guideXClipRef}
+                  className="absolute left-0 top-0 h-[100cqh] w-[2cqw] overflow-hidden"
+                  style={{ transform: guideTransforms(0, 100).xClip }}
+                >
+                  <span
+                    ref={guideXLineRef}
+                    className="absolute inset-0"
+                    style={{ transform: guideTransforms(0, 100).xLine }}
+                  >
+                    <svg viewBox="0 0 2 100" preserveAspectRatio="none" className="absolute inset-0 size-full">
+                      <line x1="1" y1="100" x2="1" y2="0" {...GUIDE_STROKE} />
+                    </svg>
+                  </span>
+                </span>
+                <span
+                  ref={guideYClipRef}
+                  className="absolute left-0 top-0 h-[2cqh] w-[100cqw] overflow-hidden"
+                  style={{ transform: guideTransforms(0, 100).yClip }}
+                >
+                  <span
+                    ref={guideYLineRef}
+                    className="absolute inset-0"
+                    style={{ transform: guideTransforms(0, 100).yLine }}
+                  >
+                    <svg viewBox="0 0 100 2" preserveAspectRatio="none" className="absolute inset-0 size-full">
+                      <line x1="0" y1="1" x2="100" y2="1" {...GUIDE_STROKE} />
+                    </svg>
+                  </span>
+                </span>
+              </>
+            )}
             <span
               aria-hidden="true"
               className="absolute inset-0 rounded-sm border"

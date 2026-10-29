@@ -15,7 +15,9 @@ import { cn } from "@/lib/utils";
  * Changes from the product: the readout is touch-action: pan-y, so a vertical
  * swipe that starts on it still scrolls the page (the browser cancels the
  * pointer, and any scrub from the first few pixels is undone); Enter and
- * Escape in the edit box hand focus back to the readout instead of <body>.
+ * Escape in the edit box hand focus back to the readout instead of <body>;
+ * a stepper at its limit is aria-disabled, not disabled, so stepping to the
+ * limit keeps focus on it (a disabled button drops focus to <body>).
  */
 interface ScrubbableNumberFieldProps {
   id?: string;
@@ -206,8 +208,12 @@ export function ScrubbableNumberField({
     }
   };
 
+  // At a limit the stepper stays focusable (aria-disabled) and its click is a no-op.
+  const atMin = !disabled && value <= min;
+  const atMax = !disabled && value >= max;
+
   const controlClassName =
-    "relative flex h-9 items-center justify-center text-muted-foreground transition-[color,background-color,scale] duration-150 after:absolute after:inset-x-0 after:inset-y-[-2px] after:content-[''] hover:bg-accent hover:text-foreground active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-40";
+    "relative flex h-9 items-center justify-center text-muted-foreground transition-[color,background-color,scale] duration-150 after:absolute after:inset-x-0 after:inset-y-[-2px] after:content-[''] hover:bg-accent hover:text-foreground active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground aria-disabled:active:scale-100";
 
   return (
     <div
@@ -219,8 +225,9 @@ export function ScrubbableNumberField({
       <button
         type="button"
         className={cn(controlClassName, "rounded-l-[8px]")}
-        onClick={() => adjustValue(-step)}
-        disabled={disabled || value <= min}
+        onClick={atMin ? undefined : () => adjustValue(-step)}
+        disabled={disabled}
+        aria-disabled={atMin || undefined}
         aria-label={`Decrease ${label}`}
       >
         <Minus className="size-3.5" />
@@ -271,8 +278,9 @@ export function ScrubbableNumberField({
       <button
         type="button"
         className={cn(controlClassName, "rounded-r-[8px]")}
-        onClick={() => adjustValue(step)}
-        disabled={disabled || value >= max}
+        onClick={atMax ? undefined : () => adjustValue(step)}
+        disabled={disabled}
+        aria-disabled={atMax || undefined}
         aria-label={`Increase ${label}`}
       >
         <Plus className="size-3.5" />
