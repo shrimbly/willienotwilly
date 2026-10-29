@@ -54,10 +54,11 @@ export interface NodeCardProps {
   width?: number;
   /** Drag by pointer and arrow keys (default true on a graph). */
   draggable?: boolean;
-  /** Pressed (React Flow selects on press) or Enter/Space when focused. */
+  /** Pressed (React Flow selects on press; a finger on release) or Enter/Space when focused. */
   onSelect?: () => void;
   onDragStart?: () => void;
-  onDragEnd?: (moved: boolean) => void;
+  /** As useNodeDrag's: `moved` is false for a plain click, `cancelled` true when the browser took the gesture and the node went back. */
+  onDragEnd?: (moved: boolean, cancelled?: boolean) => void;
   constrain?: (x: number, y: number) => { x: number; y: number };
 
   selected?: boolean;

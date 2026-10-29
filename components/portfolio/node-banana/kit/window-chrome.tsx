@@ -119,6 +119,13 @@ export interface AppWindowProps {
   children?: ReactNode;
   /** Overlays inside the frame but above the canvas. */
   frameOverlay?: ReactNode;
+  /**
+   * The strip below a 480px container: "shown" (default, the site's phone
+   * rule) keeps only the shown tab; "pair" also keeps its neighbour (the next
+   * tab, or the previous for the last), both truncating. "+" goes either way.
+   * Use "pair" where nothing else shares the strip (no toggles).
+   */
+  narrowTabs?: "shown" | "pair";
 }
 
 /**
@@ -158,10 +165,15 @@ export function AppWindow({
   className,
   children,
   frameOverlay,
+  narrowTabs = "shown",
 }: AppWindowProps) {
   const shownIndex = tabs.findIndex((t) => t.id === activeTab);
   // With no tab shown (another view is up), the first takes the Tab stop.
   const stopIndex = Math.max(0, shownIndex);
+  // The tabs a narrow strip keeps: the shown one, and with "pair" the Tab stop and its neighbour.
+  const pairIndex = stopIndex + 1 < tabs.length ? stopIndex + 1 : stopIndex - 1;
+  const keptNarrow = (index: number) =>
+    index === shownIndex || (narrowTabs === "pair" && (index === stopIndex || index === pairIndex));
   return (
     <div
       className={cn("nb-app absolute inset-0", className)}
@@ -184,7 +196,8 @@ export function AppWindow({
                 "group relative flex h-[30px] max-w-[220px] min-w-[72px] shrink items-center rounded-t-lg pr-2 pl-3 text-xs whitespace-nowrap",
                 shown
                   ? "nb-bg-canvas -mb-0.5 h-[32px] text-neutral-100 shadow-[inset_1px_0_0_rgba(64,64,64,0.6),inset_-1px_0_0_rgba(64,64,64,0.6),inset_0_1px_0_rgba(64,64,64,0.6)]"
-                  : "text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200 @max-[479px]:hidden",
+                  : "text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200",
+                !keptNarrow(index) && "@max-[479px]:hidden",
               )}
             >
               {shown && (
@@ -193,7 +206,13 @@ export function AppWindow({
                   <TabEar side="right" />
                 </>
               )}
-              {hairline && <span aria-hidden className="absolute top-[7px] bottom-[7px] -left-px w-px bg-neutral-800" />}
+              {hairline && (
+                <span
+                  aria-hidden
+                  // A narrow strip that hides the tab before it has nothing to separate it from.
+                  className={cn("absolute top-[7px] bottom-[7px] -left-px w-px bg-neutral-800", !keptNarrow(index - 1) && "@max-[479px]:hidden")}
+                />
+              )}
               <button
                 type="button"
                 role="tab"

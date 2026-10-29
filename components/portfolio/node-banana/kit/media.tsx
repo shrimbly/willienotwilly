@@ -75,12 +75,17 @@ export function RunBatchChip({ children, always = false, className }: { children
 const mediaToolClass =
   "nodrag flex h-5 w-5 items-center justify-center rounded bg-neutral-900/80 text-neutral-400 transition-colors hover:text-white";
 
-/** Download and Clear, top-right over a generated image; shown while the media is hovered or focused. */
+/**
+ * Download and Clear, top-right over a generated image; shown while the media
+ * is hovered or focused. Keyboard focus shows them at once, without the fade,
+ * so a held Tab never lands on a button that is still see-through.
+ */
 export function MediaTools({ onDownload, onClear, noun = "image", className }: { onDownload?: () => void; onClear?: () => void; noun?: string; className?: string }) {
   return (
     <div
       className={cn(
         "absolute top-1 right-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/media:opacity-100 focus-within:opacity-100",
+        "has-[:focus-visible]:opacity-100 has-[:focus-visible]:transition-none",
         className,
       )}
     >

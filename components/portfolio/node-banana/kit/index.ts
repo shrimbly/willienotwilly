@@ -100,6 +100,7 @@ export {
 } from "./window-chrome";
 export { useNodeDrag, useTrailingOffset, NO_DRAG, type NodeDragOptions } from "./use-node-drag";
 export { TouchClaim, touchClaim } from "./touch";
+export { interactHandlers, useInteractOnRelease, type InteractHandlers } from "./use-interact";
 export { DemoHint, type DemoHintCorner, type DemoHintProps } from "./demo-hint";
 export {
   assignSocketRows,
