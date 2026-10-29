@@ -25,9 +25,9 @@ import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback"
 import { VideoPlaybackControls } from "./kit/video-playback-controls";
 import "./curves/curves.css";
 
-// car-5, the track along the flank to the rear wheel, reads speed well (the
+// car-5, the track along the flank to the front wheel, reads speed well (the
 // slope of the curve is how fast the panels slide by); the editor plays car-1
-// to car-3 and the split tile, two tiles up, car-4 to car-6.
+// to car-3 and the split tile, two tiles up, car-4, car-5 and the grille shot.
 const SOURCE = CAR_CLIPS[4];
 const INITIAL_PRESET = DEFAULT_EASING as EasingPresetName;
 const INITIAL_DURATION = 2;

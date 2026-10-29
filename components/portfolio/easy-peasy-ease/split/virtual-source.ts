@@ -1,4 +1,4 @@
-import { CAR_CLIPS, filmstripTileAt, type Filmstrip } from "@/lib/easy-peasy-ease/car-clips";
+import { CAR_CLIPS, CAR_GRILLE, filmstripTileAt, type Filmstrip } from "@/lib/easy-peasy-ease/car-clips";
 import { deriveSections } from "@/lib/easy-peasy-ease/chunking";
 import { getPresetBezier } from "@/lib/easy-peasy-ease/easing-presets";
 import {
@@ -11,14 +11,16 @@ import {
 import type { RetimeClip } from "../kit/retime-engine";
 
 /**
- * The split demo's "one long video": car-4, car-5 and car-6 played back to
- * back (rear three-quarter, along the flank to the front wheel, then the
- * grille and headlamp; 15.25 s). The hero already plays car-1 to car-3.
- * Nothing is re-encoded; the retime engine gets one clip per file and a map
- * whose `index` is the file, so a section that straddles two files simply
- * cuts between their <video> elements.
+ * The split demo's "one long video": car-4, car-5 and the grille shot, three
+ * consecutive shots of the original edit played back to back, each starting
+ * on the frame the last one ends on (rear three-quarter, along the flank to
+ * the front wheel, then round past the headlamp to the grille badge;
+ * 15.25 s). The hero already plays car-1 to car-3. The files are never
+ * joined: the retime engine gets one clip per file and a map whose `index`
+ * is the file, so a section that straddles two files simply cuts between
+ * their <video> elements.
  */
-const FILES = CAR_CLIPS.slice(3, 6);
+const FILES = [CAR_CLIPS[3], CAR_CLIPS[4], CAR_GRILLE];
 
 export const FILE_DURATION = FILES[0].duration;
 export const SOURCE_DURATION = FILE_DURATION * FILES.length;
