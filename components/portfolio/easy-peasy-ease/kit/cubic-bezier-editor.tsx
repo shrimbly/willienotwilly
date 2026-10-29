@@ -27,6 +27,9 @@ import { followValue } from "./motion-value-utils";
  *   layout and logs no layout shifts.
  * - The gap above the readout belongs to the readout, so hiding it (below
  *   640px, or readout={false}) leaves no empty margin under the plot.
+ * - Touch: a page swipe that starts beside a handle scrolls instead of
+ *   grabbing it (the touch floor under the handles), and the handle circles
+ *   are 32px instead of 40px on plots under 160px.
  * - Dev-only drag logging removed.
  */
 interface CubicBezierEditorProps {
@@ -61,8 +64,11 @@ const GRID_LINES = Array.from({ length: 15 }, (_, index) => {
   };
 });
 
+// 32px on plots under 160px (the plot is the nearest size container): two
+// 40px circles took so much of a phone-sized plot that page swipes kept
+// starting on one.
 const HANDLE_CLASS =
-  "group absolute left-0 top-0 flex size-10 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed";
+  "group absolute left-0 top-0 flex size-10 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed @max-[160px]:size-8";
 const HANDLE_DOT_CLASS =
   "pointer-events-none size-4 rounded-full border-2 border-background/80 bg-primary/80 shadow transition-[scale,box-shadow] duration-150 group-active:scale-[0.96]";
 
@@ -392,6 +398,15 @@ function CubicBezierEditorComponent({
               style={{ borderColor: "var(--border)" }}
             />
           </div>
+          {/* Touch floor. Chrome's touch adjustment moves a touch up to
+              10-16px onto a nearby button, so a swipe that started beside a
+              handle grabbed it (touch-none) and the page didn't scroll. A
+              candidate that contains the touch keeps it where it is, and the
+              :active rule makes this span one: on the plot, only a handle's
+              own circle grabs. It has to be the handles' sibling (ancestors
+              of a candidate are passed over) and inside the plot (the hit
+              test stops at the plot, before anything under it). */}
+          <span aria-hidden="true" className="absolute inset-0 active:cursor-auto" />
           {hasProgress && (
             <span
               ref={dotRef}
