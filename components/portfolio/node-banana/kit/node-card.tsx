@@ -272,7 +272,8 @@ function ResizeEdge({
   const view = useCanvas();
   const start = useRef<{ px: number; w: number; x: number; y: number; z: number; touch: TouchClaim | null; resizing: boolean } | null>(null);
   const apply = (s: { w: number; x: number; y: number }, delta: number) => {
-    const w = Math.round(Math.min(max, Math.max(min, side === "right" ? s.w + delta : s.w - delta)));
+    // A node laid out under the minimum keeps its width as the floor, so shrinking it never makes it wider.
+    const w = Math.round(Math.min(max, Math.max(Math.min(min, s.w), side === "right" ? s.w + delta : s.w - delta)));
     graph.setWidth(id, w);
     if (side === "left") graph.moveTo(id, s.x + (s.w - w), s.y);
   };
