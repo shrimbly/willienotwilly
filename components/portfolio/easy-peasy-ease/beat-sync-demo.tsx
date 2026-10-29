@@ -6,8 +6,8 @@ import { Loader2, Volume2, VolumeX } from "lucide-react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 import {
-  BEATS_128,
-  BEATS_128_SRC,
+  HIGH_NOTE_PHONK,
+  HIGH_NOTE_PHONK_SRC,
   alignOffsetToBeatGrid,
   quantizeOffsetToNearestBeat,
   snapDurationsToBeatGrid,
@@ -41,13 +41,20 @@ import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback"
 import { VideoPlaybackControls } from "./kit/video-playback-controls";
 import { TimelineZoomSlider, VideoTimeline, type TimelineSegment } from "./kit/video-timeline";
 
-/** The visitor's own clip lengths before snapping: uneven, so each grid snaps them differently. */
-const BASE_DURATIONS = [1.5, 1.2, 1.9, 1.5, 1.1, 1.7];
+/**
+ * The visitor's own clip lengths before snapping: six equal 1.2 s cuts, 2.78
+ * beats at 139 BPM, so each grid snaps them to a different whole length (3
+ * beats on every beat, 2 on every 2nd, a bar on every 4th) and all six stay
+ * equal to within a frame.
+ */
+const BASE_DURATIONS = CAR_CLIPS.map(() => 1.2);
 const BASE_PRESETS = ["In Out Quad", "In Out Cubic", "In Out Quad", "In Out Quart", "In Out Cubic", "In Out Quad"];
-const BEATS = BEATS_128.beats;
-const AUDIO_FILE_NAME = "beats-128.mp3";
+const BEATS = HIGH_NOTE_PHONK.beats;
+const AUDIO_FILE_NAME = "high-note-phonk.mp3";
+const TRACK_DESCRIPTION = BEATS ? `a ${Math.round(BEATS.bpm)} BPM phonk track` : "a phonk track";
 const CUSTOM_CURVE = "Custom";
-/** Untouched, the demo engages "every 2nd beat" once, a moment after it starts playing. */
+/** Untouched, the demo engages "every 4th beat" (a bar per clip) once, a moment after it starts playing. */
+const AUTO_SUBDIVISION: BeatSubdivision = 4;
 const AUTO_SNAP_DELAY_MS = 2200;
 /** Stands in for the product's re-render behind the ⟳ / Update buttons. */
 const UPDATE_DELAY_MS = 500;
@@ -184,7 +191,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const { play, seek } = playback;
 
   const { unlock: unlockSound } = useSyncedAudio({
-    src: BEATS_128_SRC,
+    src: HIGH_NOTE_PHONK_SRC,
     time: playback.time,
     playing: playback.isPlaying,
     enabled: soundOn && hasAudio && inView,
@@ -194,21 +201,21 @@ export function EasyPeasyEaseBeatSyncDemo() {
     fadeOut,
   });
 
-  // The one scripted beat: engage "every 2nd beat" shortly after the demo
+  // The one scripted beat: engage "every 4th beat" shortly after the demo
   // starts, unless the visitor got there first. Reduced motion rests on that
   // end state from the start.
   useEffect(() => {
     if (autoSnapDoneRef.current) return;
     if (reducedMotion) {
       autoSnapDoneRef.current = true;
-      dispatch({ type: "subdivision", value: 2 });
+      dispatch({ type: "subdivision", value: AUTO_SUBDIVISION });
       return;
     }
     if (!active) return;
     const timer = window.setTimeout(() => {
       if (autoSnapDoneRef.current) return;
       autoSnapDoneRef.current = true;
-      dispatch({ type: "subdivision", value: 2 });
+      dispatch({ type: "subdivision", value: AUTO_SUBDIVISION });
     }, AUTO_SNAP_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [active, reducedMotion]);
@@ -469,7 +476,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
     <EpeRoot
       ref={rootRef}
       role="group"
-      aria-label="Easy Peasy Ease beat sync: six car clips cut to a 128 BPM track"
+      aria-label={`Easy Peasy Ease beat sync: six car clips cut to ${TRACK_DESCRIPTION}`}
       className="p-2"
       onClickCapture={markTouched}
       onKeyDownCapture={markTouched}
@@ -535,7 +542,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
               <div ref={audioLaneRef} className="space-y-1">
                 {hasAudio ? (
                   <AudioWaveformVisualization
-                    waveformData={BEATS_128}
+                    waveformData={HIGH_NOTE_PHONK}
                     fileName={AUDIO_FILE_NAME}
                     onRemove={handleRemoveAudio}
                     currentTime={playback.time}

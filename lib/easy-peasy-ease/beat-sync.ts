@@ -7,7 +7,7 @@
  * error never accumulates across sections.
  */
 
-import beats128 from "./beats-128.json";
+import highNotePhonk from "./high-note-phonk.json";
 import { PREVIEW_FPS } from "./speed-curve-config";
 
 /** Sections can end on every beat, every 2nd beat, or every 4th beat. */
@@ -36,11 +36,15 @@ export interface WaveformData {
 }
 
 /**
- * Baked output of the product's analyzeBeats + 256-peak waveform for
- * /audio/portfolio/demos/beats-128.mp3 (synthetic kick, 30 s, 128.05 BPM).
+ * "High Note Phonk" from 6 s in, 30 s long (/audio/portfolio/demos/high-note-phonk.mp3).
+ * The peaks are the product's (clamped at 1: one hit decodes hot). The
+ * product's analyzeBeats finds no steady grid in this cut (its block-energy
+ * flux rings with the sustained 808), so the beat grid is measured from the
+ * hi-hat attacks instead: 139.01 BPM, the first beat 0.3145 s in, one beat
+ * before the drop. Confidence is the product's held-out contrast at that period.
  */
-export const BEATS_128: WaveformData = beats128;
-export const BEATS_128_SRC = "/audio/portfolio/demos/beats-128.mp3";
+export const HIGH_NOTE_PHONK: WaveformData = highNotePhonk;
+export const HIGH_NOTE_PHONK_SRC = "/audio/portfolio/demos/high-note-phonk.mp3";
 
 const positiveModulo = (value: number, modulus: number): number => {
   const result = value % modulus;
