@@ -30,4 +30,13 @@
       overflow-y: auto;
     }
   }
+
+  /*
+   * A tile keyboard focus reaches mid-fade (the first reveal's stagger, an
+   * arrival, a hop) shows at once: the focused tile is never see-through.
+   * Important, to win over motion's inline and animated opacity.
+   */
+  .nb [data-asset-id]:has(> [data-asset-tile]:focus-visible) {
+    opacity: 1 !important;
+  }
 }

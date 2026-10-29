@@ -6,7 +6,7 @@ import { Film, LibraryBig, MessagesSquare } from "lucide-react";
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 import { LIBRARY_ASSETS } from "@/lib/node-banana/assets";
 
-import { AppWindow, DemoHint, NbRoot, ViewToggle } from "./kit";
+import { AppWindow, DemoHint, NbRoot, ViewToggle, interactHandlers } from "./kit";
 
 import { AssetsView } from "./assets/assets-view";
 import { ARRIVALS, ASSETS_BY_ID, LibraryProvider, useLibrary } from "./assets/library";
@@ -68,20 +68,19 @@ function AssetsWindow({ rootRef, active, inView }: { rootRef: RefObject<HTMLDivE
     return () => clearTimeout(timer);
   }, [reducedMotion, active, touched, next, onCanvas, landedCount, actions, rootRef]);
 
-  // A finger that lands on the tile to scroll the page is not playing with it: a
-  // touch counts once it lifts without the browser taking it over (pointercancel).
+  // A finger that lands on the tile to scroll the page is not playing with it.
   useEffect(() => {
     const root = rootRef.current;
     if (!root || touched) return;
     const touch = () => setTouched(true);
-    const press = (event: PointerEvent) => event.pointerType !== "touch" && touch();
-    root.addEventListener("pointerdown", press);
-    root.addEventListener("pointerup", touch);
-    root.addEventListener("keydown", touch);
+    const { onPointerDownCapture, onPointerUpCapture } = interactHandlers(touch);
+    root.addEventListener("pointerdown", onPointerDownCapture, true);
+    root.addEventListener("pointerup", onPointerUpCapture, true);
+    root.addEventListener("keydown", touch, true);
     return () => {
-      root.removeEventListener("pointerdown", press);
-      root.removeEventListener("pointerup", touch);
-      root.removeEventListener("keydown", touch);
+      root.removeEventListener("pointerdown", onPointerDownCapture, true);
+      root.removeEventListener("pointerup", onPointerUpCapture, true);
+      root.removeEventListener("keydown", touch, true);
     };
   }, [rootRef, touched]);
 

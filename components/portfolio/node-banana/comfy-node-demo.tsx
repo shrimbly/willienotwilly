@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent } from "react";
 import { animate, type AnimationPlaybackControls } from "motion/react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -12,8 +12,9 @@ import {
   COMFY_MAX_W,
   EARLIER_RUNS,
   EDGES,
+  FIT_FRAMES,
   FIT_PADDING,
-  FIT_SET,
+  FIT_READABLE,
   INITIAL_PARAMS,
   LAYOUTS,
   NODES,
@@ -44,6 +45,7 @@ import {
   RunSplitButton,
   graphBounds,
   useCanvasView,
+  useInteractOnRelease,
   useNodeGraph,
 } from "./kit";
 
@@ -63,30 +65,37 @@ export function NodeBananaComfyNodeDemo() {
   const { active, reducedMotion } = useDemoActive(root);
   const graph = useNodeGraph({ nodes: NODES, edges: EDGES });
 
+  const fitPadding = () => FIT_PADDING[tierFor(view.width, view.height)];
   const view = useCanvasView({
     fit: () => {
-      const ids = FIT_SET[tierFor(view.width)];
-      return graphBounds(
-        ids.map((id) => {
-          const node = graph.node(id)!;
-          const width = node.width.get();
-          return { x: node.x.get(), y: node.y.get(), width, height: nodeHeight(id, width) };
-        }),
-      );
+      const pad = fitPadding();
+      let bounds = null;
+      for (const ids of FIT_FRAMES[tierFor(view.width, view.height)]) {
+        bounds = graphBounds(
+          ids.map((id) => {
+            const node = graph.node(id)!;
+            const width = node.width.get();
+            return { x: node.x.get(), y: node.y.get(), width, height: nodeHeight(id, width) };
+          }),
+        );
+        const zoom = Math.min((view.width - pad.left - pad.right) / bounds.width, (view.height - pad.top - pad.bottom) / bounds.height);
+        if (zoom >= FIT_READABLE) break;
+      }
+      return bounds;
     },
     // Read at fit time, so the room follows the tile's size.
     padding: {
       get top() {
-        return FIT_PADDING[tierFor(view.width)].top;
+        return fitPadding().top;
       },
       get right() {
-        return FIT_PADDING[tierFor(view.width)].right;
+        return fitPadding().right;
       },
       get bottom() {
-        return FIT_PADDING[tierFor(view.width)].bottom;
+        return fitPadding().bottom;
       },
       get left() {
-        return FIT_PADDING[tierFor(view.width)].left;
+        return fitPadding().left;
       },
     },
     minZoom: 0.2,
@@ -103,6 +112,8 @@ export function NodeBananaComfyNodeDemo() {
   const [expanded, setExpanded] = useState(false);
   const [controlsWidth, setControlsWidth] = useState<number | undefined>(undefined);
   const [touched, setTouched] = useState(false);
+  const markTouched = useCallback(() => setTouched(true), []);
+  const interact = useInteractOnRelease(markTouched);
 
   const cycle = useRef(0);
   const nextId = useRef(EARLIER_RUNS[0].id + 1);
@@ -156,7 +167,7 @@ export function NodeBananaComfyNodeDemo() {
   /** How far opening the settings panned the camera up, to undo on close. */
   const revealed = useRef(0);
 
-  // Phones get a narrower Comfy node and see it alone; wider tiles add its inputs, then the whole graph.
+  // Phones and square tiles get a narrower Comfy node, seen with its Output where that still reads; wide tiles the whole graph.
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
@@ -169,12 +180,12 @@ export function NodeBananaComfyNodeDemo() {
       }
       placing.current = false;
     };
-    let current = tierFor(el.clientWidth);
+    let current = tierFor(el.clientWidth, el.clientHeight);
     place(current);
     const ro = new ResizeObserver(([entry]) => {
       // The canvas refits on resize, which already drops the settings' reveal pan.
       if (!view.interacted) revealed.current = 0;
-      const next = tierFor(entry.contentRect.width);
+      const next = tierFor(entry.contentRect.width, entry.contentRect.height);
       setTier(next);
       if (next === current) return;
       current = next;
@@ -271,17 +282,20 @@ export function NodeBananaComfyNodeDemo() {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape" && !event.defaultPrevented && selected) setSelected(null);
   };
+  // Tabbing in from outside sends no key to the tile, but the canvas pans to the focused node, which may cover the hint.
+  const onFocus = (event: FocusEvent<HTMLDivElement>) => {
+    if ((event.target as Element).matches(":focus-visible")) markTouched();
+  };
 
   return (
     <NbRoot
       ref={root}
       role="group"
       aria-label="Node Banana: a ComfyUI workflow running as a node"
-      // A finger that lands on the tile to scroll the page is not playing with it: a
-      // touch counts once it ends without the browser taking it over (pointercancel).
-      onPointerDownCapture={(event) => event.pointerType !== "touch" && setTouched(true)}
-      onPointerUpCapture={() => setTouched(true)}
-      onKeyDownCapture={() => setTouched(true)}
+      // A finger that lands on the tile to scroll the page is not playing with it.
+      {...interact}
+      onKeyDownCapture={markTouched}
+      onFocusCapture={onFocus}
       onKeyDown={onKeyDown}
       // Dropdowns in the settings open upward rather than under the run bar.
       style={{ "--nb-list-inset-bottom": RUN_BAR_SPACE } as CSSProperties}
@@ -296,6 +310,7 @@ export function NodeBananaComfyNodeDemo() {
         view={view}
         gridZoom={false}
         onPaneClick={() => setSelected(null)}
+        onInteract={markTouched}
         overlay={
           <div
             className={cn(
