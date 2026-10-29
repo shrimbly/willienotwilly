@@ -40,6 +40,9 @@ import { usePageWheelPassthrough } from "./use-page-wheel-passthrough";
  * - The zoom slider is touch-action: pan-y. A touch only sets the zoom once it
  *   moves mostly sideways, so a vertical swipe that starts on it scrolls the
  *   page; a tap still sets it (through the compatibility mouse events).
+ * - The same goes for the track: a touch seeks once it moves mostly sideways
+ *   (a scrub) or lifts (a tap), so a swipe that scrolls the page leaves the
+ *   playhead where it was.
  * - Radii in px (product rounded-lg = 12px, rounded-md = 8px).
  */
 
@@ -52,8 +55,8 @@ const TIMELINE_GUTTER_PX = 12;
 /** Pointer travel (px) after which a press on the track is a scrub, not a click. */
 const SCRUB_CLICK_SLOP_PX = 4;
 
-/** Sideways travel (px) before a touch on the zoom slider drags it (split-track's TOUCH_SLOP). */
-const ZOOM_TOUCH_SLOP_PX = 6;
+/** Sideways travel (px) before a touch on the zoom slider or the track drags it (split-track's TOUCH_SLOP). */
+const TOUCH_SLOP_PX = 6;
 
 const lerp = (start: number, end: number, value: number) => start + (end - start) * value;
 
@@ -147,7 +150,7 @@ export function TimelineZoomSlider({ value, onValueChange, disabled }: ZoomSlide
     const press = touchPressRef.current;
     if (!press || press.pointerId !== event.pointerId) return;
     const dx = Math.abs(event.clientX - press.startX);
-    if (dx < ZOOM_TOUCH_SLOP_PX || dx < Math.abs(event.clientY - press.startY)) return;
+    if (dx < TOUCH_SLOP_PX || dx < Math.abs(event.clientY - press.startY)) return;
     touchPressRef.current = null;
     startDragging(event.clientX);
   };
@@ -268,6 +271,8 @@ export function VideoTimeline({
   const isDraggingRef = useRef(false);
   /** Where the current track press started, and whether it has moved far enough to be a scrub. */
   const pressRef = useRef<{ x: number; scrubbed: boolean } | null>(null);
+  /** A touch on the track that may still turn out to be a page scroll. */
+  const touchPressRef = useRef<{ pointerId: number; startX: number; startY: number } | null>(null);
   const timeRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -388,12 +393,43 @@ export function VideoTimeline({
 
   // Handle timeline interaction (click or drag).
   const handleTrackPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") {
+      touchPressRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY };
+      return;
+    }
     e.preventDefault();
     pressRef.current = { x: e.clientX, scrubbed: false };
     onSeek(timeFromClientX(e.clientX));
     beginDrag();
     const target = e.target as HTMLElement;
     target.setPointerCapture?.(e.pointerId);
+  };
+
+  // A pending touch becomes a scrub once it moves mostly sideways; a mostly
+  // vertical one is the page's scroll (the browser cancels the pointer).
+  const handleTrackPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const press = touchPressRef.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    const dx = Math.abs(e.clientX - press.startX);
+    if (dx < TOUCH_SLOP_PX || dx < Math.abs(e.clientY - press.startY)) return;
+    touchPressRef.current = null;
+    pressRef.current = { x: press.startX, scrubbed: true };
+    onSeek(timeFromClientX(e.clientX));
+    beginDrag();
+  };
+
+  // A tap seeks where it landed, as a click does (a segment's click then
+  // moves to its start).
+  const handleTrackPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    const press = touchPressRef.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    touchPressRef.current = null;
+    pressRef.current = null;
+    onSeek(timeFromClientX(press.startX));
+  };
+
+  const cancelTrackTouch = () => {
+    touchPressRef.current = null;
   };
 
   // Handle playhead dragging (specific target).
@@ -488,6 +524,9 @@ export function VideoTimeline({
               <div
                 className="relative h-14 cursor-pointer touch-pan-y select-none @min-[768px]/epe:h-24"
                 onPointerDown={handleTrackPointerDown}
+                onPointerMove={handleTrackPointerMove}
+                onPointerUp={handleTrackPointerUp}
+                onPointerCancel={cancelTrackTouch}
               >
                 <div className="flex h-full">
                   {boundaries.map((boundary, index) => {
