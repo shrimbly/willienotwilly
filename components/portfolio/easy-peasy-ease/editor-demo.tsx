@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import { ChevronDown } from "lucide-react";
 import { useMotionValueEvent } from "motion/react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
@@ -195,17 +196,24 @@ export function EasyPeasyEaseEditorDemo() {
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground @min-[400px]/epe:flex-wrap @min-[768px]/epe:gap-4">
                     <label className="hidden items-center gap-1 @min-[340px]/epe:flex @min-[400px]/epe:gap-1.5 @min-[768px]/epe:gap-2">
                       <span>Loops</span>
-                      <select
-                        value={loopCount}
-                        onChange={handleLoopChange}
-                        className="rounded-[8px] border border-(color:--control-border) bg-background py-1 pl-1 pr-4 text-[10px] font-semibold uppercase tracking-widest text-foreground @min-[768px]/epe:pl-2 @min-[768px]/epe:pr-6 @min-[768px]/epe:text-[11px]"
-                      >
-                        {LOOP_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            x{option}
-                          </option>
-                        ))}
-                      </select>
+                      {/* The browser's own arrow sat hard against the border: draw the curve picker's chevron instead. */}
+                      <span className="relative inline-flex items-center">
+                        <select
+                          value={loopCount}
+                          onChange={handleLoopChange}
+                          className="appearance-none rounded-[8px] border border-(color:--control-border) bg-background py-1 pl-1.5 pr-5 text-[10px] font-semibold uppercase tracking-widest text-foreground @min-[768px]/epe:pl-2 @min-[768px]/epe:pr-6 @min-[768px]/epe:text-[11px]"
+                        >
+                          {LOOP_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              x{option}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          aria-hidden="true"
+                          className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground @min-[768px]/epe:right-2 @min-[768px]/epe:size-3.5"
+                        />
+                      </span>
                     </label>
                     <div className="flex items-center gap-2 @min-[768px]/epe:gap-4">
                       <span className="hidden @min-[768px]/epe:inline">Zoom</span>
