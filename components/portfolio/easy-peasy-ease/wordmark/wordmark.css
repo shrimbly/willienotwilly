@@ -25,6 +25,15 @@
   }
 }
 
+/* Keyboard focus inside the tile shows the entrance's end state at once, even
+   mid-entrance (the demo also skips the entrance when focus arrives first).
+   !important outranks the inline styles and animations motion writes. */
+.epe .epe-wm-frame:focus-within .epe-wm-reveal {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
 /* TextPressure's per-letter transition, in CSS so the reduced-motion branch
    does not change the server-rendered style attribute. */
 .epe .epe-wm-char {

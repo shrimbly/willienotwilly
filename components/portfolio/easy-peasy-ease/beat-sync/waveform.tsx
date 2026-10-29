@@ -18,6 +18,9 @@ import { followValue } from "../kit/motion-value-utils";
  * - `currentTime` may be a motion value; the progress fill and line then move
  *   imperatively instead of re-rendering per frame. `startTime` is subtracted
  *   first (the product passes `currentTime - silenceAtStart`).
+ * - The fill scales and the line and handle translate (in cqw of the
+ *   scrubber, a size container) instead of the product's width/left, so
+ *   playback costs no layout per frame.
  */
 
 export type WaveformProps = HTMLAttributes<HTMLDivElement> & {
@@ -165,12 +168,16 @@ export function AudioScrubber({
   const heightStyle = typeof height === "number" ? `${height}px` : height;
 
   useEffect(() => {
+    let last = Number.NaN;
     const apply = (time: number) => {
       const clamped = Math.max(0, Math.min(effectiveDuration, time - startTime));
-      const percent = `${(effectiveDuration > 0 ? clamped / effectiveDuration : 0) * 100}%`;
-      if (fillRef.current) fillRef.current.style.width = percent;
-      if (lineRef.current) lineRef.current.style.left = percent;
-      if (handleRef.current) handleRef.current.style.left = percent;
+      const fraction = effectiveDuration > 0 ? clamped / effectiveDuration : 0;
+      if (fraction === last) return;
+      last = fraction;
+      const offset = `translateX(${(fraction * 100).toFixed(3)}cqw)`;
+      if (fillRef.current) fillRef.current.style.transform = `scaleX(${fraction.toFixed(5)})`;
+      if (lineRef.current) lineRef.current.style.transform = offset;
+      if (handleRef.current) handleRef.current.style.transform = offset;
     };
     return followValue(currentTime, apply);
   }, [currentTime, startTime, effectiveDuration]);
@@ -178,7 +185,7 @@ export function AudioScrubber({
   return (
     <div
       aria-hidden="true"
-      className={cn("relative select-none", className)}
+      className={cn("relative select-none [container-type:inline-size]", className)}
       style={{ height: heightStyle }}
       {...props}
     >
@@ -194,9 +201,15 @@ export function AudioScrubber({
         height={height}
       />
 
-      <div ref={fillRef} className="pointer-events-none absolute inset-y-0 left-0 w-0 bg-primary/20" />
+      <div
+        ref={fillRef}
+        className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-primary/20 will-change-transform [transform:scaleX(0)]"
+      />
 
-      <div ref={lineRef} className="pointer-events-none absolute top-0 bottom-0 left-0 w-0.5 bg-primary" />
+      <div
+        ref={lineRef}
+        className="pointer-events-none absolute top-0 bottom-0 left-0 w-0.5 bg-primary will-change-transform"
+      />
 
       {showHandle && (
         <div

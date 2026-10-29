@@ -20,6 +20,7 @@ import {
   getPresetBezier,
   type Bezier,
 } from "@/lib/easy-peasy-ease/easing-presets";
+import { cn } from "@/lib/utils";
 
 import { AudioWaveformVisualization } from "./beat-sync/audio-waveform-visualization";
 import { useSyncedAudio } from "./beat-sync/use-synced-audio";
@@ -50,6 +51,12 @@ const CUSTOM_CURVE = "Custom";
 const AUTO_SNAP_DELAY_MS = 2200;
 /** Stands in for the product's re-render behind the ⟳ / Update buttons. */
 const UPDATE_DELAY_MS = 500;
+
+/**
+ * The product's disabled look for the update buttons while one runs. They are
+ * aria-disabled, not disabled: a disabled button drops the focus that pressed it.
+ */
+const BUSY_CLASS_NAME = "aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
 /** Which button started the stand-in re-render ("clip" replays from that clip). */
 type UpdateScope = "clip" | "all";
@@ -129,6 +136,8 @@ export function EasyPeasyEaseBeatSyncDemo() {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const autoSnapDoneRef = useRef(false);
   const updateTimerRef = useRef(0);
+  const audioLaneRef = useRef<HTMLDivElement>(null);
+  const refocusLaneRef = useRef(false);
   const fieldId = useId();
   const { active, inView, reducedMotion } = useDemoActive(rootRef);
 
@@ -236,7 +245,22 @@ export function EasyPeasyEaseBeatSyncDemo() {
     if (!playback.isPlaying) play();
   };
 
+  // Removing or adding the track swaps the lane, taking the pressed button
+  // with it: focus moves to what replaced it (the add box, or the track).
+  const keepLaneFocus = () => {
+    refocusLaneRef.current = audioLaneRef.current?.contains(document.activeElement) ?? false;
+  };
+
+  useEffect(() => {
+    if (!refocusLaneRef.current) return;
+    refocusLaneRef.current = false;
+    audioLaneRef.current
+      ?.querySelector<HTMLElement>(hasAudio ? '[role="slider"]' : "button")
+      ?.focus({ preventScroll: true });
+  }, [hasAudio]);
+
   const handleRemoveAudio = () => {
+    keepLaneFocus();
     setHasAudio(false);
     setSoundOn(false);
     dispatch({ type: "dropSnap" });
@@ -244,6 +268,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
   };
 
   const handleAddAudio = () => {
+    keepLaneFocus();
     dispatch({ type: "resetOffset" });
     setHasAudio(true);
     setTab(1);
@@ -291,8 +316,11 @@ export function EasyPeasyEaseBeatSyncDemo() {
         </p>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <div className="shrink-0 space-y-1.5">
+        {/* The picker gets the larger share (the product's w-32 field leaves the
+            320px inspector's trigger too narrow for "In Out Cubic"); 3.5rem
+            still holds the four-character readout. */}
+        <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-2">
+          <div className="space-y-1.5">
             <FieldLabel htmlFor={durationId}>Seconds</FieldLabel>
             <ScrubbableNumberField
               key={selectedClip}
@@ -306,10 +334,10 @@ export function EasyPeasyEaseBeatSyncDemo() {
               unit="seconds"
               value={sync.durations[selectedClip]}
               onChange={(value) => dispatch({ type: "duration", index: selectedClip, value })}
-              className="w-32"
+              className="w-full grid-cols-[2rem_minmax(3.5rem,1fr)_2rem]"
             />
           </div>
-          <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <FieldLabel htmlFor={curveId}>Curve</FieldLabel>
             <EasingCurvePicker
               id={curveId}
@@ -342,18 +370,21 @@ export function EasyPeasyEaseBeatSyncDemo() {
             <EpeButton
               size="sm"
               variant="outline"
-              onClick={() => runUpdate("clip", selectedClipStart)}
-              disabled={updating}
-              className="min-w-0 flex-1 gap-2"
+              onClick={updating ? undefined : () => runUpdate("clip", selectedClipStart)}
+              aria-disabled={updating || undefined}
+              className={cn("min-w-0 flex-1 gap-2", BUSY_CLASS_NAME)}
             >
               {updateScope === "clip" && <Loader2 className="h-4 w-4 animate-spin" />}
               Update Clip
             </EpeButton>
             <EpeButton
               size="sm"
-              onClick={applyUpdate}
-              disabled={updating}
-              className="min-w-0 flex-1 gap-2 bg-(color:--brand-strong) hover:bg-(color:--brand-strong)/90"
+              onClick={updating ? undefined : applyUpdate}
+              aria-disabled={updating || undefined}
+              className={cn(
+                "min-w-0 flex-1 gap-2 bg-(color:--brand-strong) hover:bg-(color:--brand-strong)/90",
+                BUSY_CLASS_NAME,
+              )}
             >
               {updateScope === "all" && <Loader2 className="h-4 w-4 animate-spin" />}
               Update All Clips
@@ -418,7 +449,12 @@ export function EasyPeasyEaseBeatSyncDemo() {
           <option value="preview">Preview (720p)</option>
         </select>
       </div>
-      <EpeButton size="sm" onClick={applyUpdate} disabled={updating} className="w-full gap-2">
+      <EpeButton
+        size="sm"
+        onClick={updating ? undefined : applyUpdate}
+        aria-disabled={updating || undefined}
+        className={cn("w-full gap-2", BUSY_CLASS_NAME)}
+      >
         {updating && <Loader2 className="h-4 w-4 animate-spin" />}
         {updating ? "Updating." : "Update Video"}
       </EpeButton>
@@ -496,7 +532,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
             onZoomChange={setZoom}
             viewportClassName="rounded-t-none rounded-b-[12px]"
             renderAudioTrack={({ trackWidth, pixelsPerSecond, totalDuration }) => (
-              <div className="space-y-1">
+              <div ref={audioLaneRef} className="space-y-1">
                 {hasAudio ? (
                   <AudioWaveformVisualization
                     waveformData={BEATS_128}
@@ -527,7 +563,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
 
         {/* Inspector, as on the product's lg layout; only on wide tiles. */}
         <div className="hidden w-[320px] shrink-0 @min-[860px]/epe:relative @min-[860px]/epe:block @min-[1100px]/epe:w-[340px]">
-          <aside className="absolute inset-0 flex flex-col rounded-[12px] border border-border bg-secondary p-4">
+          <div className="absolute inset-0 flex flex-col rounded-[12px] border border-border bg-secondary p-4">
             <div
               role="tablist"
               aria-label="Inspector"
@@ -563,7 +599,7 @@ export function EasyPeasyEaseBeatSyncDemo() {
             >
               {tab === 0 ? segmentSettings : audioSettings}
             </div>
-          </aside>
+          </div>
         </div>
       </div>
     </EpeRoot>

@@ -4,7 +4,6 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import type { MotionValue } from "motion/react";
 
-import { bezierEasing } from "@/lib/easy-peasy-ease/easing-functions";
 import {
   EASING_PRESETS,
   PRESET_BEZIERS,
@@ -13,10 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { CurveThumb } from "../kit/easing-curve-picker";
-import { followValue } from "../kit/motion-value-utils";
 import { usePageWheelPassthrough } from "../kit/use-page-wheel-passthrough";
-
-const EASES = EASING_PRESETS.map((name) => bezierEasing(PRESET_BEZIERS[name]));
 
 const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 /** Room kept between a stepped-to option and the strip's 2rem edge fades. */
@@ -30,10 +26,11 @@ const SCROLL_HOVER_GRACE_MS = 150;
 interface CurveGalleryProps {
   /** Committed preset, or null for a hand-drawn curve. */
   selected: EasingPresetName | null;
-  /** Shared clock, 0–1: every thumbnail's dot sits at (p, ease(p)). */
+  /**
+   * Shared clock, 0–1: every thumbnail's dot sits at (p, ease(p)). Only the
+   * thumbnails on screen (not scrolled out of the strip) follow it.
+   */
   progress: MotionValue<number>;
-  /** Initial clock value, so the server markup already shows the dots in place. */
-  initialProgress: number;
   /**
    * A mouse moving over an option previews its preset; null when the pointer
    * leaves the grid or anything scrolls.
@@ -41,11 +38,6 @@ interface CurveGalleryProps {
   onPreview: (preset: EasingPresetName | null) => void;
   onSelect: (preset: EasingPresetName) => void;
   className?: string;
-}
-
-function dotPosition(index: number, p: number) {
-  const clamped = Math.min(1, Math.max(0, p));
-  return { cx: clamped * 100, cy: 100 - EASES[index](clamped) * 100 };
 }
 
 /**
@@ -89,14 +81,12 @@ function scrollToOption(
 export const CurveGallery = memo(function CurveGallery({
   selected,
   progress,
-  initialProgress,
   onPreview,
   onSelect,
   className,
 }: CurveGalleryProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const dotRefs = useRef<Array<SVGCircleElement | null>>([]);
   const selectedIndex = selected ? EASING_PRESETS.indexOf(selected) : -1;
   const [focusIndex, setFocusIndex] = useState(Math.max(0, selectedIndex));
   // A selection made elsewhere (the picker) moves the tab stop with it.
@@ -105,19 +95,6 @@ export const CurveGallery = memo(function CurveGallery({
     setLastSelectedIndex(selectedIndex);
     if (selectedIndex >= 0) setFocusIndex(selectedIndex);
   }
-
-  useEffect(
-    () =>
-      followValue(progress, (p) => {
-        dotRefs.current.forEach((dot, index) => {
-          if (!dot) return;
-          const { cx, cy } = dotPosition(index, p);
-          dot.setAttribute("cx", cx.toFixed(2));
-          dot.setAttribute("cy", cy.toFixed(2));
-        });
-      }),
-    [progress],
-  );
 
   // Mark the edges that have presets scrolled past them, for the CSS fade.
   useEffect(() => {
@@ -252,7 +229,6 @@ export const CurveGallery = memo(function CurveGallery({
       >
         {EASING_PRESETS.map((preset, index) => {
           const isSelected = preset === selected;
-          const { cx, cy } = dotPosition(index, initialProgress);
           return (
             <button
               ref={(element) => {
@@ -276,23 +252,11 @@ export const CurveGallery = memo(function CurveGallery({
               )}
             >
               <span className="epe-curves-thumb relative block size-9 shrink-0 @min-[640px]/epe:size-10">
-                <CurveThumb bezier={PRESET_BEZIERS[preset]} className="absolute inset-0 size-full" />
-                <svg
-                  viewBox="-8 -8 116 116"
-                  className="absolute inset-0 size-full overflow-visible"
-                  aria-hidden="true"
-                >
-                  <circle
-                    ref={(element) => {
-                      dotRefs.current[index] = element;
-                    }}
-                    cx={cx.toFixed(2)}
-                    cy={cy.toFixed(2)}
-                    r="10"
-                    strokeWidth="5"
-                    style={{ fill: "var(--primary)", stroke: "var(--popover)" }}
-                  />
-                </svg>
+                <CurveThumb
+                  bezier={PRESET_BEZIERS[preset]}
+                  progress={progress}
+                  className="absolute inset-0 size-full"
+                />
               </span>
               <span
                 className={cn(

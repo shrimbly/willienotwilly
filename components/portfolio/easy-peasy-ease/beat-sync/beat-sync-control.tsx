@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
  * - `pulsePaused` holds the tempo dot while the demo is off screen.
  * - `pulseClock` phase-locks the dot to the playhead while playing, so it
  *   peaks on the beats the cuts land on (the product's dot free-runs).
+ * - While updating, the re-render button is aria-disabled rather than
+ *   disabled, so it keeps the keyboard focus that pressed it.
  */
 interface BeatSyncControlProps {
   bpm: number;
@@ -157,9 +159,9 @@ export function BeatSyncControl({
             type="button"
             aria-label="Update video with beat-synced clips"
             title="Update video"
-            onClick={onApply}
-            disabled={isUpdating}
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-primary transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50"
+            onClick={isUpdating ? undefined : onApply}
+            aria-disabled={isUpdating || undefined}
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-primary transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset aria-disabled:pointer-events-none aria-disabled:opacity-50"
           >
             {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           </button>

@@ -25,9 +25,9 @@ import { useRetimedPlayback, type RetimeClip } from "./kit/use-retimed-playback"
 import { VideoPlaybackControls } from "./kit/video-playback-controls";
 import "./curves/curves.css";
 
-// The track along the flank to the rear wheel reads speed well (the slope of
-// the curve is how fast the panels slide by), and the editor and split tiles
-// above already show car-1 to car-3.
+// car-5, the track along the flank to the rear wheel, reads speed well (the
+// slope of the curve is how fast the panels slide by); the editor plays car-1
+// to car-3 and the split tile, two tiles up, car-4 to car-6.
 const SOURCE = CAR_CLIPS[4];
 const INITIAL_PRESET = DEFAULT_EASING as EasingPresetName;
 const INITIAL_DURATION = 2;
@@ -39,6 +39,8 @@ const LAYOUT_STYLE = {
 } as CSSProperties;
 const TWEEN_EASE: Bezier = [0.23, 1, 0.32, 1];
 const TWEEN_DURATION = 0.32;
+/** The speed readout's refresh interval while the clip plays. */
+const READOUT_INTERVAL_MS = 100;
 
 interface CommittedCurve {
   /** null once the handles have been dragged ("Custom"). */
@@ -162,22 +164,40 @@ export function EasyPeasyEaseCurvesDemo() {
   });
 
   const speedRef = useRef<HTMLSpanElement>(null);
-  // Server markup shows the resting speed; the motion value takes over after.
+  // Server markup shows the resting speed; the motion value takes over after,
+  // at most every READOUT_INTERVAL_MS (new text costs a layout, and a figure
+  // changing every frame is too fast to read anyway). The last value always
+  // lands, so a pause shows the speed at the paused frame.
   const [initialSpeed] = useState(() => formatSpeed(playback.map.speedAt(0, INITIAL_PROGRESS)));
+  const { speed } = playback;
   useEffect(() => {
     const node = speedRef.current;
     if (!node) return;
-    let last = "";
-    const write = (speed: number) => {
-      const next = formatSpeed(speed);
-      if (next === last) return;
-      last = next;
+    let shown = "";
+    let lastWrite = Number.NEGATIVE_INFINITY;
+    let timer = 0;
+    const write = () => {
+      timer = 0;
+      lastWrite = performance.now();
+      const next = formatSpeed(speed.get());
+      if (next === shown) return;
+      shown = next;
       if (node.firstChild) node.firstChild.nodeValue = next;
       else node.textContent = next;
     };
-    write(playback.speed.get());
-    return playback.speed.on("change", write);
-  }, [playback.speed]);
+    const schedule = () => {
+      if (timer) return;
+      const wait = lastWrite + READOUT_INTERVAL_MS - performance.now();
+      if (wait <= 0) write();
+      else timer = window.setTimeout(write, wait);
+    };
+    write();
+    const unsubscribe = speed.on("change", schedule);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timer);
+    };
+  }, [speed]);
 
   const isCustom = committed.preset === null;
 
@@ -237,7 +257,6 @@ export function EasyPeasyEaseCurvesDemo() {
           <CurveGallery
             selected={committed.preset}
             progress={playback.clipProgress}
-            initialProgress={INITIAL_PROGRESS}
             onPreview={previewPreset}
             onSelect={selectPreset}
             className="epe-curves-gallery"

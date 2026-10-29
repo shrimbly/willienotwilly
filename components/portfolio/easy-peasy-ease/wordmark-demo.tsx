@@ -26,6 +26,8 @@ import "./wordmark/wordmark.css";
 // max-w-2xl column tracks its text-7xl title, with a floor for narrow tiles.
 const DROP_ZONE_WIDTH = "w-[min(100%,max(20rem,calc(var(--epe-wm-type)*8.9)))]";
 const ROW_GAP = "mt-[clamp(8px,2.6cqh,16px)]";
+// The entrance, skipped: keyboard focus arrived before the tile scrolled in.
+const INSTANT_REVEAL = { duration: 0 };
 
 /**
  * The Easy Peasy Ease landing screen (app/page.tsx, upload state): LightRays,
@@ -37,13 +39,18 @@ export function EasyPeasyEaseWordmarkDemo() {
   const rootRef = useRef<HTMLDivElement>(null);
   const { active, inView, reducedMotion } = useDemoActive(rootRef, 0.5);
   const revealed = useInView(rootRef, { once: true, amount: 0.35 });
+  // Focus can land on the controls before the entrance has run (a held Tab
+  // outruns the scroll): they appear at once instead, and wordmark.css keeps
+  // them shown while focus is inside in case the entrance was mid-way.
+  const [focusRevealed, setFocusRevealed] = useState(false);
   const [mode, setMode] = useState<LandingMode>("stitch");
   const [isDropZoneHovered, setIsDropZoneHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [notice, setNotice] = useState<LandingNotice | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const reveal = revealed ? "visible" : "hidden";
+  const reveal = revealed || focusRevealed ? "visible" : "hidden";
+  const revealTransition = focusRevealed ? INSTANT_REVEAL : undefined;
   const modeDirection = mode === "split" ? 1 : -1;
   const copy = LANDING_MODE_COPY[mode];
   const variants = landingModeVariants(reducedMotion);
@@ -81,6 +88,9 @@ export function EasyPeasyEaseWordmarkDemo() {
       aria-label="Easy Peasy Ease landing screen, interactive replica"
       onDragOver={refuseStrayDrag}
       onDrop={(event) => event.preventDefault()}
+      onFocus={() => {
+        if (!revealed && !focusRevealed) setFocusRevealed(true);
+      }}
     >
       <p className="sr-only">
         Move the pointer, or drag a finger, across the EasyPeasyEase wordmark to thin its letters.
@@ -105,7 +115,14 @@ export function EasyPeasyEaseWordmarkDemo() {
           />
           <div className="relative z-10 flex h-full w-full flex-col items-center justify-center px-4 py-[clamp(14px,6cqh,44px)] [--epe-wm-type:clamp(26px,min(9cqw,13.5cqh),72px)]">
             <div className="flex w-full flex-col items-center gap-[clamp(2px,1.2cqh,12px)] text-center">
-              <EpeBlurFade delay={0} duration={0.55} offset={8} animate={reveal} className="w-full">
+              <EpeBlurFade
+                delay={0}
+                duration={0.55}
+                offset={8}
+                animate={reveal}
+                transition={revealTransition}
+                className="epe-wm-reveal w-full"
+              >
                 <PressureWordmark
                   text="EasyPeasyEase"
                   sweep={active && revealed}
@@ -120,7 +137,8 @@ export function EasyPeasyEaseWordmarkDemo() {
                 duration={0.55}
                 offset={8}
                 animate={reveal}
-                className="epe-wm-intro flex flex-col items-center gap-[clamp(2px,1cqh,8px)] px-4"
+                transition={revealTransition}
+                className="epe-wm-reveal epe-wm-intro flex flex-col items-center gap-[clamp(2px,1cqh,8px)] px-4"
               >
                 <p className="max-w-lg text-[clamp(13px,3.2cqh,16px)] font-normal text-pretty text-(color:--body-muted-foreground)">
                   Free tool to stitch and apply ease curves to short videos.
@@ -134,7 +152,8 @@ export function EasyPeasyEaseWordmarkDemo() {
               duration={0.55}
               offset={8}
               animate={reveal}
-              className="mt-[clamp(10px,5cqh,40px)] flex justify-center"
+              transition={revealTransition}
+              className="epe-wm-reveal mt-[clamp(10px,5cqh,40px)] flex justify-center"
             >
               <SegmentedControl
                 activeIndex={mode === "stitch" ? 0 : 1}
@@ -170,7 +189,8 @@ export function EasyPeasyEaseWordmarkDemo() {
               offset={10}
               blur="8px"
               animate={reveal}
-              className={cn(ROW_GAP, DROP_ZONE_WIDTH, "flex max-h-[300px] min-h-[84px] flex-1")}
+              transition={revealTransition}
+              className={cn("epe-wm-reveal", ROW_GAP, DROP_ZONE_WIDTH, "flex max-h-[300px] min-h-[84px] flex-1")}
             >
               <div
                 role="button"
@@ -305,7 +325,9 @@ export function EasyPeasyEaseWordmarkDemo() {
           </div>
         </div>
 
-        <footer className="epe-wm-footer shrink-0 border-t border-border/50 px-6 py-4 font-mono text-[11px] tracking-wide text-muted-foreground">
+        {/* A <div>, not the product's <footer>: inside the portfolio page it is
+            not the page's footer. Shown only in a tile at least 520px tall. */}
+        <div className="epe-wm-footer shrink-0 border-t border-border/50 px-6 py-4 font-mono text-[11px] tracking-wide text-muted-foreground">
           By Willie —{" "}
           <a
             href="https://github.com/shrimbly/easy-peasy-ease"
@@ -326,7 +348,7 @@ export function EasyPeasyEaseWordmarkDemo() {
           >
             x
           </a>
-        </footer>
+        </div>
       </div>
     </EpeRoot>
   );
