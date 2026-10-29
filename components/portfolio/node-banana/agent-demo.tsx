@@ -64,6 +64,13 @@ const NO_EDGES: GraphEdgeSpec[] = [];
 const PORTRAIT_STRIP = 0.22;
 /** Further out the nodes read as thumbnails: the camera stays this close and lets the graph run past the edges. */
 const MIN_FIT_ZOOM = 0.35;
+/**
+ * A built graph that runs past its room beside the window (a narrow tile, the portrait strip) is framed by its newest
+ * nodes instead, up to FOCUS_ZOOM: the middle concepts and the gallery they feed (ag-c1, ag-c2 and ag-gallery as laid
+ * out, headers and socket tips included).
+ */
+const FOCUS_BOUNDS: Bounds = { x: 776, y: 264, width: 718, height: 502 };
+const FOCUS_ZOOM = 0.55;
 
 interface CameraTiming {
   delay: number;
@@ -77,7 +84,7 @@ const BUILD_PAN: CameraTiming = { delay: 0.3, duration: 1.2, ease: [0.45, 0, 0.2
 interface CameraLayout {
   portrait: boolean;
   panel: boolean;
-  /** The agent has built the graph: one too wide to fit shows its newest end, the columns its run fills. */
+  /** The agent has built the graph: one too big to fit shows its newest nodes, the columns its run fills. */
   built: boolean;
 }
 
@@ -87,9 +94,9 @@ function newestEnd(bottom: number) {
 }
 
 /**
- * Where the camera sits to show `bounds` clear of the agent window (its frame from AgentPanel's layout). It zooms no
- * further out than MIN_FIT_ZOOM: past that the graph runs off the tile's left edge or under the window, from its start
- * until the agent has built it, then from its newest end.
+ * Where the camera sits to show `bounds` clear of the agent window (its frame from AgentPanel's layout), and whether
+ * all of them fit. It zooms no further out than MIN_FIT_ZOOM: past that the graph runs off the tile's left edge or under
+ * the window, from its start until the agent has built it, then from its newest end.
  */
 function cameraFor(width: number, height: number, layout: CameraLayout, bounds: Bounds, maxZoom = 0.9) {
   /** The camera's x for the graph between screen x `left` and `right`, with world x `newest` in view once built. */
@@ -104,8 +111,14 @@ function cameraFor(width: number, height: number, layout: CameraLayout, bounds: 
     // The canvas is a strip above the sheet: fit the width, sit at the top, run on behind the window.
     const zoom = Math.min(maxZoom, Math.max(MIN_FIT_ZOOM, (width - 24) / bounds.width));
     const strip = height * PORTRAIT_STRIP - 8;
-    const top = bounds.height * zoom < strip ? (strip - bounds.height * zoom) / 2 + 6 : 10;
-    return { zoom, x: along(12, width - 12, zoom, newestEnd(bounds.y + (strip - top) / zoom)), y: top - bounds.y * zoom };
+    const fits = bounds.height * zoom < strip;
+    const top = fits ? (strip - bounds.height * zoom) / 2 + 6 : 10;
+    return {
+      zoom,
+      x: along(12, width - 12, zoom, newestEnd(bounds.y + (strip - top) / zoom)),
+      y: top - bounds.y * zoom,
+      fits: fits && bounds.width * zoom <= width - 24,
+    };
   }
   const panelWidth = Math.min(400, Math.max(300, width * 0.5));
   const inset = width >= 900 ? 16 : 12;
@@ -121,7 +134,14 @@ function cameraFor(width: number, height: number, layout: CameraLayout, bounds: 
     zoom,
     x: along(pad.l, pad.l + availW, zoom, bounds.x + bounds.width),
     y: pad.t + (availH - bounds.height * zoom) / 2 - bounds.y * zoom,
+    fits: bounds.width * zoom <= availW && bounds.height * zoom <= availH,
   };
+}
+
+/** The agent's graph: all of it, or once built, when all of it runs past the room beside the window, its newest nodes. */
+function graphCamera(width: number, height: number, layout: CameraLayout) {
+  const whole = cameraFor(width, height, layout, AGENT_GRAPH_BOUNDS);
+  return layout.built && layout.panel && !whole.fits ? cameraFor(width, height, layout, FOCUS_BOUNDS, FOCUS_ZOOM) : whole;
 }
 
 /** Bounds that make the kit's padding-free fit land exactly on `camera`. */
@@ -164,7 +184,7 @@ export function NodeBananaAgentDemo() {
       const v = viewRef.current;
       if (!v || v.width <= 0) return null;
       layout.current.portrait = v.height > v.width;
-      return boundsFor(v, cameraFor(v.width, v.height, layout.current, AGENT_GRAPH_BOUNDS));
+      return boundsFor(v, graphCamera(v.width, v.height, layout.current));
     },
     padding: 0,
     minZoom: 0.08,
@@ -240,13 +260,13 @@ export function NodeBananaAgentDemo() {
   const refit = useCallback(
     (instant = false, timing?: CameraTiming) => {
       if (view.interacted || view.width <= 0) return;
-      const to = cameraFor(view.width, view.height, layout.current, AGENT_GRAPH_BOUNDS);
+      const to = graphCamera(view.width, view.height, layout.current);
       animateCamera(view, to, instant || reducedMotion, timing);
     },
     [view, reducedMotion],
   );
 
-  // As the nodes land, a graph too wide for the tile pans along with them to its newest end.
+  // As the nodes land, a graph too big for the tile pans and zooms along with them to its newest nodes.
   const built = state.built > 0;
   useEffect(() => {
     if (layout.current.built === built) return;

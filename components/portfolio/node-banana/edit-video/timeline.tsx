@@ -16,6 +16,7 @@ import { Magnet, Plus, VolumeX } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { touchClaim, type TouchClaim } from "../kit";
 import type { PlayheadClock } from "./clock";
 import { BEAT_DURATION, BEAT_PEAKS, SOURCE_BY_ID, STRIP_FRAMES } from "./data";
 import {
@@ -628,6 +629,7 @@ export interface TimelineProps {
   onSelect: (selection: Selection) => void;
   onCommit: (next: EvEdit, coalesce?: string) => void;
   onPause: () => void;
+  /** A key or a button used the timeline (the demo's root counts pointer presses itself). */
   onInteract: () => void;
   onAddText: () => void;
   onAddTextDisabled: boolean;
@@ -710,11 +712,37 @@ export function Timeline({
     return rect ? (clientX - rect.left) / scale : 0;
   };
 
+  /**
+   * A finger's press until it is the timeline's: what it does (select, seek) waits until it lifts (a tap) or goes
+   * sideways (the drag's TouchClaim). A swipe the page takes for a scroll ends in a pointercancel, so it never selects,
+   * seeks, lifts a clip or pauses.
+   */
+  const finger = useRef<{ pointerId: number; claim: TouchClaim; settle: () => void } | null>(null);
+  /** A press does its part at once for a mouse or a pen; a finger's waits. */
+  const press = (event: ReactPointerEvent<HTMLElement>, settle: () => void) => {
+    const claim = touchClaim(event);
+    finger.current = claim ? { pointerId: event.pointerId, claim, settle } : null;
+    if (!claim) settle();
+  };
+  const settleFinger = (pointerId: number) => {
+    const f = finger.current;
+    if (!f || f.pointerId !== pointerId) return;
+    finger.current = null;
+    f.settle();
+  };
+  /** Whether a moving press is the timeline's yet: a finger's only once it goes sideways (the page takes a vertical one). */
+  const ours = (event: ReactPointerEvent<HTMLElement>) => {
+    const f = finger.current;
+    if (!f || f.pointerId !== event.pointerId) return true;
+    if (!f.claim.move(event.clientX, event.clientY)) return false;
+    settleFinger(event.pointerId);
+    return true;
+  };
+
   const pressClip = (event: ReactPointerEvent<HTMLElement>, index: number) => {
     if (event.button !== 0) return;
-    onInteract();
     const clip = edit.clips[index];
-    onSelect({ kind: "clip", id: clip.id });
+    press(event, () => onSelect({ kind: "clip", id: clip.id }));
     if (!stacked) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     setDrag({
@@ -735,8 +763,7 @@ export function Timeline({
 
   const pressSlide = (event: ReactPointerEvent<HTMLElement>, target: "text" | "audio", id: string) => {
     if (event.button !== 0) return;
-    onInteract();
-    onSelect({ kind: target, id });
+    press(event, () => onSelect({ kind: target, id }));
     const startSec = target === "text" ? (edit.texts.find((t) => t.id === id)?.startSec ?? 0) : edit.audio.startSec;
     const lengthSec =
       target === "text"
@@ -768,8 +795,7 @@ export function Timeline({
   ) => {
     if (event.button !== 0) return;
     event.stopPropagation();
-    onInteract();
-    onSelect({ kind: target, id });
+    press(event, () => onSelect({ kind: target, id }));
     let edgeSec = 0;
     if (target === "clip") {
       const c = placed.find((p) => p.id === id);
@@ -793,7 +819,7 @@ export function Timeline({
     if (!d) return;
     const dx = (event.clientX - d.px) / scale;
     const dy = d.kind === "trim" ? 0 : (event.clientY - d.py) / scale;
-    if (!d.lifted && Math.hypot(dx, dy) < DRAG_START_PX) return;
+    if (!d.lifted && (Math.hypot(dx, dy) < DRAG_START_PX || !ours(event))) return;
     const first = !d.lifted;
     if (first) onPause();
     const playhead = clock.get();
@@ -860,11 +886,13 @@ export function Timeline({
   const seekTo = (clientX: number) => clock.set(clamp(axis.xToTime(laneX(clientX)), 0, axis.total));
   const onRulerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    onInteract();
-    onPause();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     scrubbing.current = true;
-    seekTo(event.clientX);
+    const x = event.clientX;
+    press(event, () => {
+      onPause();
+      seekTo(x);
+    });
   };
   const rulerRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -1017,7 +1045,10 @@ export function Timeline({
     <div
       className={cn("relative shrink-0 overflow-hidden border-t", EDIT_LINE, PANE)}
       style={{ height: TIMELINE_PX }}
-      onPointerDown={onInteract}
+      onPointerUpCapture={(event) => settleFinger(event.pointerId)}
+      onPointerCancelCapture={(event) => {
+        if (finger.current?.pointerId === event.pointerId) finger.current = null;
+      }}
     >
       <div ref={lanesRef} className="absolute inset-0">
         {/* The ruler: a press or drag moves the playhead */}
@@ -1031,7 +1062,7 @@ export function Timeline({
           aria-valuemax={Number(axis.total.toFixed(2))}
           onPointerDown={onRulerDown}
           onPointerMove={(event) => {
-            if (scrubbing.current) seekTo(event.clientX);
+            if (scrubbing.current && ours(event)) seekTo(event.clientX);
           }}
           onPointerUp={() => {
             scrubbing.current = false;
@@ -1081,7 +1112,7 @@ export function Timeline({
           className="absolute inset-x-0 border-b border-white/4"
           style={{ top: textTop, height: GEOMETRY.overlayRow }}
           onPointerDown={(event) => {
-            if (event.target === event.currentTarget) onSelect(null);
+            if (event.target === event.currentTarget) press(event, () => onSelect(null));
           }}
         >
           {drawn.texts.map((t, i) => {
@@ -1192,7 +1223,7 @@ export function Timeline({
             aria-orientation="vertical"
             onKeyDown={onClipsKey}
             onPointerDown={(event) => {
-              if (event.target === event.currentTarget) onSelect(null);
+              if (event.target === event.currentTarget) press(event, () => onSelect(null));
             }}
             className="absolute inset-0 z-2"
           >
@@ -1250,7 +1281,7 @@ export function Timeline({
           className="absolute inset-x-0"
           style={{ top: audioTop, height: GEOMETRY.audioRow }}
           onPointerDown={(event) => {
-            if (event.target === event.currentTarget) onSelect(null);
+            if (event.target === event.currentTarget) press(event, () => onSelect(null));
           }}
         >
           {(() => {

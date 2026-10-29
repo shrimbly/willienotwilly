@@ -104,7 +104,10 @@
     .nb .nb-agent-hint:not([data-full]) .nb-agent-hint__mark {
       display: none;
     }
-    /* Top right: the graph's last column starts lower there. */
+    /*
+     * Top right: Replay shows once the graph is built, when the strip frames its newest nodes (FOCUS_BOUNDS in
+     * agent-demo.tsx), and the gallery at their right end starts lower than the concepts.
+     */
     .nb .nb-agent-replay {
       top: 8px;
       bottom: auto;
@@ -113,9 +116,8 @@
     }
   }
   /*
-   * Too narrow to fit the graph at the camera's least zoom (MIN_FIT_ZOOM 0.35 × its 1508px + 24px, in agent-demo.tsx),
-   * the strip shows the graph's newest end, up to the right edge, its first column running off the left: Replay goes
-   * over that.
+   * Narrower, the newest nodes fill the strip's width and the gallery reaches its right edge: Replay goes over the
+   * concepts' corner on the left instead.
    */
   @container nb (orientation: portrait) and (max-width: 551px) {
     .nb .nb-agent-replay {

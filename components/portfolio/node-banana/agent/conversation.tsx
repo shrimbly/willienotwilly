@@ -643,6 +643,10 @@ function PreviewRow({ record, page, actions }: { record: RunRecord; page: boolea
             <div className="group/frame nb-bg-well relative overflow-hidden rounded-[10px]" style={{ width: frameWidth, height }}>
               {item.pending ? (
                 <div aria-hidden className="absolute inset-0 bg-white/[0.04] motion-safe:animate-pulse" />
+              ) : overflow ? (
+                // '+N' covers this frame and opens the viewer, so the still under it is only its backdrop
+                // eslint-disable-next-line @next/next/no-img-element -- a 640px still at preview size
+                <img src={node.output!.src} alt="" draggable={false} decoding="async" className="nb-agent-fade-in size-full object-cover" />
               ) : (
                 <button
                   type="button"

@@ -23,7 +23,7 @@ import { CompactInspector, EditorRail } from "./edit-video/rail";
 import { Stage } from "./edit-video/stage";
 import { CONTROLS_MIN_PX, CONTROLS_PX, GEOMETRY, HEADER_PX, MEDIA_PANE_PX, RAIL_PX } from "./edit-video/styles";
 import { TIMELINE_PX, Timeline, trimTo, type Selection } from "./edit-video/timeline";
-import { DemoHint, NbRoot } from "./kit";
+import { DemoHint, NbRoot, useInteractOnRelease } from "./kit";
 import "./edit-video/edit-video.css";
 
 interface Layout {
@@ -168,6 +168,8 @@ export function NodeBananaEditVideoDemo() {
     setTouched(true);
     setPlaying(active);
   };
+  // A finger counts when it lifts: one that lands on the tile to scroll the page is not using it
+  const interact = useInteractOnRelease(touch);
   const pause = () => {
     setTouched(true);
     setPlaying(false);
@@ -325,7 +327,7 @@ export function NodeBananaEditVideoDemo() {
       role="group"
       aria-label="Node Banana's Edit Video editor: four generated clips on a stacked timeline, one row per clip"
       style={{ "--ev-strip": `${GEOMETRY.audioStrip * scale}px` } as CSSProperties}
-      onPointerDownCapture={touch}
+      {...interact}
       onKeyDown={onKeyDown}
     >
       <p className="sr-only">
