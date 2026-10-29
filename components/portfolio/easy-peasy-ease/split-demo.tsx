@@ -146,8 +146,10 @@ export function EasyPeasyEaseSplitDemo() {
   const create = () => {
     setMode("sequence");
     setSelectedSplit(null);
-    setMap(createSequenceMap(splitTimes, outputDuration, preset));
+    // Seek first: setMap re-syncs the video at the current time, which under the
+    // new map is some other frame. Time 0 is source 0 under both maps.
     seek(0);
+    setMap(createSequenceMap(splitTimes, outputDuration, preset));
     play();
   };
 
