@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, FlaskConical } from "lucide-react";
 
 import { BlurFade } from "@/components/ui/blur-fade";
 import { AwardsView } from "@/components/awards-view";
+import { DemoThumbnail } from "@/components/portfolio/demo-thumbnail";
 import { assetUrl } from "@/lib/asset-url";
 import {
   categoryFilters,
@@ -19,10 +20,23 @@ type FilterValue = PortfolioFilter;
 
 function ProjectCard({ project }: { project: Project }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  // A demo thumbnail runs whenever a card video would play.
+  const [playing, setPlaying] = useState(false);
+  const animated = Boolean(project.video || project.thumbnailDemo);
+
+  const play = useCallback((on: boolean) => {
+    const video = videoRef.current;
+    if (video) {
+      if (on) video.play().catch(() => {});
+      else video.pause();
+    }
+    setPlaying(on);
+  }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    const target = videoRef.current ?? frameRef.current;
+    if (!animated || !target) return;
     if (
       typeof window === "undefined" ||
       window.matchMedia("(hover: hover)").matches
@@ -30,44 +44,31 @@ function ProjectCard({ project }: { project: Project }) {
       return;
     }
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      },
+      ([entry]) => play(entry.isIntersecting),
       { threshold: 0.4 },
     );
-    observer.observe(video);
+    observer.observe(target);
     return () => observer.disconnect();
-  }, []);
+  }, [animated, play]);
 
   const playOnHover = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (window.matchMedia("(hover: hover)").matches) {
-      video.play().catch(() => {});
-    }
+    if (window.matchMedia("(hover: hover)").matches) play(true);
   };
 
   const pauseOnLeave = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (window.matchMedia("(hover: hover)").matches) {
-      video.pause();
-    }
+    if (window.matchMedia("(hover: hover)").matches) play(false);
   };
 
   return (
     <Link
       href={`/portfolio/${project.slug}`}
       className="group block"
-      onMouseEnter={project.video ? playOnHover : undefined}
-      onMouseLeave={project.video ? pauseOnLeave : undefined}
+      onMouseEnter={animated ? playOnHover : undefined}
+      onMouseLeave={animated ? pauseOnLeave : undefined}
     >
       <article className="flex flex-col">
         <div
+          ref={frameRef}
           className={
             "squircle relative aspect-[3/2] w-full overflow-hidden rounded-[44px] border border-border/70 transition-colors duration-300 group-hover:border-border sm:rounded-[52px] isolate " +
             (project.inset
@@ -85,7 +86,14 @@ function ProjectCard({ project }: { project: Project }) {
               aria-hidden="true"
             />
           )}
-          {project.video ? (
+          {project.thumbnailDemo ? (
+            <DemoThumbnail
+              id={project.thumbnailDemo}
+              playing={playing}
+              backdropClass={project.thumbnailClass ?? ""}
+              frameClass={project.placeholderClass}
+            />
+          ) : project.video ? (
             project.inset ? (
               <div className="absolute inset-2 flex items-center justify-center sm:inset-3">
                 <video

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
 
-import { useDemoActive } from "@/components/portfolio/use-demo-active";
+import { useDemoActive, useDemoThumbnail } from "@/components/portfolio/use-demo-active";
 
 import { CarsWorkflow } from "./canvas/cars-workflow";
 import { MannequinWorkflow } from "./canvas/mannequin-workflow";
@@ -23,6 +23,7 @@ export function NodeBananaCanvasDemo() {
   const root = useRef<HTMLDivElement | null>(null);
   const pill = useRef<HTMLDivElement | null>(null);
   const { active, inView, reducedMotion } = useDemoActive(root);
+  const thumbnail = useDemoThumbnail();
   const [tabs, setTabs] = useState<AppTab[]>(START_TABS);
   const [shown, setShown] = useState("mannequin");
   // Tabs mount when first opened and stay mounted (display:none) so drags survive a switch.
@@ -110,7 +111,7 @@ export function NodeBananaCanvasDemo() {
               <AgentPill onClick={openAgentDemo} />
             </div>
             {/* Every layout keeps the canvas's top band clear for it. */}
-            <DemoHint corner="top-left" hidden={touched}>
+            <DemoHint corner="top-left" hidden={touched || thumbnail}>
               Drag a node
             </DemoHint>
           </>

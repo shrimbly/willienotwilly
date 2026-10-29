@@ -102,6 +102,10 @@ export type Project = {
   highlights: Highlight[];
   inset?: boolean;
   thumbnailBadge?: ThumbnailBadge;
+  // The listing card shows this demo, live and inert, in place of `video`,
+  // as a window over thumbnailClass.
+  thumbnailDemo?: DemoId;
+  thumbnailClass?: string;
 };
 
 export type PortfolioFilter = "all" | ProjectCategory | "awards";
@@ -187,8 +191,8 @@ export const projects: Project[] = [
     ctaLabel: "Visit nodebanana.app",
     category: "personal",
     placeholderClass: "bg-[#171717]",
-    video: "/videos/portfolio/banana.mp4",
-    poster: "/images/portfolio/posters/banana.jpg",
+    thumbnailDemo: "node-banana-canvas",
+    thumbnailClass: "bg-[linear-gradient(180deg,#eeeeee_0%,#fafafa_100%)]",
     heroDemo: "node-banana-canvas",
     heroDemoMobileAspect: "3/4",
     stats: [
@@ -290,8 +294,8 @@ export const projects: Project[] = [
     ctaLabel: "View on GitHub",
     category: "personal",
     placeholderClass: "bg-[#0f1d20]",
-    video: "/videos/portfolio/ezpz.mp4",
-    poster: "/images/portfolio/posters/ezpz.jpg",
+    thumbnailDemo: "easy-peasy-ease-editor",
+    thumbnailClass: "bg-[linear-gradient(135deg,#6a7978_0%,#3b4b4c_45%,#0f2223_100%)]",
     heroDemo: "easy-peasy-ease-editor",
     heroDemoMobileAspect: "2/3",
     stats: [

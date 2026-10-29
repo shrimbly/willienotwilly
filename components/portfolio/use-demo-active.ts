@@ -1,9 +1,21 @@
 "use client";
 
-import { useSyncExternalStore, type RefObject } from "react";
+import { createContext, useContext, useSyncExternalStore, type RefObject } from "react";
 import { useInView } from "motion/react";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+/**
+ * Set around a demo shown as a listing card's thumbnail
+ * (components/portfolio/demo-thumbnail.tsx): it runs its motion only while
+ * `playing`, when the card's video would play, and leaves out its hints.
+ */
+export const DemoThumbnailContext = createContext<{ playing: boolean } | null>(null);
+
+/** Whether this demo is a listing card's thumbnail rather than a tile on its page. */
+export function useDemoThumbnail() {
+  return useContext(DemoThumbnailContext) !== null;
+}
 
 function subscribeReducedMotion(onChange: () => void) {
   const query = window.matchMedia(REDUCED_MOTION);
@@ -27,6 +39,7 @@ function subscribeVisibility(onChange: () => void) {
  */
 export function useDemoActive(ref: RefObject<Element | null>, amount = 0.25) {
   const inView = useInView(ref, { amount });
+  const thumbnail = useContext(DemoThumbnailContext);
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
     () => window.matchMedia(REDUCED_MOTION).matches,
@@ -39,7 +52,7 @@ export function useDemoActive(ref: RefObject<Element | null>, amount = 0.25) {
   );
 
   return {
-    active: inView && pageVisible && !reducedMotion,
+    active: inView && (thumbnail?.playing ?? true) && pageVisible && !reducedMotion,
     inView,
     reducedMotion,
     pageVisible,

@@ -5,7 +5,7 @@ import type { ChangeEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { useMotionValueEvent } from "motion/react";
 
-import { useDemoActive } from "@/components/portfolio/use-demo-active";
+import { useDemoActive, useDemoThumbnail } from "@/components/portfolio/use-demo-active";
 import { getPresetBezier, type Bezier } from "@/lib/easy-peasy-ease/easing-presets";
 
 import {
@@ -40,7 +40,9 @@ export function EasyPeasyEaseEditorDemo() {
   const [loopCount, setLoopCount] = useState(1);
   const [zoom, setZoom] = useState(0);
   const [tab, setTab] = useState<0 | 1>(0);
-  const [showHint, setShowHint] = useState(true);
+  // A listing thumbnail shows the curve's readout, as the product does, not the hint.
+  const thumbnail = useDemoThumbnail();
+  const [showHint, setShowHint] = useState(!thumbnail);
   const [portrait, setPortrait] = useState(false);
 
   const retimeClips = useMemo<RetimeClip[]>(
