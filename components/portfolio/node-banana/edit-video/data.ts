@@ -1,46 +1,46 @@
 import type { EvEdit, SourceMedia } from "./model";
 
-// The edit the demo opens: four MGB GT V8 shots generated in Node Banana, stacked one row per clip with a second's
-// overlap each (Line up), a title over the first, and a 128 BPM kick under the lot.
+// The edit the demo opens: the first three shots of "Plate and Mail", an edit made in Node Banana (its own In and Out
+// points), stacked one row per clip with a second's overlap each (Line up), a title over the first, and a 128 BPM kick
+// under the lot.
 
-const CAR = (n: number, name: string): SourceMedia => ({
-  id: `car-${n}`,
+const SHOT = (n: number, name: string): SourceMedia => ({
+  id: `shot-${n}`,
   name,
-  src: `/videos/portfolio/demos/cars/car-${n}.mp4`,
-  poster: `/images/portfolio/demos/cars/car-${n}.jpg`,
-  strip: `/images/portfolio/demos/cars/car-${n}-strip.jpg`,
-  duration: 5.083,
+  src: `/videos/portfolio/demos/plate-and-mail/clip-${n}.mp4`,
+  poster: `/images/portfolio/demos/plate-and-mail/clip-${n}.jpg`,
+  strip: `/images/portfolio/demos/plate-and-mail/clip-${n}-strip.jpg`,
+  // 145 frames each: the third, an 18 s generation, is cut to its first 145, which hold the part the edit uses
+  duration: 6.042,
 });
 
 export const SOURCES: SourceMedia[] = [
-  CAR(1, "mgb_gt_v8_reveal_7c41e2"),
-  CAR(2, "mgb_gt_v8_crane_0b9fd3"),
-  CAR(3, "mgb_gt_v8_overhead_52aa18"),
-  CAR(4, "mgb_gt_v8_door_e60c7b"),
-  CAR(5, "mgb_gt_v8_wheel_3d18f0"),
-  CAR(6, "mgb_gt_v8_grille_a4c95e"),
+  SHOT(1, "ntsc_rs_08ff50e842c9e9e4d982002aa87a6add.mp4"),
+  SHOT(2, "ntsc_rs_3acde6b779a1ca2292c3e55a7da99193.mp4"),
+  SHOT(3, "ntsc_rs_0c09efbc2c1574846b524bd17530b57b.mp4"),
 ];
 
 export const SOURCE_BY_ID = new Map(SOURCES.map((s) => [s.id, s]));
 
 export const AUDIO_SRC = "/audio/portfolio/demos/beats-128.mp3";
 export const STRIP_FRAMES = 8;
-export const FRAME_ASPECT = 960 / 642;
-export const EDIT_NAME = "MGB GT V8";
+/** One frame of a strip, in the image's px. */
+export const STRIP_TILE = { width: 160, height: 90 } as const;
+export const FRAME_ASPECT = 960 / 536;
+export const EDIT_NAME = "Plate and Mail";
 
 export const INITIAL_EDIT: EvEdit = {
   clips: [
-    { id: "c1", source: "car-1", inSec: 0.2, outSec: 4.2, start: 0, speed: 1, ramp: null, muted: false, volume: 1 },
-    { id: "c2", source: "car-2", inSec: 0.4, outSec: 4.4, start: 3, speed: 1, ramp: null, muted: false, volume: 1 },
-    { id: "c3", source: "car-3", inSec: 0.6, outSec: 4.6, start: 6, speed: 1, ramp: null, muted: false, volume: 1 },
-    { id: "c4", source: "car-6", inSec: 0, outSec: 5, start: 9, speed: 1, ramp: null, muted: false, volume: 1 },
+    { id: "c1", source: "shot-1", inSec: 1.976, outSec: 5.566, start: 0, speed: 1, ramp: null, muted: false, volume: 1 },
+    { id: "c2", source: "shot-2", inSec: 0.768, outSec: 4.308, start: 2.59, speed: 1, ramp: null, muted: false, volume: 1 },
+    { id: "c3", source: "shot-3", inSec: 1.907, outSec: 5.077, start: 5.13, speed: 1, ramp: null, muted: false, volume: 1 },
   ],
   texts: [
     {
       id: "t1",
-      text: "MGB GT V8",
-      startSec: 0.8,
-      endSec: 4.4,
+      text: "Plate & Mail",
+      startSec: 0.6,
+      endSec: 3.9,
       fadeInSec: 0.5,
       fadeOutSec: 0.5,
       weight: 600,
@@ -53,7 +53,7 @@ export const INITIAL_EDIT: EvEdit = {
     startSec: 0,
     // The first kick lands on 0:00
     inSec: 0.162,
-    outSec: 14.162,
+    outSec: 8.462,
     duration: 30,
     muted: false,
     volume: 1,
@@ -64,7 +64,7 @@ export const INITIAL_EDIT: EvEdit = {
 };
 
 /** Where the still tile rests (reduced motion, and before it plays): mid-dissolve from Clip 1 to Clip 2, under the title. */
-export const RESTING_PLAYHEAD = 3.42;
+export const RESTING_PLAYHEAD = 3;
 
 /** The kick's peaks, 256 bins over its 30 s (scratchpad/beats-128.waveform.json, rounded). */
 export const BEAT_PEAKS: readonly number[] = [

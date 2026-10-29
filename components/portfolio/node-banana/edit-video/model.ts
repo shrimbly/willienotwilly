@@ -27,7 +27,7 @@ export interface SourceMedia {
   name: string;
   src: string;
   poster: string;
-  /** Eight frames side by side, 160×108 each. */
+  /** Eight frames side by side, STRIP_TILE (160×90) each. */
   strip: string;
   duration: number;
 }

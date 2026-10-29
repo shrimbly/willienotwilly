@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 import { touchClaim, type TouchClaim } from "../kit";
 import type { PlayheadClock } from "./clock";
-import { BEAT_DURATION, BEAT_PEAKS, SOURCE_BY_ID, STRIP_FRAMES } from "./data";
+import { BEAT_DURATION, BEAT_PEAKS, INITIAL_EDIT, SOURCE_BY_ID, STRIP_FRAMES, STRIP_TILE } from "./data";
 import {
   MAX_START_SEC,
   MIN_CLIP_SEC,
@@ -81,8 +81,8 @@ export interface Axis {
 const ORIGIN = GEOMETRY.origin;
 const ROW = GEOMETRY.stackRow;
 const DRAG_START_PX = 4;
-/** 3.5 rows past the cap would scroll; the demo's four rows always show. */
-export const STACK_ROWS = 4;
+/** One row per clip, as the app draws them under its 3.5-row cap; the demo's clips never change in number. */
+export const STACK_ROWS = INITIAL_EDIT.clips.length;
 
 /** Fit: the sequence, its text and its audio fill the lanes, with the room the real lane keeps after them. */
 export function makeAxis(edit: EvEdit, width: number): Axis {
@@ -286,9 +286,9 @@ const Filmstrip = memo(function Filmstrip({
   const source = SOURCE_BY_ID.get(clip.source);
   if (!source) return null;
   const cell = GEOMETRY.frameCell;
-  const scale = Math.max(cell / 160, height / 108);
-  const tw = 160 * scale;
-  const th = 108 * scale;
+  const scale = Math.max(cell / STRIP_TILE.width, height / STRIP_TILE.height);
+  const tw = STRIP_TILE.width * scale;
+  const th = STRIP_TILE.height * scale;
   const count = Math.max(0, Math.ceil(width / cell));
   const cells = [];
   for (let k = 0; k < count; k++) {

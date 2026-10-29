@@ -325,7 +325,7 @@ export function NodeBananaEditVideoDemo() {
     <NbRoot
       ref={root}
       role="group"
-      aria-label="Node Banana's Edit Video editor: four generated clips on a stacked timeline, one row per clip"
+      aria-label="Node Banana's Edit Video editor: three generated clips on a stacked timeline, one row per clip"
       style={{ "--ev-strip": `${GEOMETRY.audioStrip * scale}px` } as CSSProperties}
       {...interact}
       onKeyDown={onKeyDown}

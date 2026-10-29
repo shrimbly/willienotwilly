@@ -202,7 +202,7 @@ function ClipRail({
   const length = clipLength(clip);
   const sourceLength = clip.outSec - clip.inSec;
   const full = formatSeconds(duration);
-  // railDetail in an edit: the library's clips carry no kind, so the line is the length, "4.00 s of 5.08 s"
+  // railDetail in an edit: the library's clips carry no kind, so the line is the length, "3.54 s of 6.04 s"
   const detail = formatSeconds(sourceLength) === full ? full : `${formatSeconds(sourceLength)} of ${full}`;
   const set = (patch: (c: EvClip) => EvClip, coalesce?: string) => onCommit(patchClip(edit, clip.id, patch), coalesce);
   const pos = Math.round(speedToSlider(clip.speed));
