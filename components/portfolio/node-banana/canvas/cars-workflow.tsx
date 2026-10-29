@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   CARS_BOOM_PROMPT,
@@ -42,7 +42,7 @@ import {
   TEXT_SOCKETS,
   type ParamSpec,
 } from "./nodes";
-import { downloadFile, saved, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
+import { downloadFile, saved, useOnScreen, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Cars": the landing site's second tab, a 14-node contact-sheet workflow
@@ -110,12 +110,24 @@ const PHONE_LAYOUT: Record<string, Placement> = {
   "nanoBanana-11": [380, 456, 320],
 };
 const PHONE_SHIFT = -760;
+/** Phone-width tiles: the same columns at the app's minimum node width, so the four fit at a readable zoom. */
+const NARROW_LAYOUT: Record<string, Placement> = {
+  "imageInput-6": [0, 0, 200],
+  "prompt-9": [0, 208, 200],
+  "llmGenerate-10": [240, 40, 200],
+  "nanoBanana-11": [240, 325, 200],
+};
+const NARROW_SHIFT = -1040;
 const LAYOUT: WorkflowLayout = {
   phone: (id) => {
     const [x, y, width] = saved(NODES, id);
     return PHONE_LAYOUT[id] ?? [x + PHONE_SHIFT, y, width];
   },
-  frames: { wide: [OPENING], mid: [OPENING, TO_SHEET], phone: [TO_SHEET] },
+  narrow: (id) => {
+    const [x, y, width] = saved(NODES, id);
+    return NARROW_LAYOUT[id] ?? [x + NARROW_SHIFT, y, width];
+  },
+  frames: { wide: [OPENING], mid: [OPENING, TO_SHEET], phone: [TO_SHEET], narrow: [TO_SHEET] },
 };
 
 const geminiProImage = (resolution: string): ParamSpec[] => [
@@ -138,6 +150,8 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
   const { selected, setSelected, running, run } = useWorkflowState();
   const [cleared, setCleared] = useState<string[]>([]);
   const [heights, setHeights] = useState<Record<string, number>>({});
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoOnScreen = useOnScreen(videoRef);
   const { cars } = NB_ASSETS;
 
   const shell = (id: string, enterIndex: number) => ({
@@ -211,7 +225,8 @@ export function CarsWorkflow({ env }: { env: WorkflowEnv }) {
         inputs={KLING_INPUTS}
         outputs={GENERATE_VIDEO_OUTPUTS}
         video={cars.video}
-        playing={env.active}
+        videoRef={videoRef}
+        playing={env.active && videoOnScreen}
         fields={<SchemaFields params={KLING_PARAMS} />}
         onRun={() => run("generateVideo-69", 3200)}
       />

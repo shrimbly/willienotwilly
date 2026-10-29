@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
-import { cn } from "@/lib/utils";
 
 import { CarsWorkflow } from "./canvas/cars-workflow";
 import { MannequinWorkflow } from "./canvas/mannequin-workflow";
 import type { WorkflowEnv } from "./canvas/use-workflow";
 import { WorkflowCanvas } from "./canvas/workflow-canvas";
-import { AgentPill, AppWindow, DemoHint, NbRoot, useCanvasView, type AppTab } from "./kit";
+import { AgentPill, AppWindow, DemoHint, NbRoot, useCanvasView, useInteractOnRelease, type AppTab } from "./kit";
 
 // The hero: the Node Banana desktop window as the landing site draws it
 // (site/src/partials/app-window.html), live. Two workflow tabs at their saved
@@ -59,6 +58,8 @@ export function NodeBananaCanvasDemo() {
     if (id === shown) show(rest[Math.min(index, rest.length - 1)].id);
   };
   const touch = useCallback(() => setTouched(true), []);
+  // A finger counts on release, so one that lands here to scroll the page past the tile never fades the hint.
+  const interact = useInteractOnRelease(touch);
 
   // A closed tab takes its close button with it: hand focus to the tab shown next.
   useEffect(() => {
@@ -79,7 +80,7 @@ export function NodeBananaCanvasDemo() {
       ref={root}
       role="group"
       aria-label="Node Banana desktop app with two workflows open on the canvas"
-      onPointerDownCapture={touch}
+      {...interact}
     >
       <p className="sr-only">
         Drag nodes or the canvas, hold Control or Command and scroll to zoom, and switch workflows with the tabs. A focused node moves with the arrow keys and
@@ -92,12 +93,10 @@ export function NodeBananaCanvasDemo() {
         onTabClose={closeTab}
         onNewTab={newTab}
         framed={false}
-        className={cn(
-          // Concentric with the page tile's squircle corners (32px, 40px from sm), 5px inside them.
-          "[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]",
-          // Phone tiles still fit both workflow tabs (the shown one truncates first); only "+" goes.
-          "@max-[479px]:[&_[data-rest]]:flex",
-        )}
+        // Phone tiles keep the shown tab and its neighbour (both truncate); only "+" goes.
+        narrowTabs="pair"
+        // Concentric with the page tile's squircle corners (32px, 40px from sm), 5px inside them.
+        className="[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]"
         frameOverlay={
           <>
             <AgentPill className="absolute top-3 right-4 z-10" onClick={openAgentDemo} />

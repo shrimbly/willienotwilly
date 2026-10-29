@@ -26,6 +26,7 @@ import {
   type SocketSpec,
 } from "../kit";
 import { BezierEditor, type Bezier } from "./bezier-editor";
+import { useOnScreen } from "./use-workflow";
 
 // The node types the kit has no preset for, built on NodeCard the way the app
 // builds them (src/components/nodes/*Node.tsx), plus the schema-driven
@@ -321,6 +322,7 @@ export function EaseCurveNode({
   ...shell
 }: Shell & { video: { src: string; poster: string; width: number; height: number; duration: number }; playing: boolean }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const onScreen = useOnScreen(ref);
   const [curve, setCurve] = useState<Bezier>(SITE_CURVE);
   const [preset, setPreset] = useState<string | null>(null);
   const [duration, setDuration] = useState(1.5);
@@ -378,7 +380,7 @@ export function EaseCurveNode({
         </ControlsCard>
       }
     >
-      <NodeVideo ref={ref} src={video.src} poster={video.poster} playing={playing && !shell.running} />
+      <NodeVideo ref={ref} src={video.src} poster={video.poster} playing={playing && onScreen && !shell.running} />
       {shell.running && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-900/70">
           <LoadingOverlay className="relative inset-auto bg-transparent" />

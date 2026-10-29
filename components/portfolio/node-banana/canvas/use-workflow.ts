@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { useCanvasView, type Bounds, type CanvasView, type GraphNodeSpec, type NodeGraph } from "../kit";
 
@@ -45,28 +45,36 @@ export function useWorkflowState() {
 /**
  * The canvas shapes a workflow lays itself out for: wide tiles show the whole
  * workflow at its saved coordinates, mid-size ones a few nodes closer up, and
- * portrait or near-square ones (height > 0.9 × width) the phone layout.
+ * portrait or near-square ones (height > 0.9 × width) the phone layout, or
+ * the narrow one on phone-width canvases where the phone layout's two 300px
+ * columns would shrink below a readable zoom.
  */
-type Shape = "wide" | "mid" | "phone";
+type Shape = "wide" | "mid" | "phone" | "narrow";
 
 /** Wide canvases narrower than this (a ~1100px tile) frame a few nodes rather than the whole workflow. */
 const WIDE_MIN_W = 1088;
+/** Portrait canvases narrower than this take the narrow layout, where a workflow has one. */
+const NARROW_MAX_W = 512;
 
 interface Framing {
   /** Room kept round the framed nodes. The top band holds the hint (left) and the Agent pill (right). */
   pad: { top: number; right: number; bottom: number; left: number };
   maxZoom: number;
-  /** The zoom a frame must reach to be picked over the next, smaller one. */
+  /** The zoom a frame must reach to be picked over the next, smaller one (10px node text renders at 7px from 0.7). */
   readable: number;
-  /** Below `readable`, zoom in to it anyway and let the outer nodes run off the sides. */
+  /** Below `readable`, zoom in to it anyway: the frame keeps its left edge and the nodes beyond it run off to the right. */
   crop: boolean;
+  /** Sit the frame at the top of the padding, the rest of a stacked layout running off the bottom (default: centred). */
+  alignTop?: boolean;
 }
 
 const FRAMING: Record<Shape, Framing> = {
-  wide: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 1, readable: 0.6, crop: true },
-  mid: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 0.72, readable: 0.45, crop: false },
-  // The right column of a phone layout starts low enough to clear the pill.
-  phone: { pad: { top: 36, right: 8, bottom: 14, left: 8 }, maxZoom: 0.75, readable: 0.45, crop: false },
+  wide: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 1, readable: 0.72, crop: true },
+  mid: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 0.8, readable: 0.45, crop: false },
+  // The right column of a portrait layout starts low enough to clear the pill.
+  phone: { pad: { top: 36, right: 8, bottom: 14, left: 8 }, maxZoom: 0.75, readable: 0.7, crop: false },
+  // Only the top of the narrow layout fits: the rest of its columns shows below it.
+  narrow: { pad: { top: 36, right: 8, bottom: 14, left: 8 }, maxZoom: 0.75, readable: 0.7, crop: false, alignTop: true },
 };
 
 /** Where a layout puts a node: [x, y, width] in world px. */
@@ -75,6 +83,8 @@ export type Placement = readonly [number, number, number];
 export interface WorkflowLayout {
   /** Where the phone layout puts each node. */
   phone: (id: string) => Placement;
+  /** Where phone-width canvases put each node (default: the phone layout). */
+  narrow?: (id: string) => Placement;
   /** Where mid-size canvases put each node (default: the saved coordinates). */
   mid?: (id: string) => Placement;
   /**
@@ -94,13 +104,15 @@ export function useWorkflowView(graph: NodeGraph, nodes: ReadonlyArray<GraphNode
   const view = useCanvasView({
     fit: () => {
       if (view.width <= 0 || view.height <= 0) return null;
-      const shape: Shape = view.height > view.width * 0.9 ? "phone" : view.width < WIDE_MIN_W ? "mid" : "wide";
+      const portrait = view.height > view.width * 0.9;
+      const shape: Shape = portrait ? (layout.narrow && view.width < NARROW_MAX_W ? "narrow" : "phone") : view.width < WIDE_MIN_W ? "mid" : "wide";
       if (current.current !== shape) {
         current.current = shape;
         const savedAt = (id: string) => saved(nodes, id);
-        placeNodes(graph, view, shape === "phone" ? layout.phone : shape === "mid" ? (layout.mid ?? savedAt) : savedAt);
+        const place = { wide: savedAt, mid: layout.mid ?? savedAt, phone: layout.phone, narrow: layout.narrow ?? layout.phone }[shape];
+        placeNodes(graph, view, place);
       }
-      const { pad, maxZoom, readable, crop } = FRAMING[shape];
+      const { pad, maxZoom, readable, crop, alignTop } = FRAMING[shape];
       const availW = Math.max(1, view.width - pad.left - pad.right);
       const availH = Math.max(1, view.height - pad.top - pad.bottom);
       let content: Bounds | null = null;
@@ -113,9 +125,10 @@ export function useWorkflowView(graph: NodeGraph, nodes: ReadonlyArray<GraphNode
       }
       if (!content) return null;
       if (crop) zoom = Math.max(zoom, Math.min(readable, availH / content.height));
-      // The rectangle that, fitted edge to edge, centres the content at that zoom inside the padding.
-      const left = pad.left + (availW - content.width * zoom) / 2;
-      const top = pad.top + (availH - content.height * zoom) / 2;
+      // The rectangle that, fitted edge to edge, places the content at that zoom inside the padding:
+      // centred, or from the left edge (where the workflow starts) when it is cropped.
+      const left = pad.left + Math.max(0, (availW - content.width * zoom) / 2);
+      const top = pad.top + (alignTop ? 0 : (availH - content.height * zoom) / 2);
       return { x: content.x - left / zoom, y: content.y - top / zoom, width: view.width / zoom, height: view.height / zoom };
     },
     padding: 0,
@@ -145,6 +158,23 @@ function placeNodes(graph: NodeGraph, view: CanvasView, place: (id: string) => P
     const el = view.element?.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
     if (el) el.style.width = `${width}px`;
   }
+}
+
+/**
+ * Whether an element is on screen: in the viewport and inside the tile's clip.
+ * Gates a node's video, which on a tall phone tile can sit below the fold (or
+ * be panned out of the canvas) while the tile itself is in view.
+ */
+export function useOnScreen(ref: RefObject<Element | null>): boolean {
+  const [onScreen, setOnScreen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return onScreen;
 }
 
 /** A node's Download button: save the file it shows. */

@@ -9,11 +9,4 @@
   .nb [data-nb-intro="hold"] .nb-noodle--draw {
     animation-play-state: paused;
   }
-
-  /* The image's Download and Clear tools fade in on hover; keyboard focus
-     shows them at once, so the focused button is never caught invisible. */
-  .nb .nb-hero-canvas [data-media-clip] div:has(> button:focus-visible) {
-    opacity: 1;
-    transition: none;
-  }
 }

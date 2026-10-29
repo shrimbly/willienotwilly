@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { MANNEQUIN_ORBIT_PROMPT, MANNEQUIN_PROMPT } from "@/lib/node-banana/canvas-workflows";
 
@@ -23,7 +23,7 @@ import {
   type SocketSpec,
 } from "../kit";
 import { IMAGE_MODEL_INPUTS, PromptConstructorNode, SchemaFields, TEXT_SOCKETS, type ParamSpec } from "./nodes";
-import { downloadFile, saved, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
+import { downloadFile, saved, useOnScreen, useWorkflowState, useWorkflowView, type Placement, type WorkflowEnv, type WorkflowLayout } from "./use-workflow";
 import { WorkflowCanvas } from "./workflow-canvas";
 
 // "Invisible Mannequin": the landing site's first tab (app-window.html), at
@@ -46,14 +46,14 @@ const NODES: GraphNodeSpec[] = [
 
 /** The photo and its prompt into Generate Image: what smaller tiles frame, the rest running off the edge. */
 const FIRST_STEP = ["imageInput-22", "prompt-23", "nanoBanana-3"];
+/** The photo beside the jacket made from it: all a phone-width tile holds at a readable zoom. */
+const PAIR = ["imageInput-22", "nanoBanana-3"];
 
 /**
- * Portrait tiles: the site's two columns (site.js PHONE_LAYOUTS.mannequin),
- * rebalanced so all five nodes fit a tall tile at once: the constructor moves
- * under the prompt, the nodes take near-default widths, and the right column
- * starts lower so the Agent pill sits over empty canvas. Phones too short for
- * all five at a readable size frame the first step; the rest runs off the
- * bottom. [x, y, width].
+ * Portrait tiles: the site's two columns (site.js PHONE_LAYOUTS.mannequin)
+ * at near-default widths, the constructor under the prompt and the right
+ * column started lower so the Agent pill sits over empty canvas. The tile
+ * frames the first step; the video side runs off the bottom. [x, y, width].
  */
 const PHONE_LAYOUT: Record<string, Placement> = {
   "imageInput-22": [0, 0, 300],
@@ -64,22 +64,36 @@ const PHONE_LAYOUT: Record<string, Placement> = {
 };
 
 /**
- * Mid-size tiles: the same row at the nodes' default widths, pulled together,
- * so the first step fills the tile and the video side runs off to the right.
+ * Phone-width tiles: the same columns at the app's minimum node width, close
+ * enough for the photo and its jacket to sit side by side at a readable zoom,
+ * the prompt and the video side stacked below them.
  */
-const MID_LAYOUT: Record<string, Placement> = {
-  "imageInput-22": [-375, 362, 300],
-  "prompt-23": [25, 447, 300],
-  "nanoBanana-3": [374, 369, 300],
-  "promptConstructor-13": [828, 514, 340],
-  "generateVideo-17": [1270, 393, 300],
+const NARROW_LAYOUT: Record<string, Placement> = {
+  "imageInput-22": [0, 0, 200],
+  "prompt-23": [0, 342, 200],
+  "promptConstructor-13": [0, 683, 200],
+  "nanoBanana-3": [240, 60, 200],
+  "generateVideo-17": [240, 422, 200],
 };
 
-const ALL = NODES.map((n) => n.id);
+/**
+ * Mid-size tiles: the same row pulled together, the image nodes narrowed so
+ * the first step fits a 16:9 tile at a readable zoom and the video side runs
+ * off to the right.
+ */
+const MID_LAYOUT: Record<string, Placement> = {
+  "imageInput-22": [-375, 362, 245],
+  "prompt-23": [-50, 420, 280],
+  "nanoBanana-3": [280, 362, 230],
+  "promptConstructor-13": [680, 470, 340],
+  "generateVideo-17": [1110, 393, 300],
+};
+
 const LAYOUT: WorkflowLayout = {
   phone: (id) => PHONE_LAYOUT[id] ?? saved(NODES, id),
+  narrow: (id) => NARROW_LAYOUT[id] ?? saved(NODES, id),
   mid: (id) => MID_LAYOUT[id] ?? saved(NODES, id),
-  frames: { mid: [FIRST_STEP], phone: [ALL, FIRST_STEP] },
+  frames: { mid: [FIRST_STEP], phone: [FIRST_STEP], narrow: [PAIR] },
 };
 
 const EDGES: GraphEdgeSpec[] = [
@@ -118,6 +132,8 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
   const [videoIndex, setVideoIndex] = useState(0);
   const [promptHeight, setPromptHeight] = useState(253);
   const [orbitHeight, setOrbitHeight] = useState(160);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoOnScreen = useOnScreen(videoRef);
   const { mannequin } = NB_ASSETS;
 
   const shell = (id: string, enterIndex: number) => ({
@@ -174,7 +190,8 @@ export function MannequinWorkflow({ env }: { env: WorkflowEnv }) {
         inputs={SEEDANCE_INPUTS}
         outputs={GENERATE_VIDEO_OUTPUTS}
         video={mannequin.video}
-        playing={env.active}
+        videoRef={videoRef}
+        playing={env.active && videoOnScreen}
         history={{ index: videoIndex, count: 12, onPrev: () => setVideoIndex((i) => (i + 11) % 12), onNext: () => setVideoIndex((i) => (i + 1) % 12) }}
         fields={<SchemaFields params={SEEDANCE_PARAMS} />}
         onRun={() => run("generateVideo-17", 3200)}

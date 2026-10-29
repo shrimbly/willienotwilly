@@ -24,6 +24,9 @@ const WIDE_BOTTOM = 34;
 const PANEL_BUDGET = 6 + 5 * 22 + 4 * 4 + 8;
 /** The camera never zooms out past this (the node's 10px field text stays ~9px): it lets the node's top run off the tile instead. */
 const READABLE_ZOOM = 0.9;
+/** Legend tiles: room round the node (the legend's height adds to the bottom), and the most the camera zooms in. */
+const LEGEND_PAD = { top: 40, bottom: 14, left: 32, right: 26 };
+const LEGEND_MAX_ZOOM = 1.35;
 /** World px of a docked input card left on the tile: border, padding and socket, never text (a prompt's starts 17px in). */
 const DOCK = 16;
 /** Screen px of noodle run the inputs need before the node; tiles without room for it keep the inputs off the edge. */
@@ -41,9 +44,22 @@ function closedHeight(el: HTMLElement): number {
   return HEADER_OFFSET + (card?.offsetHeight ?? 0) + (gap?.offsetHeight ?? 8) + SUMMARY_ROW_H + 2;
 }
 
-/** Wide tiles tall enough to show the biggest panel at a readable size keep room for it, so opening it never moves the camera. */
-function roomForPanel(W: number, H: number, closed: number): boolean {
-  return !isNarrow(W, H) && (H - WIDE_TOP - WIDE_BOTTOM) / (closed + PANEL_BUDGET) >= READABLE_ZOOM;
+/**
+ * Tiles that can show the biggest panel keep room for it, so the settings
+ * start open and opening them never moves the camera: wide tiles tall enough
+ * to show it at a readable size, and legend tiles (608×760) where it fits
+ * without the node shrinking. Phones start with it closed.
+ */
+function roomForPanel(W: number, H: number, closed: number, nodeW: number, legend: number): boolean {
+  const h = closed + PANEL_BUDGET;
+  if (!isNarrow(W, H)) return (H - WIDE_TOP - WIDE_BOTTOM) / h >= READABLE_ZOOM;
+  const zoom = Math.min(LEGEND_MAX_ZOOM, (W - LEGEND_PAD.left - LEGEND_PAD.right) / nodeW);
+  return (H - LEGEND_PAD.top - legend - LEGEND_PAD.bottom) / h >= zoom;
+}
+
+/** The phone legend's height (0 where the tile has the callout column). */
+function legendHeight(root: HTMLElement): number {
+  return isNarrow(root.clientWidth, root.clientHeight) ? (root.querySelector<HTMLElement>("[data-anat-legend]")?.offsetHeight ?? 0) : 0;
 }
 
 interface Frame {
@@ -90,24 +106,25 @@ export function useFraming({ rootRef, graph, nodeId, expanded, reducedMotion }: 
 
     const narrow = isNarrow(W, H);
     const closed = closedHeight(el);
+    const legend = legendHeight(root);
     const shown = expandedRef.current ? (el.querySelector<HTMLElement>("[data-controls-card] .nb-bg-panel")?.offsetHeight ?? 0) : 0;
+    const w = node.width.get() + 2 * SOCKET_REACH;
     const box = {
       x: node.x.get() - SOCKET_REACH,
       y: node.y.get() - HEADER_OFFSET,
-      w: node.width.get() + 2 * SOCKET_REACH,
-      h: closed + (roomForPanel(W, H, closed) ? Math.max(PANEL_BUDGET, shown) : shown),
+      w,
+      h: closed + (roomForPanel(W, H, closed, w, legend) ? Math.max(PANEL_BUDGET, shown) : shown),
     };
-    const legend = narrow ? root.querySelector<HTMLElement>("[data-anat-legend]") : null;
     // Phones: the legend under the node, and room on the right for the output
     // socket's highlight ring. Wide tiles: the callout column on the right and
     // a gutter on the left that grows with the tile.
     const m = narrow
-      ? { top: 40, bottom: (legend?.offsetHeight ?? 0) + 14, left: 32, right: 26 }
+      ? { ...LEGEND_PAD, bottom: legend + LEGEND_PAD.bottom }
       : { top: WIDE_TOP, bottom: WIDE_BOTTOM, left: Math.min(64, Math.max(24, W * 0.045)), right: LEAD + LABEL_MIN + LABEL_MARGIN };
     const availW = W - m.left - m.right;
     const availH = H - m.top - m.bottom;
     const fitW = availW / box.w;
-    const zoom = Math.min(narrow ? 1.35 : 1.45, fitW, Math.max(availH / box.h, Math.min(fitW, READABLE_ZOOM)));
+    const zoom = Math.min(narrow ? LEGEND_MAX_ZOOM : 1.45, fitW, Math.max(availH / box.h, Math.min(fitW, READABLE_ZOOM)));
     // Too tall to show whole at a readable size: keep the bottom (the open settings) in view.
     const slack = availH - box.h * zoom;
     const y = (slack >= 0 ? m.top + slack / 2 : H - m.bottom - box.h * zoom) - box.y * zoom;
@@ -122,9 +139,11 @@ export function useFraming({ rootRef, graph, nodeId, expanded, reducedMotion }: 
   /** Whether the settings should start open: only where the tile keeps room for them. */
   const startsOpen = useCallback((): boolean => {
     const root = rootRef.current;
+    const node = graph.node(nodeId);
     const el = root?.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`);
-    return Boolean(root && el && roomForPanel(root.clientWidth, root.clientHeight, closedHeight(el)));
-  }, [rootRef, nodeId]);
+    if (!root || !node || !el) return false;
+    return roomForPanel(root.clientWidth, root.clientHeight, closedHeight(el), node.width.get() + 2 * SOCKET_REACH, legendHeight(root));
+  }, [rootRef, graph, nodeId]);
 
   // The canvas fits a world rect; hand it the one this frame shows edge to edge
   // (the canvas fills the root, so the root's size is the canvas's).

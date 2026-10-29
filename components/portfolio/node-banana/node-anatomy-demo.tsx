@@ -16,6 +16,7 @@ import {
   NbRoot,
   NoodleLayer,
   PromptNode,
+  useInteractOnRelease,
   useNodeGraph,
   type GenerateImageSettings,
 } from "./kit";
@@ -81,6 +82,7 @@ export function NodeBananaNodeAnatomyDemo() {
   const highlight: PartId | null = labelHover ?? nodeHover ?? nodeFocus ?? pinned ?? (interacted || cycle === null ? null : PART_ORDER[cycle]);
 
   const touch = useCallback(() => setInteracted(true), []);
+  const interact = useInteractOnRelease(touch);
 
   // A run: comets into the node, the spinner over the media, then the new
   // result lands first in the history.
@@ -186,13 +188,20 @@ export function NodeBananaNodeAnatomyDemo() {
     const target = e.target as Element;
     setNodeFocus(target.closest(`[data-node-id="${GENERATE_ID}"]`) && target.matches(":focus-visible") ? partAt(target) : null);
   };
+  // Touch has no hover: tapping a part of the node traces it. A finger counts
+  // (and pins) only on release, so one that lands here to scroll the page past
+  // the tile ends in a pointercancel and leaves the tour running.
+  const pressed = useRef<PartId | null>(null);
   const onPointerDownCapture = (e: PointerEvent<HTMLDivElement>) => {
-    touch();
-    // Touch has no hover: tapping a part of the node traces it.
-    if (e.pointerType !== "mouse" && (e.target as Element).closest(`[data-node-id="${GENERATE_ID}"]`)) {
-      const part = partAt(e.target);
-      if (part) setPinned(part);
-    }
+    interact.onPointerDownCapture(e);
+    const inNode = (e.target as Element).closest(`[data-node-id="${GENERATE_ID}"]`);
+    pressed.current = e.pointerType !== "mouse" && inNode ? partAt(e.target) : null;
+    if (e.pointerType !== "touch" && pressed.current) setPinned(pressed.current);
+  };
+  const onPointerUpCapture = (e: PointerEvent<HTMLDivElement>) => {
+    interact.onPointerUpCapture(e);
+    if (e.pointerType === "touch" && pressed.current) setPinned(pressed.current);
+    pressed.current = null;
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     touch();
@@ -219,6 +228,7 @@ export function NodeBananaNodeAnatomyDemo() {
       onPointerOver={onPointerOver}
       onPointerLeave={() => setNodeHover(null)}
       onPointerDownCapture={onPointerDownCapture}
+      onPointerUpCapture={onPointerUpCapture}
       onFocus={onFocus}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setNodeFocus(null)}
       onKeyDown={onKeyDown}
@@ -289,7 +299,7 @@ export function NodeBananaNodeAnatomyDemo() {
           constrain={constrain}
           onDragStart={stopSprings}
           // A drag the page took over puts the node back where the press found it, which may be mid-spring.
-          onDragEnd={(moved: boolean, cancelled?: boolean) => (moved || cancelled) && springHome()}
+          onDragEnd={(moved, cancelled) => (moved || cancelled) && springHome()}
         />
       </Canvas>
       <AnatomyOverlay
