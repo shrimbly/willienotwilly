@@ -54,7 +54,10 @@ export function SplitAtPlayheadButton({
       title={atSectionCap ? `Maximum of ${maxSections} clips reached` : "Add a split at the playhead"}
     >
       <Plus className="h-3.5 w-3.5" />
-      Split at playhead
+      {/* 320px phones show "Split" (the playback row has no room for the rest); the name stays whole. */}
+      <span>
+        Split<span className="sr-only @min-[296px]/epe:not-sr-only"> at playhead</span>
+      </span>
     </button>
   );
 }

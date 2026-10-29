@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import type { ComponentProps, KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ComponentProps, CSSProperties, KeyboardEvent, RefObject } from "react";
 import type { MotionValue } from "motion/react";
 
 import { EASING_PRESETS, type Bezier } from "@/lib/easy-peasy-ease/easing-presets";
@@ -31,7 +31,10 @@ const HINT_CLASS = "text-xs text-balance text-(color:--body-muted-foreground)";
 // per page, so fixed ids are unique.
 const ID = "epe-editor";
 
-interface EditorInspectorProps extends Omit<ComponentProps<"aside">, "children"> {
+/** The upward popover's mb-2 plus 16px clear of the tile's top edge. */
+const POPOVER_TOP_ROOM = 24;
+
+interface EditorInspectorProps extends Omit<ComponentProps<"div">, "children"> {
   clip: EditorClip;
   clipIndex: number;
   tab: 0 | 1;
@@ -45,6 +48,8 @@ interface EditorInspectorProps extends Omit<ComponentProps<"aside">, "children">
   progress?: MotionValue<number>;
   /** Phones open the curve popover upwards (it sits at the bottom of the tile). */
   pickerSide: "top" | "bottom";
+  /** The editor shell: the upward popover grows to its top edge, not past it. */
+  boundsRef: RefObject<HTMLElement | null>;
   showHint: boolean;
 }
 
@@ -65,11 +70,32 @@ export function EditorInspector({
   onUpdateAll,
   progress,
   pickerSide,
+  boundsRef,
   showHint,
   className,
   ...props
 }: EditorInspectorProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const curveFieldRef = useRef<HTMLDivElement>(null);
+  const [roomAbove, setRoomAbove] = useState<number | null>(null);
+
+  // How far the picker sits from the tile's top depends on the tile's height
+  // and on the hint under it, so the upward popover's cap is measured.
+  useEffect(() => {
+    const bounds = boundsRef.current;
+    const inspector = rootRef.current;
+    const trigger = curveFieldRef.current?.querySelector("[aria-haspopup]");
+    if (pickerSide !== "top" || !bounds || !inspector || !trigger) return;
+    const measure = () => {
+      const room = trigger.getBoundingClientRect().top - bounds.getBoundingClientRect().top - POPOVER_TOP_ROOM;
+      setRoomAbove(room > 0 ? Math.floor(room) : null);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(bounds);
+    observer.observe(inspector);
+    return () => observer.disconnect();
+  }, [boundsRef, pickerSide]);
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -80,7 +106,8 @@ export function EditorInspector({
   };
 
   return (
-    <aside
+    <div
+      ref={rootRef}
       className={cn(
         "epe-editor-inspector flex h-full min-h-0 flex-col rounded-[12px] border border-border bg-secondary p-3",
         className,
@@ -158,7 +185,11 @@ export function EditorInspector({
                     className="w-32"
                   />
                 </div>
-                <div className="epe-editor-curve-field min-w-0 space-y-1.5">
+                <div
+                  ref={curveFieldRef}
+                  className="epe-editor-curve-field min-w-0 space-y-1.5"
+                  style={roomAbove ? ({ "--epe-editor-picker-up-h": `${roomAbove}px` } as CSSProperties) : undefined}
+                >
                   <FieldLabel htmlFor={`${ID}-curve`}>Curve</FieldLabel>
                   <EasingCurvePicker
                     id={`${ID}-curve`}
@@ -168,7 +199,7 @@ export function EditorInspector({
                     side={pickerSide}
                     popoverClassName={
                       pickerSide === "top"
-                        ? "max-h-[calc(100cqh_-_5rem)] w-[min(18rem,calc(100cqw_-_1.5rem))]"
+                        ? "max-h-[var(--epe-editor-picker-up-h,calc(100cqh_-_5rem))] w-[min(18rem,calc(100cqw_-_1.5rem))]"
                         : "max-h-(--epe-editor-picker-h)"
                     }
                     fullWidth
@@ -239,6 +270,6 @@ export function EditorInspector({
           </div>
         </div>
       </div>
-    </aside>
+    </div>
   );
 }

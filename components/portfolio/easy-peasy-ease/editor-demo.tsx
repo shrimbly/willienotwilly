@@ -224,6 +224,7 @@ export function EasyPeasyEaseEditorDemo() {
               onSegmentSelect={handleSegmentSelect}
               zoomValue={zoom}
               onZoomChange={setZoom}
+              thumbnailLoading="eager"
               viewportClassName="rounded-t-none rounded-b-[12px] pb-2 @min-[768px]/epe:pb-3"
               className="epe-editor-timeline"
             />
@@ -243,6 +244,7 @@ export function EasyPeasyEaseEditorDemo() {
               onUpdateAll={handleUpdateAll}
               progress={selected === followIndex ? playback.clipProgress : undefined}
               pickerSide={portrait ? "top" : "bottom"}
+              boundsRef={shellRef}
               showHint={showHint}
             />
           </div>

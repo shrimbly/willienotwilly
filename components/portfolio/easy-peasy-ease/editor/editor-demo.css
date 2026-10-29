@@ -26,10 +26,13 @@
   display: none;
 }
 
-/* The curve on the left, the clip header and the two fields on the right. */
+/*
+ * The curve on the left, the clip header and the two fields on the right.
+ * 10rem leaves the longest curve name ("In Out Cubic") 8px+ of slack.
+ */
 .epe .epe-editor-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 9.75rem;
+  grid-template-columns: minmax(0, 1fr) 10rem;
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "curve header"
@@ -126,7 +129,7 @@
 /*
  * The field column's hint (landscape tiles carry it in the plot's readout
  * row instead). Phones have no room under the fields; 640–767px tiles
- * (608px wide, 2:3) have plenty.
+ * (608x760) have plenty.
  */
 .epe .epe-editor-hint {
   display: none;
