@@ -250,37 +250,6 @@ export const projects: Project[] = [
     ],
   },
   {
-    slug: "sharp-frames",
-    title: "Sharp Frames",
-    blurb:
-      "CLI for extracting in-focus frames from video using Laplacian variance scoring. Three selection algorithms tuned for 3DGS dataset prep.",
-    description:
-      "A free, open-source focus-aware frame extractor for radiance-field capture. Sharp Frames scores each frame for sharpness, then picks the optimal set using one of three selection algorithms. Available as a Windows desktop app, a web tool, and a Python package with both a CLI and a terminal UI.",
-    meta: "152 stars · Python",
-    year: "2024",
-    href: "https://github.com/Reflct/sharp-frames-python",
-    external: true,
-    category: "personal",
-    placeholderClass: "bg-muted",
-    video: "/videos/portfolio/sharp.mp4",
-    poster: "/images/portfolio/posters/sharp.jpg",
-    stats: [
-      { label: "GitHub", value: "152 stars" },
-      { label: "Core Math", value: "Laplacian Variance" },
-      { label: "Format", value: "CLI · TUI · Desktop" },
-    ],
-    highlights: [
-      {
-        title: "Terminal UI",
-        caption:
-          "A keyboard-driven TUI walks you through input selection, scoring, and export — no flags to memorise.",
-        aspect: "16/9",
-        placeholderClass: "bg-muted",
-        video: "/videos/portfolio/sf-tui.mp4",
-      },
-    ],
-  },
-  {
     slug: "easy-peasy-ease",
     title: "Easy Peasy Ease",
     blurb:
@@ -339,6 +308,39 @@ export const projects: Project[] = [
         mobileAspect: "4/3",
         placeholderClass: "bg-[#0f1d20]",
         demo: "easy-peasy-ease-wordmark",
+      },
+    ],
+  },
+  {
+    slug: "book-the-lakehouse",
+    title: "Book the Lakehouse",
+    blurb:
+      "A gorgeous, low-cost private booking calendar for the family holiday home, built with local cookies and elastic UI gestures.",
+    description:
+      "A private family booking calendar engineered with local identity cookies, elastic drag-to-book gestures, stay photo uploads via Vercel Blob, and a strict zero-idle-cost serverless footprint. Highlighting premium CSS and JS animations that make calendar interactions feel tactile, cozy, and alive.",
+    meta: "Personal · Web App",
+    year: "2024",
+    href: "https://github.com/shrimbly/book-the-lakehouse",
+    external: true,
+    category: "personal",
+    placeholderClass: "bg-gradient-to-br from-[#1c1b19] to-[#2b2a27]",
+    video: "/videos/portfolio/book-the-lakehouse.mp4",
+    poster: "/images/portfolio/posters/book-the-lakehouse.jpg",
+    heroPoster: "/images/portfolio/posters/book-the-lakehouse.jpg",
+    stats: [
+      { label: "Role", value: "Creator" },
+      { label: "Focus", value: "UX Polish" },
+      { label: "Cost", value: "Zero" },
+    ],
+    highlights: [
+      {
+        title: "Micro-interactions & tactile details",
+        caption:
+          "Every visual element is tuned for responsiveness and satisfaction: from the elastic spring of the custom calendar drag-select ribbons to cozy UI physics and instant fluid feedback.",
+        aspect: "16/9",
+        placeholderClass: "bg-[#252422]",
+        video: "/videos/portfolio/book-the-lakehouse-booking.mp4",
+        poster: "/images/portfolio/posters/book-the-lakehouse-booking.jpg",
       },
     ],
   },
@@ -444,6 +446,37 @@ export const projects: Project[] = [
       { label: "Focus", value: "Interaction" },
     ],
     highlights: [],
+  },
+  {
+    slug: "sharp-frames",
+    title: "Sharp Frames",
+    blurb:
+      "CLI for extracting in-focus frames from video using Laplacian variance scoring. Three selection algorithms tuned for 3DGS dataset prep.",
+    description:
+      "A free, open-source focus-aware frame extractor for radiance-field capture. Sharp Frames scores each frame for sharpness, then picks the optimal set using one of three selection algorithms. Available as a Windows desktop app, a web tool, and a Python package with both a CLI and a terminal UI.",
+    meta: "152 stars · Python",
+    year: "2024",
+    href: "https://github.com/Reflct/sharp-frames-python",
+    external: true,
+    category: "personal",
+    placeholderClass: "bg-muted",
+    video: "/videos/portfolio/sharp.mp4",
+    poster: "/images/portfolio/posters/sharp.jpg",
+    stats: [
+      { label: "GitHub", value: "152 stars" },
+      { label: "Core Math", value: "Laplacian Variance" },
+      { label: "Format", value: "CLI · TUI · Desktop" },
+    ],
+    highlights: [
+      {
+        title: "Terminal UI",
+        caption:
+          "A keyboard-driven TUI walks you through input selection, scoring, and export — no flags to memorise.",
+        aspect: "16/9",
+        placeholderClass: "bg-muted",
+        video: "/videos/portfolio/sf-tui.mp4",
+      },
+    ],
   },
   {
     slug: "try-galaxy",
@@ -683,39 +716,6 @@ export const projects: Project[] = [
         placeholderClass: "bg-neutral-100",
         image: "/images/portfolio/if-you-seek/image-10.webp",
         imageAlt: "If You Seek — sensory film still",
-      },
-    ],
-  },
-  {
-    slug: "book-the-lakehouse",
-    title: "Book the Lakehouse",
-    blurb:
-      "A gorgeous, low-cost private booking calendar for the family holiday home, built with local cookies and elastic UI gestures.",
-    description:
-      "A private family booking calendar engineered with local identity cookies, elastic drag-to-book gestures, stay photo uploads via Vercel Blob, and a strict zero-idle-cost serverless footprint. Highlighting premium CSS and JS animations that make calendar interactions feel tactile, cozy, and alive.",
-    meta: "Personal · Web App",
-    year: "2024",
-    href: "https://github.com/shrimbly/book-the-lakehouse",
-    external: true,
-    category: "personal",
-    placeholderClass: "bg-gradient-to-br from-[#1c1b19] to-[#2b2a27]",
-    video: "/videos/portfolio/book-the-lakehouse.mp4",
-    poster: "/images/portfolio/posters/book-the-lakehouse.jpg",
-    heroPoster: "/images/portfolio/posters/book-the-lakehouse.jpg",
-    stats: [
-      { label: "Role", value: "Creator" },
-      { label: "Focus", value: "UX Polish" },
-      { label: "Cost", value: "Zero" },
-    ],
-    highlights: [
-      {
-        title: "Micro-interactions & tactile details",
-        caption:
-          "Every visual element is tuned for responsiveness and satisfaction: from the elastic spring of the custom calendar drag-select ribbons to cozy UI physics and instant fluid feedback.",
-        aspect: "16/9",
-        placeholderClass: "bg-[#252422]",
-        video: "/videos/portfolio/book-the-lakehouse-booking.mp4",
-        poster: "/images/portfolio/posters/book-the-lakehouse-booking.jpg",
       },
     ],
   },
