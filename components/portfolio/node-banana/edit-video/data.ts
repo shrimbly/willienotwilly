@@ -1,8 +1,10 @@
+import { HIGH_NOTE_PHONK, HIGH_NOTE_PHONK_SRC } from "@/lib/easy-peasy-ease/beat-sync";
+
 import type { EvEdit, SourceMedia } from "./model";
 
 // The edit the demo opens: the first three shots of "Plate and Mail", an edit made in Node Banana (its own In and Out
-// points), stacked one row per clip with a second's overlap each (Line up), a title over the first, and a 128 BPM kick
-// under the lot.
+// points), stacked one row per clip with a second's overlap each (Line up), a title over the first, and High Note
+// Phonk, the Easy Peasy Ease beat sync demo's track, under the lot.
 
 const SHOT = (n: number, name: string): SourceMedia => ({
   id: `shot-${n}`,
@@ -22,7 +24,7 @@ export const SOURCES: SourceMedia[] = [
 
 export const SOURCE_BY_ID = new Map(SOURCES.map((s) => [s.id, s]));
 
-export const AUDIO_SRC = "/audio/portfolio/demos/beats-128.mp3";
+export const AUDIO_SRC = HIGH_NOTE_PHONK_SRC;
 export const STRIP_FRAMES = 8;
 /** One frame of a strip, in the image's px. */
 export const STRIP_TILE = { width: 160, height: 90 } as const;
@@ -49,12 +51,12 @@ export const INITIAL_EDIT: EvEdit = {
   ],
   audio: {
     id: "a1",
-    name: "beats_128.mp3",
+    name: "high-note-phonk.mp3",
     startSec: 0,
-    // The first kick lands on 0:00
-    inSec: 0.162,
-    outSec: 8.462,
-    duration: 30,
+    // The first beat lands on 0:00, where the beat sync demo's snap starts the track too
+    inSec: 0.3145,
+    outSec: 8.6145,
+    duration: HIGH_NOTE_PHONK.duration,
     muted: false,
     volume: 1,
     fade: { in: false, out: false },
@@ -66,18 +68,6 @@ export const INITIAL_EDIT: EvEdit = {
 /** Where the still tile rests (reduced motion, and before it plays): mid-dissolve from Clip 1 to Clip 2, under the title. */
 export const RESTING_PLAYHEAD = 3;
 
-/** The kick's peaks, 256 bins over its 30 s (scratchpad/beats-128.waveform.json, rounded). */
-export const BEAT_PEAKS: readonly number[] = [
-  0.001, 0.85, 0.065, 0.002, 0.001, 0.833, 0.065, 0.002, 0.001, 0.789, 0.066, 0.002, 0.001, 0.793, 0.066, 0.002, 0.001, 0.797, 0.066, 0.002, 0.001, 0.802, 0.067, 0.002,
-  0.001, 0.806, 0.067, 0.002, 0.001, 0.81, 0.068, 0.002, 0.001, 0.815, 0.068, 0.002, 0.001, 0.819, 0.068, 0.002, 0.001, 0.823, 0.069, 0.002, 0.001, 0.828, 0.069, 0.002,
-  0.001, 0.832, 0.069, 0.002, 0.001, 0.837, 0.07, 0.002, 0.001, 0.841, 0.07, 0.002, 0.001, 0.846, 0.07, 0.002, 0.001, 0.85, 0.07, 0.002, 0.001, 0.833, 0.07, 0.002,
-  0.001, 0.789, 0.068, 0.002, 0.001, 0.793, 0.066, 0.002, 0.001, 0.797, 0.066, 0.002, 0.001, 0.802, 0.067, 0.002, 0.001, 0.806, 0.067, 0.002, 0.001, 0.81, 0.068, 0.002,
-  0.001, 0.815, 0.068, 0.002, 0.001, 0.819, 0.068, 0.002, 0.001, 0.823, 0.069, 0.002, 0.001, 0.828, 0.069, 0.002, 0.001, 0.832, 0.069, 0.002, 0.001, 0.837, 0.07, 0.002,
-  0.001, 0.841, 0.07, 0.002, 0.001, 0.846, 0.07, 0.002, 0.001, 0.85, 0.071, 0.002, 0.001, 0.833, 0.071, 0.002, 0.001, 0.789, 0.072, 0.002, 0.001, 0.793, 0.072, 0.002,
-  0.001, 0.797, 0.072, 0.002, 0.001, 0.802, 0.073, 0.002, 0.001, 0.806, 0.073, 0.002, 0.001, 0.81, 0.073, 0.002, 0.001, 0.815, 0.074, 0.002, 0.001, 0.819, 0.074, 0.002,
-  0.001, 0.823, 0.075, 0.002, 0.001, 0.828, 0.075, 0.002, 0.001, 0.832, 0.075, 0.002, 0.001, 0.837, 0.076, 0.002, 0.001, 0.841, 0.076, 0.002, 0.001, 0.846, 0.077, 0.002,
-  0.001, 0.85, 0.076, 0.002, 0.001, 0.833, 0.075, 0.002, 0.001, 0.789, 0.073, 0.002, 0.001, 0.793, 0.072, 0.002, 0.001, 0.797, 0.072, 0.002, 0.001, 0.802, 0.073, 0.002,
-  0.001, 0.806, 0.073, 0.002, 0.001, 0.81, 0.073, 0.002, 0.001, 0.815, 0.074, 0.002, 0.001, 0.819, 0.074, 0.002, 0.001, 0.823, 0.075, 0.002, 0.001, 0.828, 0.075, 0.002,
-  0.001, 0.832, 0.075, 0.002, 0.001, 0.837, 0.076, 0.002, 0.001, 0.841, 0.076, 0.002, 0.001, 0.846, 0.077, 0.002,
-];
-export const BEAT_DURATION = 30;
+/** The track's peaks, 256 bins over its 30 s (the beat sync demo's waveform). */
+export const AUDIO_PEAKS: readonly number[] = HIGH_NOTE_PHONK.peaks;
+export const AUDIO_DURATION = HIGH_NOTE_PHONK.duration;

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 import { touchClaim, type TouchClaim } from "../kit";
 import type { PlayheadClock } from "./clock";
-import { BEAT_DURATION, BEAT_PEAKS, INITIAL_EDIT, SOURCE_BY_ID, STRIP_FRAMES, STRIP_TILE } from "./data";
+import { AUDIO_DURATION, AUDIO_PEAKS, INITIAL_EDIT, SOURCE_BY_ID, STRIP_FRAMES, STRIP_TILE } from "./data";
 import {
   MAX_START_SEC,
   MIN_CLIP_SEC,
@@ -551,7 +551,7 @@ function Waveform({
     const centre = height / 2;
     for (let k = 0; k * 3 < width; k++) {
       const x0 = blockX + k * 3;
-      const peak = peakInRange(BEAT_PEAKS, BEAT_DURATION, axis.xToTime(x0) + sourceOffset, axis.xToTime(x0 + 3) + sourceOffset);
+      const peak = peakInRange(AUDIO_PEAKS, AUDIO_DURATION, axis.xToTime(x0) + sourceOffset, axis.xToTime(x0 + 3) + sourceOffset);
       if (peak <= 0) continue;
       const barHeight = Math.max(1, peak * reach);
       ctx.fillRect(k * 3, centre - barHeight / 2, 2, barHeight);
