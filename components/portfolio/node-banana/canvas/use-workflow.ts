@@ -13,6 +13,8 @@ export interface WorkflowEnv {
   reducedMotion: boolean;
   /** First pan or zoom of the canvas. */
   onInteract: () => void;
+  /** Chrome drawn over the canvas (the Agent pill): a keyboard-focused control is kept out from under it. */
+  chrome?: RefObject<HTMLElement | null>;
 }
 
 /** Selection and the timed runs (comets in, spinner on the media) of one workflow. */
@@ -70,7 +72,7 @@ interface Framing {
 
 const FRAMING: Record<Shape, Framing> = {
   wide: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 1, readable: 0.72, crop: true },
-  mid: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 0.8, readable: 0.45, crop: false },
+  mid: { pad: { top: 64, right: 28, bottom: 24, left: 28 }, maxZoom: 0.8, readable: 0.7, crop: false },
   // The right column of a portrait layout starts low enough to clear the pill.
   phone: { pad: { top: 36, right: 8, bottom: 14, left: 8 }, maxZoom: 0.75, readable: 0.7, crop: false },
   // Only the top of the narrow layout fits: the rest of its columns shows below it.

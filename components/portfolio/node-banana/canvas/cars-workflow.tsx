@@ -96,6 +96,8 @@ const DRAW = EDGES.map((e) => e.id);
 const OPENING = ["imageInput-6", "prompt-9", "llmGenerate-10", "nanoBanana-11", "splitGrid-13"];
 /** Smaller tiles stop at the contact sheet. */
 const TO_SHEET = OPENING.slice(0, 4);
+/** The photo, the LLM and the contact sheet in a row: the short tiles' frame, the prompt running off the bottom. */
+const SHEET_ROW = ["imageInput-6", "llmGenerate-10", "nanoBanana-11"];
 
 /**
  * Portrait tiles (the site has none: its phones only show the first tab):
@@ -118,6 +120,19 @@ const NARROW_LAYOUT: Record<string, Placement> = {
   "nanoBanana-11": [240, 325, 200],
 };
 const NARROW_SHIFT = -1040;
+/**
+ * Mid-size tiles: the site's opening pulled together and narrowed, so the
+ * photo through to the contact sheet fits a 16:9 tile at a readable zoom,
+ * or, on the shorter one, the row of photo, LLM and sheet with the prompt
+ * running off the bottom. The rest of the row follows to the right.
+ */
+const MID_LAYOUT: Record<string, Placement> = {
+  "imageInput-6": [0, 0, 220],
+  "prompt-9": [0, 237, 220],
+  "llmGenerate-10": [270, 98, 260],
+  "nanoBanana-11": [580, 0, 320],
+};
+const MID_SHIFT = -530;
 const LAYOUT: WorkflowLayout = {
   phone: (id) => {
     const [x, y, width] = saved(NODES, id);
@@ -127,7 +142,11 @@ const LAYOUT: WorkflowLayout = {
     const [x, y, width] = saved(NODES, id);
     return NARROW_LAYOUT[id] ?? [x + NARROW_SHIFT, y, width];
   },
-  frames: { wide: [OPENING], mid: [OPENING, TO_SHEET], phone: [TO_SHEET], narrow: [TO_SHEET] },
+  mid: (id) => {
+    const [x, y, width] = saved(NODES, id);
+    return MID_LAYOUT[id] ?? [x + MID_SHIFT, y, width];
+  },
+  frames: { wide: [OPENING], mid: [TO_SHEET, SHEET_ROW], phone: [TO_SHEET], narrow: [TO_SHEET] },
 };
 
 const geminiProImage = (resolution: string): ParamSpec[] => [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
 
 import { useDemoActive } from "@/components/portfolio/use-demo-active";
 
@@ -21,6 +21,7 @@ const START_TABS: AppTab[] = [
 
 export function NodeBananaCanvasDemo() {
   const root = useRef<HTMLDivElement | null>(null);
+  const pill = useRef<HTMLDivElement | null>(null);
   const { active, inView, reducedMotion } = useDemoActive(root);
   const [tabs, setTabs] = useState<AppTab[]>(START_TABS);
   const [shown, setShown] = useState("mannequin");
@@ -60,6 +61,10 @@ export function NodeBananaCanvasDemo() {
   const touch = useCallback(() => setTouched(true), []);
   // A finger counts on release, so one that lands here to scroll the page past the tile never fades the hint.
   const interact = useInteractOnRelease(touch);
+  // Tabbing in sends no key to the tile, but the camera pans to the focused node, which may pass under the hint.
+  const onFocus = (event: FocusEvent<HTMLDivElement>) => {
+    if ((event.target as Element).matches(":focus-visible")) touch();
+  };
 
   // A closed tab takes its close button with it: hand focus to the tab shown next.
   useEffect(() => {
@@ -73,6 +78,7 @@ export function NodeBananaCanvasDemo() {
     entered,
     reducedMotion,
     onInteract: touch,
+    chrome: pill,
   });
 
   return (
@@ -81,6 +87,7 @@ export function NodeBananaCanvasDemo() {
       role="group"
       aria-label="Node Banana desktop app with two workflows open on the canvas"
       {...interact}
+      onFocusCapture={onFocus}
     >
       <p className="sr-only">
         Drag nodes or the canvas, hold Control or Command and scroll to zoom, and switch workflows with the tabs. A focused node moves with the arrow keys and
@@ -99,7 +106,9 @@ export function NodeBananaCanvasDemo() {
         className="[&_.nb-app\_\_frame]:rounded-b-[27px] [&_.nb-app\_\_frame]:[corner-shape:squircle] sm:[&_.nb-app\_\_frame]:rounded-b-[35px]"
         frameOverlay={
           <>
-            <AgentPill className="absolute top-3 right-4 z-10" onClick={openAgentDemo} />
+            <div ref={pill} className="absolute top-3 right-4 z-10">
+              <AgentPill onClick={openAgentDemo} />
+            </div>
             {/* Every layout keeps the canvas's top band clear for it. */}
             <DemoHint corner="top-left" hidden={touched}>
               Drag a node

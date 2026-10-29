@@ -64,16 +64,18 @@ const PHONE_LAYOUT: Record<string, Placement> = {
 };
 
 /**
- * Phone-width tiles: the same columns at the app's minimum node width, close
- * enough for the photo and its jacket to sit side by side at a readable zoom,
- * the prompt and the video side stacked below them.
+ * Phone-width tiles: the same columns, close enough for the photo and its
+ * jacket to sit side by side at a readable zoom down to a 375px phone, the
+ * prompt and the video side stacked below them. The jacket's column keeps the
+ * app's minimum node width, which "Generate Image" needs untruncated; the
+ * photo's goes a little under it.
  */
 const NARROW_LAYOUT: Record<string, Placement> = {
-  "imageInput-22": [0, 0, 200],
-  "prompt-23": [0, 342, 200],
-  "promptConstructor-13": [0, 683, 200],
-  "nanoBanana-3": [240, 60, 200],
-  "generateVideo-17": [240, 422, 200],
+  "imageInput-22": [0, 0, 180],
+  "prompt-23": [0, 316, 180],
+  "promptConstructor-13": [0, 657, 180],
+  "nanoBanana-3": [220, 60, 200],
+  "generateVideo-17": [220, 422, 200],
 };
 
 /**
