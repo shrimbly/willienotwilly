@@ -1,0 +1,466 @@
+/*
+ * Booth, scoped. Tokens from studiovoice/app/Sources/Booth/UI/Theme.swift (light and dark),
+ * the website's CSS (site/index.html: paper, ink, the card surface, the `.name` signature) and
+ * the motion curves in Shell/Motion.swift. Every rule lives under `.booth` (BoothRoot) and every
+ * name is `booth-` prefixed, so nothing here reaches the portfolio or another product's demo.
+ *
+ * The portfolio never applies `.dark`, so the scope is light by default; `data-theme="dark"`
+ * on the root switches to the app's dark palette for a demo that toggles it.
+ */
+
+/* Registered so the signature's pointer focus can transition (site: --s, --x, --y). */
+@property --booth-s {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@property --booth-x {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+@property --booth-y {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+/* The working lamp's breath, 0…1, so one keyframe drives the halo and the lamp together. */
+@property --booth-b {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+
+.booth {
+  /* Theme.swift, light */
+  --booth-glass: rgb(250 250 249 / 0.82);
+  --booth-glass-solid: rgb(250 250 249);
+  --booth-text: #1d1d1f;
+  --booth-dim: rgb(29 29 31 / 0.74);
+  --booth-sig: rgb(60 60 67);
+  --booth-sig-over: rgb(29 29 31 / 0.9);
+  --booth-text2: rgb(60 60 67 / 0.76);
+  --booth-sep: rgb(0 0 0 / 0.08);
+  --booth-fill: rgb(0 0 0 / 0.04);
+  --booth-fill2: rgb(0 0 0 / 0.07);
+  --booth-track: rgb(0 0 0 / 0.1);
+  --booth-dash: rgb(60 60 67 / 0.38);
+  --booth-border: rgb(0 0 0 / 0.1);
+  --booth-wave: rgb(60 60 67 / 0.22);
+  --booth-knob: #fff;
+  --booth-inverse: #fff;
+  --booth-seg: #fff;
+  --booth-seg-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  --booth-toggle-on: #1d1d1f;
+  --booth-toggle-off: rgb(0 0 0 / 0.14);
+  /* The Working bar: its fill, the rings inside it, the text on it and the empty track. */
+  --booth-ink0: #1d1d1f;
+  --booth-ink3: #8e8e93;
+  --booth-on-ink: #fff;
+  --booth-ink-track: rgb(0 0 0 / 0.07);
+  /* The only colour Booth shows: the working lamp and the background-job dot. */
+  --booth-work: #0a84ff;
+  /* Both appearances */
+  --booth-knob-shadow: 0 0.5px 2px rgb(0 0 0 / 0.35), 0 0 0 0.5px rgb(0 0 0 / 0.12);
+  --booth-switch-knob-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  /* The menu bar glyph's ink and the button behind it under a file (GlyphStates.dc.html). */
+  --booth-menubar-ink: #1d1d1f;
+  --booth-menubar-press: rgb(0 0 0 / 0.14);
+
+  /* The website (light only) */
+  --booth-paper: #f6f6f4;
+  --booth-ink: #1d1d1f;
+  --booth-muted: #6e6e73;
+  --booth-faint: rgb(60 60 67 / 0.26);
+  --booth-site-fill: rgb(29 29 31 / 0.06);
+  /* The site's card (reel and demo panel), its web port of the popover's glass. */
+  --booth-card: rgb(251 251 250 / 0.94);
+  --booth-card-shadow: 0 16px 44px rgb(0 0 0 / 0.14), 0 2px 6px rgb(0 0 0 / 0.06), inset 0 0.5px 0 rgb(255 255 255 / 0.85);
+  /* The colour the signature's fog is made of: the page under it (the site) or the glass. */
+  --booth-haze: 246 246 244;
+
+  --booth-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --booth-serif: var(--booth-font-serif, "Geist Serif"), "New York", ui-serif, Georgia, serif;
+  --booth-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Shell/Motion.swift */
+  --booth-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --booth-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --booth-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --booth-icon-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  color-scheme: light;
+  container: booth / size;
+  font-family: var(--booth-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--booth-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Theme.swift, dark */
+.booth[data-theme="dark"] {
+  --booth-glass: rgb(38 38 40 / 0.78);
+  --booth-glass-solid: rgb(38 38 40);
+  --booth-text: #f5f5f7;
+  --booth-dim: rgb(245 245 247 / 0.74);
+  --booth-sig: rgb(235 235 245);
+  --booth-sig-over: rgb(245 245 247 / 0.9);
+  --booth-text2: rgb(235 235 245 / 0.7);
+  --booth-sep: rgb(255 255 255 / 0.09);
+  --booth-fill: rgb(255 255 255 / 0.05);
+  --booth-fill2: rgb(255 255 255 / 0.09);
+  --booth-track: rgb(255 255 255 / 0.14);
+  --booth-dash: rgb(235 235 245 / 0.36);
+  --booth-border: rgb(255 255 255 / 0.12);
+  --booth-wave: rgb(235 235 245 / 0.22);
+  --booth-knob: #ececee;
+  --booth-inverse: #1d1d1f;
+  --booth-seg: rgb(255 255 255 / 0.18);
+  --booth-seg-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --booth-toggle-on: #8e8e93;
+  --booth-toggle-off: rgb(255 255 255 / 0.16);
+  --booth-ink0: #f5f5f7;
+  --booth-ink3: #8e8e93;
+  --booth-on-ink: #1d1d1f;
+  --booth-ink-track: rgb(255 255 255 / 0.09);
+  --booth-menubar-ink: #fff;
+  --booth-menubar-press: rgb(255 255 255 / 0.22);
+  --booth-haze: 38 38 40;
+  color-scheme: dark;
+}
+
+/* A demo off screen, or a thumbnail not playing, holds every CSS loop where it is. */
+.booth[data-paused] *,
+.booth[data-paused] *::before,
+.booth[data-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+/* -- the popover's glass ----------------------------------------------------------------------- */
+/* The app's glass is a behind-window blur under the theme's `glass` tint with a 0.5 pt `border`
+   hairline, radius 14 continuous (GlassChromeView.swift). The web port takes the site card's
+   blur, saturation and shadow; the corners are circular, as on the site. */
+.booth .booth-glass {
+  background: var(--booth-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 0.5px solid var(--booth-border);
+  border-radius: 14px;
+  box-shadow: var(--booth-card-shadow);
+  /* The signature's fog is the glass's own colour (SignatureView.swift `SignatureHaze`). */
+  --booth-haze: 250 250 249;
+}
+.booth[data-theme="dark"] .booth-glass {
+  --booth-haze: 38 38 40;
+}
+.booth .booth-glass[data-chrome="flat"] {
+  background: var(--booth-glass-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* -- the menu bar glyph (GlyphRenderer.swift) -------------------------------------------------- */
+/* It grows under a file and pulses on a drop over 240 ms on the icon's spring. */
+.booth .booth-glyph {
+  transition: scale 240ms var(--booth-icon-spring);
+}
+/* The working lamp breathes once per 1.4 s, 0.5 + 0.5·sin(2πt/1.4): an even sine from 0 to 1
+   and back, which starts at mid-breath, rising, as the app's does. */
+.booth .booth-glyph[data-mode="working"] {
+  animation: booth-breathe 700ms cubic-bezier(0.37, 0, 0.63, 1) -350ms infinite alternate;
+}
+.booth .booth-glyph-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  scale: calc(1 + 0.9 / 3.4 * var(--booth-b));
+  opacity: calc(0.28 * var(--booth-b));
+}
+.booth .booth-glyph-lamp-working {
+  opacity: calc(0.65 + 0.35 * var(--booth-b));
+}
+@keyframes booth-breathe {
+  from {
+    --booth-b: 0;
+  }
+  to {
+    --booth-b: 1;
+  }
+}
+
+/* -- the signature (site/index.html `.name`) ---------------------------------------------------- */
+/* Drawn as in the popover, Geist Serif Semibold in 40% ink, a little soft. The pointer brings the
+   letters right around it partly into focus: the name is drawn twice, at rest and in focus, and a
+   soft round patch on the pointer cross-fades between them. Every length is the site's px at its
+   56 px name, in em, so the name scales with its font size (the app's is 44 pt). */
+.booth .booth-name {
+  position: relative;
+  /* Its own formatting context, so the drawings' negative margins don't collapse through it. */
+  display: flow-root;
+  width: fit-content;
+  margin: 0;
+  font-family: var(--booth-serif);
+  font-weight: 400;
+  font-style: normal;
+  line-height: var(--booth-name-leading, 0.8);
+  /* -0.05em, as on the link-preview card, opened by most of the smear below (0.7 × 0.036em). */
+  letter-spacing: -0.0248em;
+  color: var(--booth-sig);
+  white-space: nowrap;
+  user-select: none;
+  isolation: isolate;
+  /* How far the focus reaches from the pointer: 43 px at 56 px. */
+  --booth-reach: 0.7679em;
+  /* The patch around the pointer, eased out to its edge as cos(πr), and everywhere else. */
+  --booth-focused: radial-gradient(
+    circle var(--booth-reach) at var(--booth-x) var(--booth-y),
+    rgb(0 0 0 / var(--booth-s)) 0%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.9619)) 12.5%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.8536)) 25%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.6913)) 37.5%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.5)) 50%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.3087)) 62.5%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.1464)) 75%,
+    rgb(0 0 0 / calc(var(--booth-s) * 0.0381)) 87.5%,
+    rgb(0 0 0 / 0) 100%
+  );
+  --booth-unfocused: radial-gradient(
+    circle var(--booth-reach) at var(--booth-x) var(--booth-y),
+    rgb(0 0 0 / calc(1 - var(--booth-s))) 0%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.9619)) 12.5%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.8536)) 25%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.6913)) 37.5%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.5)) 50%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.3087)) 62.5%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.1464)) 75%,
+    rgb(0 0 0 / calc(1 - var(--booth-s) * 0.0381)) 87.5%,
+    rgb(0 0 0) 100%
+  );
+  transition:
+    --booth-x 600ms var(--booth-ease-out),
+    --booth-y 600ms var(--booth-ease-out),
+    --booth-s 400ms ease;
+}
+/* The focus fades in after a moment, then glides after the pointer. */
+.booth .booth-name[data-pointing] {
+  --booth-s: 1;
+  transition:
+    --booth-x 600ms var(--booth-ease-out),
+    --booth-y 600ms var(--booth-ease-out),
+    --booth-s 500ms ease 150ms;
+}
+/* Where the pointer arrives, it appears in place. */
+.booth .booth-name[data-pointing][data-arriving] {
+  transition: --booth-s 500ms ease 150ms;
+}
+/* Each drawing reaches past the letters so their blur isn't clipped by the mask (14 px). */
+.booth :is(.booth-name-rest, .booth-name-mist, .booth-name-focus) {
+  display: block;
+  margin: -0.25em;
+  padding: 0.25em;
+  /* Geist Serif ships one weight; smearing each letter sideways draws it semibold. */
+  text-shadow:
+    -0.018em 0 0 currentColor,
+    -0.012em 0 0 currentColor,
+    -0.006em 0 0 currentColor,
+    0.006em 0 0 currentColor,
+    0.012em 0 0 currentColor,
+    0.018em 0 0 currentColor;
+  transition:
+    color 200ms var(--booth-ease),
+    opacity 200ms var(--booth-ease);
+}
+.booth .booth-name-rest {
+  opacity: 0.4;
+  --blur: 0.0232em;
+  -webkit-mask-image: var(--booth-unfocused);
+  mask-image: var(--booth-unfocused);
+}
+.booth :is(.booth-name-mist, .booth-name-focus) {
+  position: absolute;
+  inset: 0;
+  /* Added rather than laid over, so the drawings cross-fade without a pale seam. */
+  mix-blend-mode: plus-lighter;
+}
+.booth .booth-name-mist {
+  display: none;
+}
+.booth .booth-name-focus {
+  opacity: 0.5;
+  --blur: 0.0089em;
+  -webkit-mask-image: var(--booth-focused);
+  mask-image: var(--booth-focused);
+}
+.booth :is(.booth-name-rest, .booth-name-mist, .booth-name-focus) > span {
+  display: inline-block;
+  filter: blur(var(--blur));
+  /* Only the file-over change eases (the app's signatureFocus, 260 ms). */
+  transition: filter 260ms var(--booth-ease);
+}
+
+/* At rest, soft clouds of blur drift through the name. A third, mistier drawing shows through two
+   fields of cloud that slide past each other, one rolling sideways and one across it; the resting
+   drawing gives way wherever they are. The pointer's patch of focus clears both. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (mask-composite: exclude) {
+    .booth .booth-name {
+      --booth-clouds:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='160'%3E%3Cfilter id='f' x='0' y='0' width='1' height='1' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .015' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2.4 0 0 0 -.6'/%3E%3C/filter%3E%3Crect width='320' height='160' filter='url(%23f)'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='f' x='0' y='0' width='1' height='1' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .011' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2.4 0 0 0 -.6'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23f)'/%3E%3C/svg%3E");
+    }
+    /* One loop is four passes of the first field and three of the second, 72 s and 96 s each,
+       moving on 13 times a second, a third of a pixel at a time. Tiles: 320 × 160 and 260 × 260 px. */
+    .booth :is(.booth-name-rest, .booth-name-mist) {
+      mask-size:
+        auto,
+        auto,
+        5.7143em 2.8571em,
+        4.6429em 4.6429em;
+      animation: booth-clouds 288s steps(3840) infinite;
+    }
+    /* Everywhere but the pointer, less where the clouds are: they are cut out of a solid layer. */
+    .booth .booth-name-rest {
+      --blur: 0.0205em;
+      -webkit-mask-image: var(--booth-unfocused), linear-gradient(#000 0 0), var(--booth-clouds);
+      mask-image: var(--booth-unfocused), linear-gradient(#000 0 0), var(--booth-clouds);
+      mask-composite: intersect, exclude, intersect, add;
+    }
+    /* Everywhere but the pointer, where both fields of cloud are. */
+    .booth .booth-name-mist {
+      display: block;
+      opacity: 0.37;
+      --blur: 0.0402em;
+      -webkit-mask-image: var(--booth-unfocused), linear-gradient(#000 0 0), var(--booth-clouds);
+      mask-image: var(--booth-unfocused), linear-gradient(#000 0 0), var(--booth-clouds);
+      mask-composite: intersect, intersect, intersect, add;
+    }
+  }
+}
+@keyframes booth-clouds {
+  from {
+    mask-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    mask-position:
+      0 0,
+      0 0,
+      22.857em 0,
+      -13.929em 13.929em;
+  }
+}
+
+/* A file over the popover sharpens the whole name in the `sigOver` ink (SignatureWave.swift):
+   every drawing takes the same ink and blur, so the clouds and the focus stop showing. */
+.booth .booth-name[data-over] :is(.booth-name-rest, .booth-name-mist, .booth-name-focus) {
+  color: var(--booth-sig-over);
+  opacity: 1;
+  --blur: 0px;
+}
+
+/* The Working crest (SignatureWave.swift): each letter's blur and ink come from script. */
+.booth .booth-name[data-wave] .booth-name-rest {
+  opacity: 1;
+  -webkit-mask-image: var(--booth-unfocused);
+  mask-image: var(--booth-unfocused);
+  animation: none;
+}
+.booth .booth-name[data-wave] .booth-name-rest > span {
+  opacity: var(--booth-letter-alpha, 0.4);
+  filter: blur(var(--booth-letter-blur, var(--blur)));
+  transition: none;
+}
+.booth .booth-name[data-wave] .booth-name-mist {
+  display: none;
+}
+
+/* -- the name coming forward through fog ------------------------------------------------------- */
+/* Letter by letter, 30 ms apart, it clears, fades up, grows from further back and rises into place,
+   while a haze of the colour under it (`--booth-haze`) thins behind it. `--booth-reveal-at` is when the first
+   letter starts to rise (the site's 130 ms after its font is ready; the app's 30 ms into the
+   popover's opening); the rest follow 10 ms later, the haze 90 ms. */
+.booth .booth-name-haze {
+  position: absolute;
+  left: -0.357em;
+  bottom: -0.25em;
+  width: 5em;
+  height: 1.589em;
+  background: radial-gradient(
+    ellipse 50% 50% at 45% 60%,
+    rgb(var(--booth-haze) / 0.95),
+    rgb(var(--booth-haze) / 0.6) 45%,
+    rgb(var(--booth-haze) / 0) 100%
+  );
+  filter: blur(0.518em);
+  opacity: 0;
+  pointer-events: none;
+}
+.booth .booth-name[data-reveal] :is(.booth-name-rest, .booth-name-mist, .booth-name-focus) > span {
+  animation:
+    booth-name-rise 400ms cubic-bezier(0.33, 1, 0.68, 1) calc(var(--booth-reveal-at, 130ms) + var(--i) * 30ms) backwards,
+    booth-name-near 550ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--booth-reveal-at, 130ms) + 10ms + var(--i) * 30ms) backwards,
+    booth-name-clear 550ms cubic-bezier(0.1, 0.9, 0.2, 1) calc(var(--booth-reveal-at, 130ms) + 10ms + var(--i) * 30ms) backwards,
+    booth-name-ink 290ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--booth-reveal-at, 130ms) + 10ms + var(--i) * 30ms) backwards;
+}
+.booth .booth-name[data-reveal] .booth-name-haze {
+  animation: booth-name-haze 520ms cubic-bezier(0.45, 0, 0.55, 1) calc(var(--booth-reveal-at, 130ms) + 90ms) backwards;
+}
+/* Held back until its face has loaded, so the letters don't change shape halfway. */
+.booth .booth-name[data-waiting] > :not(.sr-only) {
+  visibility: hidden;
+}
+@keyframes booth-name-rise {
+  from {
+    translate: 0 0.1786em;
+  }
+}
+@keyframes booth-name-near {
+  from {
+    scale: 0.889;
+  }
+}
+@keyframes booth-name-clear {
+  from {
+    filter: blur(0.5179em);
+  }
+}
+@keyframes booth-name-ink {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes booth-name-haze {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* -- reduced motion ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  /* The letters still clear and fade up in turn, but neither come forward nor rise. */
+  .booth .booth-name[data-reveal] :is(.booth-name-rest, .booth-name-mist, .booth-name-focus) > span {
+    animation:
+      booth-name-clear 550ms cubic-bezier(0.1, 0.9, 0.2, 1) calc(var(--booth-reveal-at, 130ms) + 10ms + var(--i) * 30ms) backwards,
+      booth-name-ink 290ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--booth-reveal-at, 130ms) + 10ms + var(--i) * 30ms) backwards;
+  }
+  .booth .booth-name,
+  .booth .booth-name[data-pointing] {
+    transition: --booth-s 0s;
+  }
+  .booth .booth-glyph {
+    transition: none;
+  }
+  /* The lamp holds a full breath rather than breathing. */
+  .booth .booth-glyph[data-mode="working"] {
+    animation: none;
+    --booth-b: 1;
+  }
+}

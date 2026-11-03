@@ -40,6 +40,11 @@ const demos: Record<DemoId, ComponentType> = {
   "easy-peasy-ease-wordmark": dynamic(() =>
     import("./easy-peasy-ease/wordmark-demo").then((m) => m.EasyPeasyEaseWordmarkDemo),
   ),
+  "booth-menu-bar": dynamic(() => import("./booth/menu-bar-demo").then((m) => m.BoothMenuBarDemo)),
+  "booth-compare": dynamic(() => import("./booth/compare-demo").then((m) => m.BoothCompareDemo)),
+  "booth-mix": dynamic(() => import("./booth/mix-demo").then((m) => m.BoothMixDemo)),
+  "booth-ripple": dynamic(() => import("./booth/ripple-demo").then((m) => m.BoothRippleDemo)),
+  "booth-signature": dynamic(() => import("./booth/signature-demo").then((m) => m.BoothSignatureDemo)),
 };
 
 /**

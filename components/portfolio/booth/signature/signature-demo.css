@@ -1,0 +1,354 @@
+/*
+ * The signature highlight's "Booth", lifted from the website's `.name` (studiovoice/site/index.html,
+ * its CSS and pointer script), which ports the app's SignatureView.swift. Every length is the
+ * site's px at its 56 px name, in em, so the name keeps the site's look however large the tile
+ * draws it. Scoped under BoothRoot's `.booth` and prefixed `bsig-`, apart from the kit's
+ * `.booth-name`, because this one adds what the kit's leaves out: a finger and the keyboard can
+ * aim the focus, and replaying the reveal doesn't restart the clouds.
+ */
+
+/* Registered so the focus and its place can transition (site: --s, --x, --y). */
+@property --bsig-s {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@property --bsig-x {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+@property --bsig-y {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* The name's size: as large as the tile allows, the way the link-preview card draws it. */
+.booth .bsig-size {
+  font-size: min(25cqw, 44cqh);
+}
+
+/* The patch the pointer, a finger or the arrow keys aim. Reaches a little past the letters, so
+   the focus is already on its way as the pointer comes near; a vertical swipe still scrolls. */
+.booth .bsig-hit {
+  position: relative;
+  padding: 0.3em 0.4em;
+  border-radius: 0.24em;
+  touch-action: pan-y pinch-zoom;
+  -webkit-tap-highlight-color: transparent;
+  cursor: default;
+}
+
+/* -- the name: drawn as in the popover, Geist Serif Semibold in 40% ink, a little soft ---------- */
+/* The pointer brings the letters right around it partly into focus: the name is drawn twice, at
+   rest and in focus, and a soft round patch on the pointer cross-fades between them. */
+.booth .bsig-name {
+  /* Plain values where @property is missing, so the masks stay valid (the focus then snaps
+     rather than fades); registered, they are the same as the initial values. */
+  --bsig-s: 0;
+  --bsig-x: 0px;
+  --bsig-y: 0px;
+  position: relative;
+  /* Its own formatting context, so the drawings' negative margins don't collapse through it. */
+  display: flow-root;
+  width: fit-content;
+  margin: 0;
+  font-family: var(--booth-serif);
+  font-weight: 400;
+  font-style: normal;
+  line-height: 0.8;
+  /* -0.05em, as on the link-preview card, opened by most of the smear below (0.7 × 0.036em). */
+  letter-spacing: -0.0248em;
+  color: var(--booth-sig);
+  white-space: nowrap;
+  user-select: none;
+  isolation: isolate;
+  /* How far the focus reaches from the pointer: 43 px at 56 px. */
+  --bsig-reach: 0.7679em;
+  /* The patch around the pointer, eased out to its edge as cos(πr), and everywhere else. */
+  --bsig-focused: radial-gradient(
+    circle var(--bsig-reach) at var(--bsig-x) var(--bsig-y),
+    rgb(0 0 0 / var(--bsig-s)) 0%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.9619)) 12.5%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.8536)) 25%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.6913)) 37.5%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.5)) 50%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.3087)) 62.5%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.1464)) 75%,
+    rgb(0 0 0 / calc(var(--bsig-s) * 0.0381)) 87.5%,
+    rgb(0 0 0 / 0) 100%
+  );
+  --bsig-unfocused: radial-gradient(
+    circle var(--bsig-reach) at var(--bsig-x) var(--bsig-y),
+    rgb(0 0 0 / calc(1 - var(--bsig-s))) 0%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.9619)) 12.5%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.8536)) 25%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.6913)) 37.5%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.5)) 50%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.3087)) 62.5%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.1464)) 75%,
+    rgb(0 0 0 / calc(1 - var(--bsig-s) * 0.0381)) 87.5%,
+    rgb(0 0 0) 100%
+  );
+  transition:
+    --bsig-x 600ms var(--booth-ease-out),
+    --bsig-y 600ms var(--booth-ease-out),
+    --bsig-s 400ms ease;
+}
+/* The focus fades in after a moment, then glides after the pointer. */
+.booth .bsig-name[data-pointing] {
+  --bsig-s: 1;
+  transition:
+    --bsig-x 600ms var(--booth-ease-out),
+    --bsig-y 600ms var(--booth-ease-out),
+    --bsig-s 500ms ease 150ms;
+}
+/* Where the pointer arrives, it appears in place. */
+.booth .bsig-name[data-pointing][data-arriving] {
+  transition: --bsig-s 500ms ease 150ms;
+}
+
+/* Each drawing reaches past the letters so their blur isn't clipped by the mask (14 px). */
+.booth :is(.bsig-rest, .bsig-mist, .bsig-focus) {
+  display: block;
+  margin: -0.25em;
+  padding: 0.25em;
+  /* Geist Serif ships one weight; smearing each letter sideways draws it semibold. */
+  text-shadow:
+    -0.018em 0 0 currentColor,
+    -0.012em 0 0 currentColor,
+    -0.006em 0 0 currentColor,
+    0.006em 0 0 currentColor,
+    0.012em 0 0 currentColor,
+    0.018em 0 0 currentColor;
+  /* The file-over ink (the app's signatureInk, 200 ms). */
+  transition:
+    color 200ms var(--booth-ease),
+    opacity 200ms var(--booth-ease);
+}
+/* Each letter carries its drawing's blur and ink (the site sets them on the drawing). */
+.booth .bsig-rest {
+  --blur: 0.0232em;
+  --alpha: 0.4;
+  -webkit-mask-image: var(--bsig-unfocused);
+  mask-image: var(--bsig-unfocused);
+}
+.booth :is(.bsig-mist, .bsig-focus) {
+  position: absolute;
+  inset: 0;
+  /* Added rather than laid over, so the drawings cross-fade without a pale seam. */
+  mix-blend-mode: plus-lighter;
+}
+.booth .bsig-mist {
+  display: none;
+}
+.booth .bsig-focus {
+  --blur: 0.0089em;
+  --alpha: 0.5;
+  -webkit-mask-image: var(--bsig-focused);
+  mask-image: var(--bsig-focused);
+}
+.booth :is(.bsig-rest, .bsig-mist, .bsig-focus) > span {
+  display: inline-block;
+  filter: blur(var(--blur));
+  opacity: var(--alpha, 1);
+  /* The file-over focus (the app's signatureFocus, 260 ms) and ink. */
+  transition:
+    filter 260ms var(--booth-ease),
+    opacity 200ms var(--booth-ease);
+}
+
+/* At rest, soft clouds of blur drift through the name. A third, mistier drawing shows through two
+   fields of cloud that slide past each other, one rolling sideways and one across it; the resting
+   drawing gives way wherever they are. The pointer's patch of focus clears both. Where
+   mask-composite is missing, the name rests without them, as the site's does. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (mask-composite: exclude) {
+    /* Two tiling fields of fractal noise, the first stretched sideways like rolling waves. The
+       site's tiles, given a viewBox so they scale with the name rather than staying 320 px. */
+    .booth .bsig-name {
+      --bsig-clouds:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='160' viewBox='0 0 320 160' preserveAspectRatio='none'%3E%3Cfilter id='f' x='0' y='0' width='1' height='1' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .015' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2.4 0 0 0 -.6'/%3E%3C/filter%3E%3Crect width='320' height='160' filter='url(%23f)'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' preserveAspectRatio='none'%3E%3Cfilter id='f' x='0' y='0' width='1' height='1' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .011' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2.4 0 0 0 -.6'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23f)'/%3E%3C/svg%3E");
+    }
+    /* One loop is four passes of the first field and three of the second, 72 s and 96 s each,
+       moving on 13 times a second. Tiles: 320 × 160 and 260 × 260 px. */
+    .booth :is(.bsig-rest, .bsig-mist) {
+      -webkit-mask-size:
+        auto,
+        auto,
+        auto,
+        5.7143em 2.8571em,
+        4.6429em 4.6429em;
+      mask-size:
+        auto,
+        auto,
+        auto,
+        5.7143em 2.8571em,
+        4.6429em 4.6429em;
+      animation: bsig-clouds 288s steps(3840) infinite;
+    }
+    /* Everywhere but the pointer, less where the clouds are: they are cut out of a solid layer. */
+    .booth .bsig-rest {
+      --blur: 0.0205em;
+      -webkit-mask-image:
+        var(--bsig-unfocused), linear-gradient(#000 0 0), linear-gradient(#000 0 0),
+        var(--bsig-clouds);
+      mask-image:
+        var(--bsig-unfocused), linear-gradient(#000 0 0), linear-gradient(#000 0 0),
+        var(--bsig-clouds);
+      mask-composite: intersect, exclude, intersect, intersect, add;
+    }
+    /* Everywhere but the pointer, where both fields of cloud are. */
+    .booth .bsig-mist {
+      display: block;
+      opacity: 0.37;
+      --blur: 0.0402em;
+      -webkit-mask-image: var(--bsig-unfocused), linear-gradient(#000 0 0), linear-gradient(#000 0 0), var(--bsig-clouds);
+      mask-image: var(--bsig-unfocused), linear-gradient(#000 0 0), linear-gradient(#000 0 0), var(--bsig-clouds);
+      mask-composite: intersect, intersect, intersect, intersect, add;
+    }
+  }
+}
+@keyframes bsig-clouds {
+  from {
+    -webkit-mask-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+    mask-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    -webkit-mask-position:
+      0 0,
+      0 0,
+      0 0,
+      22.857em 0,
+      -13.929em 13.929em;
+    mask-position:
+      0 0,
+      0 0,
+      0 0,
+      22.857em 0,
+      -13.929em 13.929em;
+  }
+}
+
+/* A file over the popover sharpens the whole name in the `sigOver` ink (SignatureWave.swift):
+   every drawing takes the same ink and blur, so the clouds and the focus stop showing. */
+.booth .bsig-name[data-over] :is(.bsig-rest, .bsig-mist, .bsig-focus) {
+  color: var(--booth-sig-over);
+  opacity: 1;
+  --blur: 0px;
+  --alpha: 1;
+}
+
+/* -- the name coming forward through fog ------------------------------------------------------- */
+/* Letter by letter, 30 ms apart, it clears, fades up, grows from further back and rises into place,
+   while a haze of the paper's colour (`--booth-haze`) thins behind it. The first letter starts to
+   rise 130 ms in, as on the site; the rest follow 10 ms later, the haze 90 ms. */
+.booth .bsig-haze {
+  position: absolute;
+  left: -0.357em;
+  bottom: -0.25em;
+  width: 5em;
+  height: 1.589em;
+  background: radial-gradient(
+    ellipse 50% 50% at 45% 60%,
+    rgb(var(--booth-haze) / 0.95),
+    rgb(var(--booth-haze) / 0.6) 45%,
+    rgb(var(--booth-haze) / 0) 100%
+  );
+  filter: blur(0.518em);
+  opacity: 0;
+  pointer-events: none;
+}
+.booth .bsig-name[data-reveal] :is(.bsig-rest, .bsig-mist, .bsig-focus) > span {
+  animation:
+    bsig-rise 400ms cubic-bezier(0.33, 1, 0.68, 1) calc(130ms + var(--i) * 30ms) backwards,
+    bsig-near 550ms cubic-bezier(0.16, 1, 0.3, 1) calc(140ms + var(--i) * 30ms) backwards,
+    bsig-clear 550ms cubic-bezier(0.1, 0.9, 0.2, 1) calc(140ms + var(--i) * 30ms) backwards,
+    bsig-ink 290ms cubic-bezier(0.16, 1, 0.3, 1) calc(140ms + var(--i) * 30ms) backwards;
+}
+.booth .bsig-name[data-reveal] .bsig-haze {
+  animation: bsig-haze 520ms cubic-bezier(0.45, 0, 0.55, 1) 220ms backwards;
+}
+/* Held back until the tile comes into view and its face has loaded, so the letters come in
+   rather than being there already, and don't change shape halfway. */
+.booth .bsig-name[data-waiting] > * {
+  visibility: hidden;
+}
+@keyframes bsig-rise {
+  from {
+    translate: 0 0.1786em;
+  }
+}
+@keyframes bsig-near {
+  from {
+    scale: 0.889;
+  }
+}
+@keyframes bsig-clear {
+  from {
+    filter: blur(0.5179em);
+  }
+}
+@keyframes bsig-ink {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bsig-haze {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* -- the drop zone ----------------------------------------------------------------------------- */
+/* The frame the name sits in (PopoverRootView.swift `FrameBorder`): 1.5 pt dots on a 3 pt pitch
+   in `dash`, which stretch into a solid `text` line over 280 ms while a file is over it, as the
+   frame takes the `fill` tint (200 ms). The dots stay the app's size; the frame is the tile's. */
+.booth .bsig-zone {
+  fill: transparent;
+  stroke: var(--booth-dash);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-dasharray: 0 1;
+  transition:
+    stroke-dasharray 280ms var(--booth-ease),
+    stroke 280ms var(--booth-ease),
+    fill 200ms var(--booth-ease-out);
+}
+.booth .bsig-zone[data-over] {
+  fill: var(--booth-fill);
+  stroke: var(--booth-text);
+  /* Each dash grows to fill its pitch. (Half a pitch plus the round caps should already close
+     the gaps, as in the app; Chrome leaves a hairline between them, so the dashes go all the way.) */
+  stroke-dasharray: 1 0;
+}
+
+/* -- reduced motion ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  /* As on the site: nothing eases, the focus included. */
+  .booth :is(.bsig-name, .bsig-name *, .bsig-zone) {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+  /* The letters still clear and fade up in turn, but neither come forward nor rise. */
+  .booth .bsig-name[data-reveal] :is(.bsig-rest, .bsig-mist, .bsig-focus) > span {
+    animation:
+      bsig-clear 550ms cubic-bezier(0.1, 0.9, 0.2, 1) calc(140ms + var(--i) * 30ms) backwards,
+      bsig-ink 290ms cubic-bezier(0.16, 1, 0.3, 1) calc(140ms + var(--i) * 30ms) backwards;
+  }
+}

@@ -34,7 +34,12 @@ export type DemoId =
   | "easy-peasy-ease-split"
   | "easy-peasy-ease-beat-sync"
   | "easy-peasy-ease-curves"
-  | "easy-peasy-ease-wordmark";
+  | "easy-peasy-ease-wordmark"
+  | "booth-menu-bar"
+  | "booth-compare"
+  | "booth-mix"
+  | "booth-ripple"
+  | "booth-signature";
 
 export type Highlight = {
   title: string;
@@ -341,6 +346,69 @@ export const projects: Project[] = [
         placeholderClass: "bg-[#252422]",
         video: "/videos/portfolio/book-the-lakehouse-booking.mp4",
         poster: "/images/portfolio/posters/book-the-lakehouse-booking.jpg",
+      },
+    ],
+  },
+  {
+    slug: "booth",
+    title: "Booth",
+    blurb:
+      "Menu bar app for macOS that cleans up the voice in any video or recording. A generative speech model rebuilds the voice on your Mac, with no upload and no length limit. Free and open source.",
+    description:
+      "Drop a recording on Booth's menu bar icon and a cleaned-up copy appears beside the original: the voice rebuilt by a generative model, the room and the noise turned down, breaths and clicks taken out, and the picture left as it was. It is the same kind of model as Adobe Podcast's Enhance Speech, and it runs entirely on your Mac.",
+    meta: "Mac app · Swift + Python",
+    year: "2026",
+    href: "https://getbooth.xyz",
+    external: true,
+    ctaLabel: "Visit getbooth.xyz",
+    category: "personal",
+    placeholderClass: "bg-[#f6f6f4]",
+    thumbnailDemo: "booth-menu-bar",
+    thumbnailClass: "bg-[linear-gradient(160deg,#e4e4e1_0%,#d3d3cf_100%)]",
+    heroDemo: "booth-menu-bar",
+    heroDemoMobileAspect: "3/4",
+    stats: [
+      { label: "Release", value: "v0.2.1" },
+      { label: "Platform", value: "Mac · Apple silicon" },
+      { label: "Upload", value: "None" },
+      { label: "License", value: "MIT" },
+    ],
+    highlights: [
+      {
+        title: "Hold ⌥ to compare",
+        caption:
+          "Play a real recording from a noisy room, then hold ⌥ or the Hold button to hear the original. Both versions play together, so the switch has no gap, and each breath and noise Booth took out lights up as it passes.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#f6f6f4]",
+        demo: "booth-compare",
+      },
+      {
+        title: "The mix",
+        caption:
+          "Drag Speech, Background or Music and the waveform reshapes as you go. Save reuses the stems from the first pass, so a new mix takes seconds and the voice models don't run again. Switch to Dark to see Booth's other appearance.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#f6f6f4]",
+        demo: "booth-mix",
+      },
+      {
+        title: "The ripple bar",
+        caption:
+          "While a file is in the booth, the whole popover is the progress bar. The fill spreads like sound from a speaker, rings travel out through it, and the file name comes into focus once the fill has passed under it. Drag across the bar to move it yourself.",
+        aspect: "22/9",
+        mobileAspect: "4/3",
+        placeholderClass: "bg-[#f6f6f4]",
+        demo: "booth-ripple",
+      },
+      {
+        title: "The signature",
+        caption:
+          "Booth's name rests slightly out of focus, with soft mist drifting through it. Move the pointer over it to bring those letters into focus, hold a file over it to sharpen the whole name, or replay the way it comes forward through fog each time the popover opens.",
+        aspect: "22/9",
+        mobileAspect: "4/3",
+        placeholderClass: "bg-[#f6f6f4]",
+        demo: "booth-signature",
       },
     ],
   },
