@@ -1,0 +1,73 @@
+/*
+ * Arrange the gallery: the strip's sizing. The product draws its tiles at a
+ * fixed size-20 (80px) in a page that scrolls; a 22/9 tile has a fixed box
+ * instead, so here the tiles take the largest square that fits every slot in
+ * one row and still leaves room under the strip for the published row. The
+ * look (border, squircle, the "New" band, the reject button) keeps the
+ * product's proportions as it grows, within sensible bounds.
+ *
+ * .ccf-area is the space below the page header (a size container); the card
+ * inside it sets the strip's spacing; each .ccf-tile reads the area through
+ * cqw/cqh. --ccf-slots comes from the demo (the full set, so tiles keep their
+ * size as results are rejected).
+ */
+
+.cc .ccf-area {
+  container: ccf / size;
+}
+
+.cc .ccf-card {
+  --ccf-px: 20px; /* the strip's px-5 */
+  --ccf-py: 12px; /* py-3 */
+  --ccf-gap: 8px; /* gap-2 */
+  --ccf-bar: 40px; /* the listing bar: py-2.5 around a 20px line */
+  --ccf-row: 64px; /* kept for the published row: 40px, mb-3, and a little air */
+  --ccf-radius-k: 0.18; /* the squircle rounded-lg (0.9rem) on an 80px tile */
+}
+
+/* Where squircles don't render the product's rounded-lg is 0.5rem: 10% of a tile. */
+@supports not (corner-shape: squircle) {
+  .cc .ccf-card {
+    --ccf-radius-k: 0.1;
+  }
+}
+
+/* A phone-width card: the strip and the bar tighten, and the published row may wrap to two lines. */
+@container ccf (width < 480px) {
+  .cc .ccf-card {
+    --ccf-px: 12px;
+    --ccf-py: 10px;
+    --ccf-bar: 36px;
+    --ccf-row: 84px;
+  }
+}
+
+.cc .ccf-tile {
+  --ccf-tile: clamp(
+    44px,
+    min(
+      calc((100cqw - 2px - 2 * var(--ccf-px) - (var(--ccf-slots, 5) - 1) * var(--ccf-gap)) / var(--ccf-slots, 5)),
+      calc(100cqh - 2px - var(--ccf-bar) - 2 * var(--ccf-py) - var(--ccf-row))
+    ),
+    168px
+  );
+  width: var(--ccf-tile);
+  height: var(--ccf-tile);
+  border-radius: clamp(8px, calc(var(--ccf-tile) * var(--ccf-radius-k)), 22px);
+}
+
+/* The "New" band: 10px medium on the product's 80px tile, up to 13px on a large one. */
+.cc .ccf-new {
+  font-size: clamp(10px, calc(var(--ccf-tile) * 0.085), 13px);
+  line-height: 1.5;
+  padding-block: clamp(2px, calc(var(--ccf-tile) * 0.022), 4px);
+}
+
+/* The reject button: size-5 with a 13px X at 80px, up to 26px. */
+.cc .ccf-reject {
+  --ccf-reject: clamp(20px, calc(var(--ccf-tile) * 0.16), 26px);
+  top: clamp(4px, calc(var(--ccf-tile) * 0.045), 8px);
+  right: clamp(4px, calc(var(--ccf-tile) * 0.045), 8px);
+  width: var(--ccf-reject);
+  height: var(--ccf-reject);
+}

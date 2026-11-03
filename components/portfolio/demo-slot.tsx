@@ -45,6 +45,18 @@ const demos: Record<DemoId, ComponentType> = {
   "booth-mix": dynamic(() => import("./booth/mix-demo").then((m) => m.BoothMixDemo)),
   "booth-ripple": dynamic(() => import("./booth/ripple-demo").then((m) => m.BoothRippleDemo)),
   "booth-signature": dynamic(() => import("./booth/signature-demo").then((m) => m.BoothSignatureDemo)),
+  "comfy-commerce-review": dynamic(() =>
+    import("./comfy-commerce/review-demo").then((m) => m.ComfyCommerceReviewDemo),
+  ),
+  "comfy-commerce-run": dynamic(() =>
+    import("./comfy-commerce/run-demo").then((m) => m.ComfyCommerceRunDemo),
+  ),
+  "comfy-commerce-shoot": dynamic(() =>
+    import("./comfy-commerce/shoot-demo").then((m) => m.ComfyCommerceShootDemo),
+  ),
+  "comfy-commerce-finalize": dynamic(() =>
+    import("./comfy-commerce/finalize-demo").then((m) => m.ComfyCommerceFinalizeDemo),
+  ),
 };
 
 /**

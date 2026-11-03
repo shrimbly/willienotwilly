@@ -39,7 +39,11 @@ export type DemoId =
   | "booth-compare"
   | "booth-mix"
   | "booth-ripple"
-  | "booth-signature";
+  | "booth-signature"
+  | "comfy-commerce-review"
+  | "comfy-commerce-run"
+  | "comfy-commerce-shoot"
+  | "comfy-commerce-finalize";
 
 export type Highlight = {
   title: string;
@@ -409,6 +413,59 @@ export const projects: Project[] = [
         mobileAspect: "4/3",
         placeholderClass: "bg-[#f6f6f4]",
         demo: "booth-signature",
+      },
+    ],
+  },
+  {
+    slug: "comfy-commerce",
+    title: "Comfy Commerce",
+    blurb:
+      "Local product-media studio for Shopify. Run any ComfyUI workflow across a catalog, compare every result with its source, and publish only what a person approved. Free and open source.",
+    description:
+      "A local, open-source studio that runs ComfyUI workflows over a Shopify store's product images, video and 3D, on your own machine, a remote box or Comfy Cloud. Every result waits in a review queue: wipe or side-by-side compare, approve or reject, arrange the gallery, then publish. Each publish saves the old media first, so a revert is one click.",
+    meta: "9 stars · TypeScript",
+    year: "2026",
+    href: "https://github.com/shrimbly/comfy-commerce",
+    external: true,
+    ctaLabel: "View on GitHub",
+    category: "personal",
+    placeholderClass: "bg-[#f9f8f5]",
+    thumbnailDemo: "comfy-commerce-review",
+    thumbnailClass: "bg-[linear-gradient(135deg,#535c65_0%,#3a424d_45%,#272f38_100%)]",
+    heroDemo: "comfy-commerce-review",
+    heroDemoMobileAspect: "3/4",
+    stats: [
+      { label: "Engines", value: "Local · Remote · Cloud" },
+      { label: "Release", value: "v0.1.5" },
+      { label: "License", value: "MIT" },
+    ],
+    highlights: [
+      {
+        title: "Run a workflow across the catalog",
+        caption:
+          "Pick tees from the grid or run the whole catalog, then choose a workflow and an engine and watch the run fill Activity. Anything over twelve images suggests a five-image test first, and every result waits for review.",
+        aspect: "16/10",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#f9f8f5]",
+        demo: "comfy-commerce-run",
+      },
+      {
+        title: "One shirt, three shots",
+        caption:
+          "One T-Shirt Shoot run turns a flat-lay into a standing shot, a close-up of the print and a seated shot, each staged for review. Slide across a shot to compare it with the flat-lay.",
+        aspect: "16/9",
+        mobileAspect: "4/5",
+        placeholderClass: "bg-[#f9f8f5]",
+        demo: "comfy-commerce-shoot",
+      },
+      {
+        title: "Arrange the gallery",
+        caption:
+          "Drag the new shots into place beside the listing's live images, reject any you don't want, then publish. The old gallery is saved first, so one click puts it back.",
+        aspect: "22/9",
+        mobileAspect: "4/3",
+        placeholderClass: "bg-[#f9f8f5]",
+        demo: "comfy-commerce-finalize",
       },
     ],
   },

@@ -1,0 +1,253 @@
+/*
+ * Comfy Commerce, scoped. Ported from comfy-shopify web/src/styles/index.css.
+ * Every rule lives under `.cc` (set by CcRoot), so nothing reaches the
+ * portfolio. The portfolio never applies the product's dark theme: the light
+ * one is the product's main look, so only its :root values are ported.
+ *
+ * The product's colour utilities (bg-surface, text-ink-faint, border-line…)
+ * come from its own @theme, which the portfolio doesn't have. Its token names
+ * are kept as-is, so ported markup wraps them in Tailwind's variable
+ * shorthand: bg-surface -> bg-(--surface), text-ink-faint -> text-(--ink-faint),
+ * bg-ink/70 -> bg-(--ink)/70, shadow-soft -> shadow-(--shadow-soft). The
+ * radius and type scales keep their utility names (see below).
+ */
+
+.cc {
+  color-scheme: light;
+
+  --canvas: #f9f8f5;
+  --surface: #ffffff;
+  --surface-2: #f4f4f4;
+  --ink: #181818;
+  --ink-soft: #6a6a6a;
+  --ink-faint: #9d9d9d;
+  --line: #e8e8e8;
+  --line-strong: #d9d9d9;
+  --accent: #181818;
+  --accent-deep: #2e2e2e;
+  --accent-soft: #ededed;
+  --accent-ink: #ffffff;
+  --success: #2f9e4f;
+  --success-soft: #e3efe4;
+  /* Filled approve/confirm CTAs (white text), separate from --success. */
+  --success-strong: #2f9e4f;
+  --warn: #94701a;
+  --warn-soft: #f7edd2;
+  --danger: #b14438;
+  --danger-soft: #fae3e0;
+  --violet: #6c55ad;
+  --violet-soft: #ebe6f7;
+  --info: #3a6ea5;
+  --info-soft: #e0ebf7;
+  --shadow-soft: 0 1px 2px rgb(24 24 24 / 0.03), 0 4px 16px -8px rgb(24 24 24 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(24 24 24 / 0.04), 0 16px 40px -16px rgb(24 24 24 / 0.18);
+
+  /* The near-neutral mesh behind the app: slate/taupe blooms on the warm canvas. */
+  --bg-mesh:
+    radial-gradient(60% 52% at 12% 4%, rgb(112 120 134 / 0.17), transparent 70%),
+    radial-gradient(56% 48% at 88% 0%, rgb(120 124 140 / 0.15), transparent 70%),
+    radial-gradient(54% 52% at 98% 98%, rgb(140 128 112 / 0.14), transparent 70%),
+    radial-gradient(50% 50% at 2% 100%, rgb(124 120 114 / 0.13), transparent 70%);
+  --bg-noise-opacity: 0.15;
+  --bg-noise-blend: multiply;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Geist, the product's face (fonts.ts). The portfolio's font-sans reads --font-inter. */
+  --cc-font-sans: var(--cc-font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-inter: var(--cc-font-sans);
+
+  /* The product's type scale: 14 / 16 body, 18 title, nothing else. text-sm and
+     text-base already match Tailwind's; text-lg's line height is 24px, not 28px. */
+  --text-lg--line-height: 24px;
+
+  /* The portfolio's default border colour (its base layer: * { border-border }). */
+  --border: var(--line);
+  --ring: var(--ink);
+
+  /* The product's radius scale, squircle-scaled below where squircles render.
+     Tailwind's defaults here; the portfolio's own rounded-sm…xl read --radius. */
+  --cc-radius-sm: 0.25rem;
+  --cc-radius-md: 0.375rem;
+  --cc-radius-lg: 0.5rem;
+  --cc-radius-xl: 0.75rem;
+  --cc-radius-2xl: 1rem;
+
+  /* A named size container: @min-[880px]/cc: stands in for a desktop window,
+     and cqw/cqh maths can read the tile. */
+  container: cc / size;
+}
+
+/* A squircle hugs the box more than a circular arc, so it reads as a smaller
+   radius. Where it renders, the product scales the radius scale up ~1.8×. */
+@supports (corner-shape: squircle) {
+  .cc {
+    --cc-radius-sm: 0.45rem;
+    --cc-radius-md: 0.675rem;
+    --cc-radius-lg: 0.9rem;
+    --cc-radius-xl: 1.35rem;
+    --cc-radius-2xl: 1.8rem;
+  }
+}
+
+/*
+ * The product's rounded-* utilities, remapped inside the scope: the portfolio
+ * derives sm…xl from its own --radius (0.5rem ± 4px), so without this a ported
+ * rounded-xl would draw 12px instead of the product's 21.6px squircle. Unlayered,
+ * so these outrank the utilities layer; arbitrary radii (rounded-[40px]) pass.
+ */
+.cc .rounded-sm {
+  border-radius: var(--cc-radius-sm);
+}
+.cc .rounded-md {
+  border-radius: var(--cc-radius-md);
+}
+.cc .rounded-lg {
+  border-radius: var(--cc-radius-lg);
+}
+.cc .rounded-xl {
+  border-radius: var(--cc-radius-xl);
+}
+.cc .rounded-2xl {
+  border-radius: var(--cc-radius-2xl);
+}
+
+@layer base {
+  /* The product's <body>: Geist 16/24 in ink, antialiased. Layered (unlike the
+     tokens above) so utilities on CcRoot still win. */
+  .cc {
+    font-family: var(--cc-font-sans);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-align: start;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Smooth (squircle) corners on everything, as the product sets site-wide;
+     genuinely circular things (pills, dots, the spinner) stay round. */
+  .cc,
+  .cc *,
+  .cc ::before,
+  .cc ::after {
+    corner-shape: squircle;
+  }
+  .cc .rounded-full {
+    corner-shape: round;
+  }
+
+  .cc ::selection {
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  .cc * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  .cc :is(button, [role="button"], [role="slider"], a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The product's focus ring: 2px of ink, 2px out. It also rounds the outline
+     of anything without a radius of its own to 8px. */
+  .cc :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  .cc :focus-visible:not([class*="rounded"]) {
+    border-radius: 8px;
+  }
+}
+
+/*
+ * The app's living backdrop (.app-bg): the mesh over the canvas, with a faint
+ * film of grain above it but below the UI. The product's class also sets
+ * position: relative; here the holder is usually CcRoot (already absolute),
+ * so the grain only needs a positioned parent.
+ */
+.cc .cc-app-bg,
+.cc.cc-app-bg {
+  isolation: isolate;
+  background-color: var(--canvas);
+  background-image: var(--bg-mesh);
+}
+.cc .cc-app-bg::before,
+.cc.cc-app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--bg-noise-opacity);
+  mix-blend-mode: var(--bg-noise-blend, normal);
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='180'%20height='180'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.85'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/*
+ * Contain-fit boxes for media whose size comes from its own aspect ratio, as
+ * the product's lightbox sizes an <img> with max-h/max-w and w-fit. Put
+ * .cc-fit on the area (a size container) and a .cc-fit-box child with
+ * style={{ "--cc-ratio": w / h }}: the child takes the largest box of that
+ * ratio that fits, centred. For two side by side, put a .cc-fit-pairs row in
+ * the area with two .cc-fit-pair children (gap 8px, as the product's gap-2);
+ * the row stacks them instead when the area is portrait.
+ */
+.cc .cc-fit {
+  container-type: size;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+.cc .cc-fit-box {
+  position: relative;
+  aspect-ratio: var(--cc-ratio, 1);
+  width: min(100cqw, calc(100cqh * var(--cc-ratio, 1)));
+}
+.cc .cc-fit-pairs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+.cc .cc-fit-pair {
+  position: relative;
+  flex: none;
+  aspect-ratio: var(--cc-ratio, 1);
+  width: min(calc((100cqw - 8px) / 2), calc(100cqh * var(--cc-ratio, 1)));
+}
+@container (aspect-ratio < 1) {
+  .cc .cc-fit-pairs {
+    flex-direction: column;
+  }
+  .cc .cc-fit-pair {
+    width: min(100cqw, calc((100cqh - 8px) / 2 * var(--cc-ratio, 1)));
+  }
+}
+
+/* A demo pauses its CSS loops (the spinner, the publishing dot) while off screen. */
+.cc[data-paused] * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc .animate-spin {
+    animation-duration: 1.6s;
+  }
+  .cc .animate-pulse {
+    animation: none;
+  }
+  .cc :is(button, [role="button"], [role="radio"]):active {
+    scale: 1 !important;
+  }
+}

@@ -1,0 +1,110 @@
+/*
+ * "One shirt, three shots": which parts of the app the tile shows at each
+ * size, read off the kit's `cc` size container (CcRoot). The product is a
+ * desktop window with no narrow layout, so the smaller tiers are this port's:
+ *
+ *  - desk (960 × 560 and up): the sidebar, the page title, both runs, and the
+ *    three shots in a row, as the product lays out Activity in a window.
+ *  - landscape below that: the kit's one-line CompactBar in place of the
+ *    sidebar, the live run only.
+ *  - portrait: the shots two by two, with the flat-lay as the first card.
+ *  - under 480px wide: no bar, a tighter run row.
+ *
+ * Unlayered and scoped under .cc, so these win over the utilities on the
+ * kit's components (PageHeader's flex, CompactBar's flex).
+ */
+
+.cc .cc-shoot-sidebar,
+.cc .cc-shoot-history,
+.cc .cc-shoot-header,
+.cc .cc-shoot-source {
+  display: none;
+}
+
+/* The page's content column (AppShell's main): 12px in on a phone, 16px under the bar. */
+.cc .cc-shoot-main {
+  padding: 12px;
+}
+@container cc (width >= 480px) {
+  .cc .cc-shoot-main {
+    padding: 16px;
+  }
+}
+
+/* A window: the sidebar, AppShell's own padding (px-8, pt-[23px], pb-7), the page title. */
+@container cc (width >= 960px) and (height >= 560px) {
+  .cc .cc-shoot-sidebar {
+    display: block;
+  }
+  .cc .cc-shoot-bar {
+    display: none;
+  }
+  .cc .cc-shoot-history {
+    display: block;
+  }
+  .cc .cc-shoot-header {
+    display: flex;
+  }
+  .cc .cc-shoot-main {
+    padding: 23px 32px 28px;
+  }
+}
+
+/* The page title wherever there is height for it. */
+@container cc (height >= 490px) {
+  .cc .cc-shoot-header {
+    display: flex;
+  }
+}
+
+@container cc (width < 480px) {
+  .cc .cc-shoot-bar {
+    display: none;
+  }
+  /* The product's row is px-5 gap-4; a phone keeps the thumbnail and title readable. */
+  .cc .cc-shoot-row {
+    gap: 12px;
+    padding-inline: 16px;
+  }
+  .cc .cc-shoot-review-arrow {
+    display: none;
+  }
+  /* The group header steps down to the 14px line so the count and Replay still fit beside it. */
+  .cc .cc-shoot-heading {
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
+
+/*
+ * The shots fill what height is left: three 4:3 cards in a row (16px apart,
+ * the Workflows grid's gap-4), or two by two in a portrait tile. The grid takes
+ * the full width unless the height runs out first, then narrows to keep 4:3.
+ */
+.cc .cc-shoot-cards {
+  container: cc-shoot-cards / size;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.cc .cc-shoot-grid {
+  --gap: 16px;
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Three cards at the area's height are 3 × (4/3 × h) wide, plus two gaps. */
+  width: min(100cqw, calc(400cqh + 2 * var(--gap)));
+}
+@container cc (orientation: portrait) {
+  .cc .cc-shoot-source {
+    display: block;
+  }
+  .cc .cc-shoot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100cqw, calc((100cqh - var(--gap)) * 4 / 3 + var(--gap)));
+  }
+}
+@container cc (width < 480px) {
+  .cc .cc-shoot-grid {
+    --gap: 12px;
+  }
+}
