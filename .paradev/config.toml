@@ -1,0 +1,27 @@
+# Paradev workspace config — https://app.superset.sh
+# Runs for local worktrees and cloud boxes alike.
+
+[install]
+# Cacheable, workspace-independent. In the cloud this runs when the environment image is built.
+run = ["npm ci"]
+
+[setup]
+# Runs at worktree creation locally. Idempotent.
+run = [
+  # Reuse the main checkout's .env.local when there is one; otherwise start from the example.
+  "[ -f .env.local ] || { [ -n \"$SUPERSET_ROOT_PATH\" ] && [ -f \"$SUPERSET_ROOT_PATH/.env.local\" ] && cp \"$SUPERSET_ROOT_PATH/.env.local\" .env.local; } || cp .env.example .env.local",
+  "[ -d node_modules ] || npm ci",
+]
+
+[setup.cloud]
+# Runs on every boot/resume. Variables come from the environment, so no .env.local is written.
+run = ["[ -d node_modules ] || npm ci"]
+
+[terminals.dev]
+run = "npm run dev"
+default = true
+
+[ports.web]
+default = 3000
+label = "Next.js dev"
+preview = true
