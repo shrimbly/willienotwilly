@@ -1,6 +1,6 @@
-import { Linkedin, FileText } from "lucide-react";
+import Link from "next/link";
+import { Linkedin, FileText, Briefcase } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
-import { SubscribeButton } from "@/components/ui/subscribe-button";
 import { siteConfig } from "@/lib/site";
 
 interface SiteFooterProps {
@@ -46,7 +46,14 @@ export function SiteFooter({ variant = "fixed" }: SiteFooterProps) {
               <FileText className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Resume</span>
             </a>
-            <SubscribeButton variant="full" />
+            <Link
+              href="/portfolio"
+              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Portfolio"
+            >
+              <Briefcase className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Portfolio</span>
+            </Link>
           </div>
         </div>
       </div>
