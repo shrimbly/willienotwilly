@@ -10,7 +10,6 @@ import { ComponentProps } from "react";
 import { Linkedin, FileText } from "lucide-react";
 import { XIcon } from "@/components/ui/x-icon";
 import { SiteFooter } from "@/components/ui/site-footer";
-import { SubscribeButton } from "@/components/ui/subscribe-button";
 import { siteConfig } from "@/lib/site";
 
 // Import custom components for MDX
@@ -198,7 +197,6 @@ export default async function PostPage({
                               >
                                 <FileText className="h-4 w-4" />
                               </a>
-                              <SubscribeButton />
                             </div>
           </nav>
         </aside>
